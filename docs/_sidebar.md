@@ -1,6 +1,7 @@
 - Hệ thống Website
   - [Cài đặt website](site/installation.md)
   - [Cập nhật website](site/updating.md)
+  - [Management Commands](site/management_commands.md)
   - [Các định dạng kỳ thi](site/contest_formats.md)
   - [Hệ thống phân quyền](site/permission_system.md)
   - [Quản lý bài tập](site/managing_problems.md)
