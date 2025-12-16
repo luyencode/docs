@@ -61,7 +61,7 @@ Bạn sẽ thấy `(lcojsite)` xuất hiện trước dòng lệnh. Từ giờ, 
 ### Tải mã nguồn
 
 ```sh
-git clone --recursive https://github.com/luyencode/OJ.git site
+git clone --recursive https://github.com/luyencode/lcoj-site.git site
 cd site
 ```
 

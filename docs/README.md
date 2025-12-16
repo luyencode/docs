@@ -14,3 +14,5 @@ LCOJ được phát triển dựa trên [DMOJ](https://github.com/DMOJ) và [VNO
 ## Hỗ trợ
 
 Nếu có thắc mắc, vui lòng tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues).
+
+**Cần hỗ trợ cài đặt?** Nếu bạn quá mệt mỏi để tự mình cài đặt, LCOJ sẽ hỗ trợ bạn cài đặt miễn phí. Liên hệ tại [https://luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

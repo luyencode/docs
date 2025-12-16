@@ -1,6 +1,6 @@
 # LCOJ Documentation
 
-Tài liệu hướng dẫn cho hệ thống [LCOJ](https://github.com/luyencode/OJ).
+Tài liệu hướng dẫn cho hệ thống [LCOJ](https://github.com/luyencode/lcoj-site).
 
 LCOJ được phát triển dựa trên [DMOJ](https://github.com/DMOJ/online-judge) và [VNOJ](https://github.com/VNOI-Admin/OJ).
 
