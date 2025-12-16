@@ -1,66 +1,252 @@
-# Managing problems through the site interface
+# Quản lý bài tập
 
-The VNOJ comes with an online interface for creating and editing problem statements as well as data.
-This guide is intended as an introduction to using these features for creating your own problems.
+LCOJ cung cấp giao diện web để tạo và chỉnh sửa bài tập, bao gồm cả đề bài và test data.
 
-## Configuring site-managed data
+## Cấu hình
 
-Set `DMOJ_PROBLEM_DATA_ROOT` to a folder of your choice.
-The test data for all problems with site-managed data will be stored within this folder.
+Trong `local_settings.py`, đặt `DMOJ_PROBLEM_DATA_ROOT` trỏ đến thư mục lưu test data:
 
-## Adding a problem
+```python
+DMOJ_PROBLEM_DATA_ROOT = '/home/lcoj/problems'
+```
 
-To start, head to [/admin/](https://dmoj.ca/admin/) and use your credentials to log in.
-Once there, click the _Add_ button on the _Problems_ menu.
+Tất cả test data của các bài tập sẽ được lưu trong thư mục này.
 
-![](https://i.imgur.com/RFPQaUi.png)
+## Thêm bài tập mới
 
-This will open up the main problem editor. To start, you should provide a problem code (must be unique site-wide),
-and a title for your problem. **Make sure to mark yourself as an author**, as otherwise you will be locked out of your problem.
+### Bước 1: Truy cập trang quản trị
 
-![](https://i.imgur.com/bPlNZUR.png)
+Truy cập `/admin/` và đăng nhập bằng tài khoản admin.
 
-Here you may edit your problem statement. The VNOJ features a rich Markdown-based syntax, with custom extensions for LaTeX-based display
-math, and Mathjax-based inline math. See [this template](https://raw.githubusercontent.com/VNOI-Admin/vnoj-docs/master/sample_files/problem_markdown_example.md.txt) for a full feature example (you may copy/paste
-its content into your editor).
+### Bước 2: Tạo bài tập
 
-There are many options controlling your problem described in the editor, that you may use to customize the execution of your problem.
+Click nút _Add_ ở mục _Problems_.
 
-Once you are done preparing your statement, click the _Save_ button, then scroll up to the top of the page and
-click the _View on site_ button.
+![Add Problem](https://i.imgur.com/RFPQaUi.png)
 
-![](https://i.imgur.com/ZgO5xcY.png)
+### Bước 3: Điền thông tin cơ bản
 
-## Editing test data
+**Thông tin bắt buộc:**
+- **Problem code**: Mã bài tập (phải unique, ví dụ: `APLUSB`)
+- **Title**: Tên bài tập (ví dụ: "Tổng hai số")
+- **Authors**: **Quan trọng!** Phải thêm bản thân làm tác giả, nếu không sẽ không chỉnh sửa được bài
 
-Internally, the VNOJ uses a YAML-based format for describing problem data, which you may read about [here](/problem_format/problem_format.md#problem-format).
-The site provides an interface for managing problem data, removing the need to drop down to YAML configuration for most problems.
+![Problem Info](https://i.imgur.com/bPlNZUR.png)
 
-On the problem page, click the _Edit test data_ link to open up the test data editor.
+### Bước 4: Viết đề bài
 
-![](https://i.imgur.com/eDWEEJk.png)
+LCOJ hỗ trợ Markdown với các tính năng mở rộng:
+- LaTeX cho công thức toán học
+- Syntax highlighting cho code
+- Hình ảnh, bảng biểu
 
-In the editor, you must first upload a zip archive containing the input/output data used for your problem. The typical convention
-is to use text files ending with a `.in` extension for input files, and `.out` for output files, with the
-test case number embedded in the filename.
+**Ví dụ đề bài:**
 
-For example, for a problem with a code of `testp1`, the first test case would be named `testp1.1.in`,
-with an output file `testp1.1.out`.
+```markdown
+# Đề bài
 
-Using this format is **not** necessary &mdash; the judge will accept any filenames &mdash; but using it will allow the test data
-editor to autocomplete paths, saving some manual input.
+Cho hai số nguyên $a$ và $b$. Hãy tính tổng của chúng.
 
-![](https://i.imgur.com/w5ytsgi.png)
+## Input
 
-There are many other options, but for most problems, only one more is necessary: the per-case point value. If partial points
-are enabled in the problem statement editor, then a user's score on the problem is equal to the
-sum of the point values of the cases they got right divided by the total sum of case point values, multiplied by the number of
-points the problem is worth.
+Một dòng chứa hai số nguyên $a$ và $b$ ($-10^9 \le a, b \le 10^9$).
 
-For example, if your problem is worth 100 points and has 3 cases weighted 1/2/7 points respectively, a user who gets the first
-two cases correct and then fails the last one will have a score of <math><mfrac><mrow><mn>1</mn><mo>+</mo><mn>2</mn><mo>+</mo><mn>0</mn></mrow><mrow><mn>1</mn><mo>+</mo><mn>2</mn><mo>+</mo><mn>7</mn></mrow></mfrac><mo>&times;</mo><mn>100</mn><mo>=</mo><mn>30</mn></math> points, out of 100.
+## Output
 
-## Submitting to a problem
+In ra một số nguyên duy nhất là $a + b$.
 
-After you have created your test data, you should head back to the problem and click the _Submit solution_ button. If at any point in
-time you need to update your data, you may do so from the test data editor, and it will update automatically.
+## Ví dụ
+
+### Input
+```
+3 5
+```
+
+### Output
+```
+8
+```
+
+## Giới hạn
+
+- Thời gian: 1 giây
+- Bộ nhớ: 256 MB
+```
+
+Xem [template đầy đủ](https://raw.githubusercontent.com/luyencode/docs/master/sample_files/problem_markdown_example.md.txt).
+
+### Bước 5: Cấu hình bài tập
+
+**Các tùy chọn quan trọng:**
+
+- **Time limit**: Giới hạn thời gian (giây)
+- **Memory limit**: Giới hạn bộ nhớ (KB)
+- **Points**: Điểm của bài (thường 100)
+- **Partial**: Cho phép điểm thành phần
+- **Group**: Nhóm bài tập
+- **Types**: Loại bài (DP, Graph, Math, ...)
+- **Allowed languages**: Ngôn ngữ được phép
+
+### Bước 6: Lưu và xem
+
+Click _Save_, sau đó click _View on site_ để xem bài tập.
+
+![View on site](https://i.imgur.com/ZgO5xcY.png)
+
+## Quản lý test data
+
+### Bước 1: Mở trình chỉnh sửa test data
+
+Trên trang bài tập, click _Edit test data_.
+
+![Edit test data](https://i.imgur.com/eDWEEJk.png)
+
+### Bước 2: Upload test data
+
+Chuẩn bị file zip chứa test data. Quy ước đặt tên:
+
+```
+<problem_code>.<test_number>.in   # File input
+<problem_code>.<test_number>.out  # File output
+```
+
+**Ví dụ:** Bài `APLUSB`:
+
+```
+APLUSB.1.in
+APLUSB.1.out
+APLUSB.2.in
+APLUSB.2.out
+APLUSB.3.in
+APLUSB.3.out
+```
+
+Upload file zip lên hệ thống.
+
+![Upload zip](https://i.imgur.com/w5ytsgi.png)
+
+### Bước 3: Cấu hình test cases
+
+**Các trường quan trọng:**
+
+- **Input file**: Đường dẫn file input trong zip
+- **Output file**: Đường dẫn file output trong zip
+- **Points**: Điểm của test case
+
+**Ví dụ cấu hình:**
+
+```
+Test 1: APLUSB.1.in, APLUSB.1.out, 30 điểm
+Test 2: APLUSB.2.in, APLUSB.2.out, 30 điểm
+Test 3: APLUSB.3.in, APLUSB.3.out, 40 điểm
+```
+
+### Tính điểm
+
+Nếu bật _Partial points_:
+
+**Công thức:**
+
+```
+Điểm = (Tổng điểm test đúng / Tổng điểm tất cả test) × Điểm bài
+```
+
+**Ví dụ:**
+
+- Bài 100 điểm
+- 3 test: 1/2/7 điểm
+- Thí sinh đúng test 1 và 2, sai test 3
+- Điểm = (1+2)/(1+2+7) × 100 = 30 điểm
+
+## Batched test cases
+
+Dùng cho bài có subtask. Phải đúng tất cả test trong subtask mới được điểm.
+
+**Cách tạo:**
+
+1. Click _Add batch_
+2. Đặt điểm cho batch
+3. Thêm các test case vào batch
+
+**Ví dụ:**
+
+```
+Batch 1 (30 điểm):
+  - Test 1.1
+  - Test 1.2
+  
+Batch 2 (70 điểm):
+  - Test 2.1
+  - Test 2.2
+  - Test 2.3
+```
+
+## Checker tùy chỉnh
+
+Nếu bài có nhiều đáp án đúng, cần dùng custom checker.
+
+**Các checker có sẵn:**
+
+- `standard`: So sánh chính xác (mặc định)
+- `floats`: Cho phép sai số số thực
+- `sorted`: Bỏ qua thứ tự
+- `identical`: So sánh từng ký tự
+
+**Cách chọn checker:**
+
+Trong phần _Checker_, chọn checker phù hợp và cấu hình tham số.
+
+## Generator
+
+Nếu có nhiều test, có thể dùng generator thay vì upload file.
+
+**Cách dùng:**
+
+1. Upload file generator (C/C++)
+2. Cấu hình tham số cho mỗi test
+3. Hệ thống tự động tạo input/output
+
+Xem thêm: [Generator](/problem_format/generator.md)
+
+## Nộp bài thử
+
+Sau khi tạo xong test data, quay lại trang bài tập và click _Submit solution_ để thử nộp bài.
+
+## Cập nhật test data
+
+Nếu cần sửa test data:
+
+1. Truy cập _Edit test data_
+2. Upload file zip mới hoặc chỉnh sửa cấu hình
+3. Click _Save_
+4. Test data sẽ tự động cập nhật
+
+## Rejudge
+
+Sau khi sửa test data, nên rejudge các bài nộp cũ:
+
+1. Vào trang bài tập
+2. Click _Rejudge all submissions_
+3. Chọn phạm vi rejudge (tất cả hoặc từ thời điểm nào đó)
+
+## Tips
+
+- **Đặt tên test rõ ràng**: Dễ quản lý và debug
+- **Test đầy đủ**: Bao gồm edge cases, corner cases
+- **Kiểm tra output**: Đảm bảo output chuẩn đúng
+- **Thử nhiều ngôn ngữ**: Test với C++, Python, Java
+- **Đọc kỹ log**: Nếu có lỗi, xem log để biết nguyên nhân
+
+## Xử lý lỗi thường gặp
+
+**Test data không load:**
+- Kiểm tra đường dẫn file trong zip
+- Kiểm tra quyền thư mục `DMOJ_PROBLEM_DATA_ROOT`
+
+**Checker không hoạt động:**
+- Kiểm tra cú pháp checker
+- Xem log lỗi trong admin
+
+**Rejudge không chạy:**
+- Kiểm tra Celery đang chạy: `supervisorctl status celery`
+- Xem log Celery: `supervisorctl tail -f celery`

@@ -1,7 +1,7 @@
-# VNOJ Documentation
+# LCOJ Documentation
 
-Documentation for the [VNOJ](https://github.com/VNOI-Admin/OJ) system.
+Tài liệu hướng dẫn cho hệ thống [LCOJ](https://github.com/luyencode/OJ).
 
-VNOJ is based on [DMOJ](https://github.com/DMOJ/online-judge) and serves as the official online judge of [VNOI](https://vnoi.info/).
+LCOJ được phát triển dựa trên [DMOJ](https://github.com/DMOJ/online-judge) và [VNOJ](https://github.com/VNOI-Admin/OJ).
 
-Access the documentation at <https://vnoi-admin.github.io/vnoj-docs>.
+Truy cập tài liệu tại <https://luyencode.github.io/docs>.

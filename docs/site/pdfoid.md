@@ -1,108 +1,243 @@
-# PDF generation of problem statements
+# Tạo PDF cho đề bài
 
-The DMOJ supports rendering problem statements to PDF. This can be useful in the case of on-site contests, where
-contestants receive paper versions of the problems.
+LCOJ hỗ trợ xuất đề bài ra file PDF, hữu ích cho kỳ thi onsite khi thí sinh nhận đề bài giấy.
 
-For example, [here](https://dmoj.ca/problem/ioi14p1/pdf) is a generated PDF of
-[this problem](https://dmoj.ca/problem/ioi14p1).
+**Lưu ý:** Tính năng này tùy chọn, không bắt buộc.
 
-PDF generation is backed by a related project, [Pdfoid](https://github.com/DMOJ/pdfoid). Pdfoid interfaces with
-[Selenium](https://www.selenium.dev/) to provide a REST endpoint for PDF rendering.
+## Cài đặt Pdfoid
 
-## Installing Pdfoid
+Pdfoid là dịch vụ chuyển đổi HTML thành PDF.
 
-First, clone the Pdfoid repository, and install it and its dependencies into a new virtualenv.
+### Bước 1: Cài đặt dependencies
 
-```shell-session
-$ git clone https://github.com/DMOJ/pdfoid.git
-$ cd pdfoid
-$ python3 -m venv env
-$ . env/bin/activate
-$ pip install -e .
+```sh
+apt update
+apt install chromium-driver exiftool
 ```
 
-Install `exiftool`, which is used to set PDF titles.
+### Bước 2: Clone Pdfoid
 
-```shell-session
-$ apt install exiftool
+```sh
+git clone https://github.com/DMOJ/pdfoid.git
+cd pdfoid
 ```
 
-Install [ChromeDriver](https://chromedriver.chromium.org/downloads), a special version of the Chromium engine needed by
-Selenium to create PDFs.
+### Bước 3: Tạo virtual environment
 
-```shell-session
-$ apt install chromium-driver
+```sh
+python3 -m venv env
+source env/bin/activate
+pip install -e .
 ```
 
-## Running Pdfoid
+### Bước 4: Chạy Pdfoid
 
-To start the Pdfoid server, run:
-
-```shell-session
-$ export CHROME_PATH=<path to chrome>
-$ export CHROMEDRIVER_PATH=<path to chromedriver>
-$ export EXIFTOOL_PATH=<path to exiftool>
-$ env/bin/pdfoid --port=<port>
+```sh
+export CHROME_PATH=/usr/bin/chromium
+export CHROMEDRIVER_PATH=/usr/bin/chromedriver
+export EXIFTOOL_PATH=/usr/bin/exiftool
+env/bin/pdfoid --port=8888
 ```
 
-The environment variables are not necessary if all three executables are present in `$PATH`, as they should be if you
-followed the installation instructions above.
+Nếu các chương trình đã có trong `$PATH`, không cần export.
 
-To test, start Pdfoid with `--port=8887`. Then, we can request a render of a simple HTML document.
+## Cấu hình LCOJ
 
-```html
-<div>Hello, World!</div>
-```
-
-The response should contain JSON, with a Base64-encoded PDF inside.
-
-```shell-session
-$ curl -d "title=Hello&html=Hello, World" -X POST -H "Content-Type: application/x-www-form-urlencoded" http://localhost:8887
-{
-    "success": true,
-    "pdf": "JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PC9DcmVhdG9yIChDaHJvbWl1bSkK..."
-}
-```
-
-?>  The DMOJ uses a Segoe UI font when viewed on Windows browsers. If running Pdfoid on a Linux server, installing
-    Segoe UI fonts on it will provide optimal rendering quality &mdash; otherwise, a fallback font will be used and
-    statements will look subpar.
-
-## Configuration
-
-Configuring DMOJ to generate PDFs with Pdfoid can be done by adding the following lines to your `local_settings.py`.
+Thêm vào `local_settings.py`:
 
 ```python
-# The URL Pdfoid is running on.
-DMOJ_PDF_PDFOID_URL = 'http://localhost:8887'
+# URL của Pdfoid
+DMOJ_PDF_PDFOID_URL = 'http://localhost:8888'
 
-# Optional, cache location for generated PDFs. You should consider using
-# something more persistent than /tmp, since PDF generation is an expensive
-# operation. If omitted, no cache will be used.
-DMOJ_PDF_PROBLEM_CACHE = '/tmp'
-
-# Optional, URL serving DMOJ_PDF_PROBLEM_CACHE with X-Accel-Redirect. This is
-# recommended to have nginx serve PDFs, rather than uWSGI. To enable this,
-# uncomment the line below, as well as the corresponding section in the sample
-# nginx configuration file.
-#DMOJ_PDF_PROBLEM_INTERNAL = '/pdfcache'
+# Timeout (giây)
+DMOJ_PDF_PROBLEM_TIMEOUT = 30
 ```
 
-Restart DMOJ for the changes to take effect.
+### Khởi động lại
 
-## Troubleshooting
+```sh
+supervisorctl restart site
+```
 
-### "View as PDF" button doesn't show up
+## Sử dụng
 
-If a "View as PDF" button does not show up on the problem page, make sure that the `DMOJ_PDF_PDFOID_URL` variable is set.
+### Tạo PDF cho bài tập
 
-### "View as PDF" button shows up
+Truy cập: `https://luyencode.net/problem/<problem_code>/pdf`
 
-If a "View as PDF" button shows up, but generation fails, an error log should be displayed in the browser. This log will
-also be captured by the `judge.problem.pdf` Django log handler. Depending on the error, explicitly setting the Pdfoid
-environment variables `CHROME_PATH` to the path of the Chromium binary and `CHROMEDRIVER_PATH` to the path of the
-ChromeDriver binary may alleviate the problem.
+Ví dụ: `https://luyencode.net/problem/APLUSB/pdf`
 
-For other errors, take a look at the [Selenium documentation](https://www.selenium.dev/documentation/webdriver/),
-specifically the
-[common exceptions](https://www.selenium.dev/selenium/docs/api/py/common/selenium.common.exceptions.html) section.
+### Tạo PDF cho nhiều bài
+
+Tạo PDF cho tất cả bài trong contest:
+
+1. Vào trang contest
+2. Click _Download problems as PDF_
+3. Chọn bài muốn tải
+4. Click _Generate PDF_
+
+## Chạy Pdfoid với Supervisor
+
+Tạo file `/etc/supervisor/conf.d/pdfoid.conf`:
+
+```ini
+[program:pdfoid]
+command=/path/to/pdfoid/env/bin/pdfoid --port=8888
+directory=/path/to/pdfoid
+user=pdfoid
+environment=CHROME_PATH="/usr/bin/chromium",CHROMEDRIVER_PATH="/usr/bin/chromedriver",EXIFTOOL_PATH="/usr/bin/exiftool"
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/pdfoid.log
+```
+
+Khởi động:
+
+```sh
+supervisorctl update
+supervisorctl start pdfoid
+```
+
+## Tùy chỉnh PDF
+
+### CSS tùy chỉnh
+
+Thêm CSS riêng cho PDF trong `local_settings.py`:
+
+```python
+DMOJ_PDF_PROBLEM_EXTRA_CSS = """
+@page {
+    size: A4;
+    margin: 2cm;
+}
+body {
+    font-family: "Times New Roman", serif;
+    font-size: 12pt;
+}
+"""
+```
+
+### Header/Footer
+
+```python
+DMOJ_PDF_PROBLEM_HEADER = """
+<div style="text-align: center; font-size: 10pt;">
+    LuyenCode Online Judge
+</div>
+"""
+
+DMOJ_PDF_PROBLEM_FOOTER = """
+<div style="text-align: center; font-size: 10pt;">
+    Trang <span class="pageNumber"></span> / <span class="totalPages"></span>
+</div>
+"""
+```
+
+## Xử lý lỗi
+
+**PDF không tạo được:**
+- Kiểm tra Pdfoid đang chạy: `curl http://localhost:8888`
+- Kiểm tra Chrome/Chromium đã cài đặt
+- Xem log Pdfoid: `supervisorctl tail -f pdfoid`
+
+**PDF bị lỗi font:**
+- Cài đặt font cần thiết:
+```sh
+apt install fonts-liberation fonts-dejavu
+```
+
+**Timeout:**
+- Tăng `DMOJ_PDF_PROBLEM_TIMEOUT`
+- Kiểm tra server có đủ RAM
+
+**Hình ảnh không hiển thị:**
+- Đảm bảo hình ảnh có URL đầy đủ (không dùng relative path)
+- Kiểm tra hình ảnh accessible từ server
+
+## Tối ưu
+
+### Cache PDF
+
+Để tránh tạo lại PDF nhiều lần:
+
+```python
+DMOJ_PDF_PROBLEM_CACHE = '/home/lcoj/pdf_cache'
+DMOJ_PDF_PROBLEM_CACHE_TIME = 3600  # 1 giờ
+```
+
+Tạo thư mục:
+
+```sh
+mkdir -p /home/lcoj/pdf_cache
+chown www-data:www-data /home/lcoj/pdf_cache
+```
+
+### Giảm kích thước PDF
+
+```python
+DMOJ_PDF_PROBLEM_COMPRESS = True
+```
+
+### Parallel processing
+
+Nếu cần tạo nhiều PDF cùng lúc, chạy nhiều instance Pdfoid:
+
+```sh
+# Instance 1
+env/bin/pdfoid --port=8888
+
+# Instance 2
+env/bin/pdfoid --port=8889
+```
+
+Cấu hình load balancer trong `local_settings.py`:
+
+```python
+DMOJ_PDF_PDFOID_URLS = [
+    'http://localhost:8888',
+    'http://localhost:8889',
+]
+```
+
+## In PDF
+
+### Cài đặt in
+
+Khi in PDF, nên:
+- Chọn khổ giấy A4
+- Margin: 2cm mỗi cạnh
+- In 2 mặt để tiết kiệm giấy
+- Kiểm tra preview trước khi in
+
+### Số lượng
+
+Tính số bản in cần thiết:
+- Số thí sinh × Số bài
+- Thêm 10% dự phòng
+- Thêm bản cho giám khảo
+
+## Ví dụ workflow
+
+### Chuẩn bị kỳ thi onsite
+
+1. Tạo contest với các bài tập
+2. Kiểm tra đề bài hiển thị đúng
+3. Tạo PDF cho từng bài
+4. Review PDF
+5. In PDF
+6. Đóng gói đề bài
+
+### Script tự động
+
+```bash
+#!/bin/bash
+CONTEST="contest_key"
+PROBLEMS=("APLUSB" "SORTING" "GRAPH")
+
+for problem in "${PROBLEMS[@]}"; do
+    curl "https://luyencode.net/problem/$problem/pdf" \
+         -o "${problem}.pdf"
+    echo "Downloaded $problem.pdf"
+done
+```

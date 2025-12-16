@@ -1,48 +1,227 @@
-# Rendering LaTeX math in problem statements
+# Hiển thị công thức toán học LaTeX
 
-!> Untested on VNOJ
+LCOJ hỗ trợ hiển thị công thức toán học LaTeX trong đề bài, giúp trình bày công thức đẹp và chuyên nghiệp.
 
-The DMOJ platform is capable of rendering LaTeX math for constraints and formulas that may appear in problem statements.
-For example, [this problem](https://dmoj.ca/problem/fibonacci) makes extensive use of this functionality to present
-crisp math rendering in browsers.
+**Lưu ý:** Tính năng này tùy chọn, không bắt buộc phải cài đặt.
 
-The DMOJ makes use of the [Wikimedia Mathoid](https://github.com/wikimedia/mathoid) project to render math.
+## Cài đặt Mathoid
 
-## Installing Mathoid
+Mathoid là dịch vụ render công thức LaTeX thành hình ảnh.
 
-Follow the [installation instructions](https://github.com/wikimedia/mathoid) of Mathoid. Moving forward, we'll assume that
-you are running Mathoid on `localhost:8888`.
+### Bước 1: Cài đặt Node.js
 
-## Configuring DMOJ to use Mathoid
-
-Assuming Mathoid is installed, configuring DMOJ to generate math with it requires the addition of a few lines
-to `local_settings.py`.
-
-```python
-# The URL Mathoid is running on.
-MATHOID_URL = 'http://localhost:8888'
-
-# A directory accessible by the user running Mathoid, as well as the web (nginx) user.
-# For optimal performance, change this to something more persistent than /tmp.
-MATHOID_CACHE_ROOT = '/tmp/mathoid_cache'
-
-# The URL base MATHOID_CACHE_ROOT is configured to be served under in your webserver. For
-# example, if /tmp/mathoid_cache/render.png exists, example.com/mathoid/render.png should
-# serve it.
-MATHOID_CACHE_URL = '//example.com/mathoid/'
+```sh
+curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+apt install nodejs
 ```
 
-Restart DMOJ for the changes to take effect. After restarting, you may have to purge Django's cache before seeing any changes.
+### Bước 2: Cài đặt Mathoid
 
-## Using Mathoid math in problem statements
+```sh
+git clone https://github.com/wikimedia/mathoid.git
+cd mathoid
+npm install
+```
 
-A snippet of a problem statement using Mathoid to render math is shown below.
+### Bước 3: Chạy Mathoid
+
+```sh
+node server.js
+```
+
+Mặc định Mathoid chạy trên `localhost:10044`.
+
+## Cấu hình LCOJ
+
+Thêm vào `local_settings.py`:
+
+```python
+# URL của Mathoid
+MATHOID_URL = 'http://localhost:10044'
+
+# Thư mục cache hình ảnh công thức
+# Cần có quyền ghi cho cả Mathoid và nginx
+MATHOID_CACHE_ROOT = '/home/lcoj/mathoid_cache'
+
+# URL để truy cập cache qua web
+# Ví dụ: /home/lcoj/mathoid_cache/abc.png -> luyencode.net/mathoid/abc.png
+MATHOID_CACHE_URL = '//luyencode.net/mathoid/'
+```
+
+### Cấu hình Nginx
+
+Thêm vào file nginx config:
+
+```nginx
+location /mathoid/ {
+    alias /home/lcoj/mathoid_cache/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+```
+
+### Tạo thư mục cache
+
+```sh
+mkdir -p /home/lcoj/mathoid_cache
+chown www-data:www-data /home/lcoj/mathoid_cache
+chmod 755 /home/lcoj/mathoid_cache
+```
+
+### Khởi động lại
+
+```sh
+supervisorctl restart site
+service nginx reload
+```
+
+## Sử dụng trong đề bài
+
+### Inline math (trong dòng)
+
+Dùng `~...~` cho công thức nhỏ trong dòng:
 
 ```markdown
-The Fibonacci sequence is a well known sequence of numbers in which
+Cho hai số nguyên ~a~ và ~b~ ~(1 \le a, b \le 10^9)~.
+```
 
-$$F(n) = \begin{cases} 0, & \text{if } n = 0 \\ 1, & \text{if } n = 1 \\ F(n-2) + F(n-1), & \text{if } n \ge 2 \end{cases}$$
+Hiển thị: Cho hai số nguyên *a* và *b* (1 ≤ a, b ≤ 10⁹).
 
-Given a number ~N~ ~(1 \le N \le 10^{19})~, find the ~N^{th}~ Fibonacci number, modulo ~1\,000\,000\,007~ ~(= 10^9 + 7)~.<br/>
-**Note:** For 30% of the marks of this problem, it is guaranteed that ~(1 \le N \le 1\,000\,000)~.
+### Display math (công thức lớn)
+
+Dùng `$...$` cho công thức lớn, riêng dòng:
+
+```markdown
+Dãy Fibonacci được định nghĩa:
+
+$F(n) = \begin{cases} 
+0, & \text{if } n = 0 \\ 
+1, & \text{if } n = 1 \\ 
+F(n-2) + F(n-1), & \text{if } n \ge 2 
+\end{cases}$
+```
+
+### Ví dụ đầy đủ
+
+```markdown
+# Dãy Fibonacci
+
+Dãy Fibonacci là dãy số nổi tiếng được định nghĩa:
+
+$F(n) = \begin{cases} 
+0, & \text{nếu } n = 0 \\ 
+1, & \text{nếu } n = 1 \\ 
+F(n-2) + F(n-1), & \text{nếu } n \ge 2 
+\end{cases}$
+
+Cho số nguyên ~N~ ~(1 \le N \le 10^{19})~, tìm số Fibonacci thứ ~N~, 
+modulo ~1\,000\,000\,007~ ~(= 10^9 + 7)~.
+
+**Lưu ý:** Với 30% số điểm, đảm bảo ~1 \le N \le 1\,000\,000~.
+```
+
+## Các ký hiệu LaTeX thường dùng
+
+### Toán tử
+
+```latex
+~a + b~          # Cộng
+~a - b~          # Trừ
+~a \times b~     # Nhân
+~a \div b~       # Chia
+~a \le b~        # Nhỏ hơn hoặc bằng
+~a \ge b~        # Lớn hơn hoặc bằng
+~a \ne b~        # Khác
+~a \equiv b~     # Đồng dư
+```
+
+### Phân số
+
+```latex
+~\frac{a}{b}~    # Phân số a/b
+```
+
+### Mũ và chỉ số
+
+```latex
+~a^2~            # a mũ 2
+~a_i~            # a chỉ số i
+~a^{10}~         # a mũ 10
+~a_{i,j}~        # a chỉ số i,j
+```
+
+### Tổng và tích
+
+```latex
+~\sum_{i=1}^{n} a_i~     # Tổng
+~\prod_{i=1}^{n} a_i~    # Tích
+```
+
+### Căn
+
+```latex
+~\sqrt{x}~       # Căn bậc 2
+~\sqrt[3]{x}~    # Căn bậc 3
+```
+
+### Ký hiệu đặc biệt
+
+```latex
+~\infty~         # Vô cùng
+~\pi~            # Pi
+~\log n~         # Logarit
+~\ln n~          # Logarit tự nhiên
+~\lfloor x \rfloor~  # Làm tròn xuống
+~\lceil x \rceil~    # Làm tròn lên
+```
+
+## Xử lý lỗi
+
+**Công thức không hiển thị:**
+- Kiểm tra Mathoid đang chạy: `curl http://localhost:10044`
+- Kiểm tra cấu hình `MATHOID_URL`
+- Xem log Mathoid
+
+**Hình ảnh không load:**
+- Kiểm tra cấu hình nginx
+- Kiểm tra quyền thư mục cache
+- Kiểm tra `MATHOID_CACHE_URL`
+
+**Công thức bị lỗi:**
+- Kiểm tra cú pháp LaTeX
+- Test trên [LaTeX editor online](https://www.codecogs.com/latex/eqneditor.php)
+
+## Tối ưu
+
+### Cache
+
+Mathoid tự động cache công thức đã render. Không cần xóa cache thủ công.
+
+### Performance
+
+Nếu có nhiều công thức, nên:
+- Tăng bộ nhớ cho Mathoid
+- Dùng CDN cho thư mục cache
+- Tối ưu nginx cache
+
+## Chạy Mathoid với Supervisor
+
+Tạo file `/etc/supervisor/conf.d/mathoid.conf`:
+
+```ini
+[program:mathoid]
+command=/usr/bin/node /path/to/mathoid/server.js
+directory=/path/to/mathoid
+user=mathoid
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/mathoid.log
+```
+
+Khởi động:
+
+```sh
+supervisorctl update
+supervisorctl start mathoid
 ```

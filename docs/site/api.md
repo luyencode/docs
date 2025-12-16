@@ -1,497 +1,295 @@
 # API
 
-!> Untested on VNOJ
+LCOJ cung cấp JSON API để truy cập dữ liệu từ backend.
 
-The DMOJ supports a simple JSON API for accessing most data used by the backend. Access to the API makes use of API tokens.
+## API Tokens
 
-## API tokens
+### Tạo API Token
 
-The DMOJ supports API tokens for accessing the majority of the site as your native user. The admin portion of the site is left intentionally inaccessible with these tokens. You may generate an API token on your *Edit profile* page. To use, include the following header with every request where `<API Token>` is your API token:
+1. Vào trang _Edit profile_
+2. Tìm phần API Token
+3. Click _Generate_ để tạo token mới
+
+### Sử dụng API Token
+
+Thêm header sau vào mỗi request:
 
 ```http
 Authorization: Bearer <API Token>
 ```
 
-### Error responses
+### Lỗi thường gặp
 
-The following error codes may be returned by the API token authentication layer. Note that the site itself may return other codes not listed here or identical codes with different error messages, so read the error messages carefully.
+- `400 Invalid authorization header` - Header sai format
+- `401 Invalid token` - Token không hợp lệ
+- `403 Admin inaccessible` - Không thể truy cập trang admin qua API
 
-- `400 Invalid authorization header` - The **header** you provided is invalid. Make sure it matches the following regex: `Authorization: Bearer ([a-zA-Z0-9_-]{48})`
-- `401 Invalid token` - The **token** you provided is invalid. Make sure it matches the one on your *Edit profile* page.
-- `403 Admin inaccessible` - You are trying to access the inaccessible admin portion of the site.
+## Rate Limiting
 
-## Rate limiting
+**Giới hạn: 90 requests/phút**
 
-**90 requests per minute**
+Nếu vượt quá, bạn sẽ phải giải captcha. Captcha tự động xóa sau 3 ngày.
 
-If you exceed this limit, you will be captcha'd. Captchas are automatically removed after 3 days. However, note that if you are captcha'd again within this 3 day period, the 3 day counter will reset.
+## Format Response
 
-**Note**: This is only a feature on the [DMOJ site](https://dmoj.ca).
-
-## Format
-
-All responses are of the following structure:
+Tất cả response có cấu trúc:
 
 ```json
 {
     "api_version": "2.0",
-    "method": "<HTTP method that was used>",
-    "fetched": "<time that the request was made in ISO format>",
-    "data": "<rest of the data>",
-    "error": "<any errors that were encountered>"
+    "method": "GET",
+    "fetched": "2024-01-01T00:00:00Z",
+    "data": {},
+    "error": null
 }
 ```
 
-It is guaranteed that only one of `data` or `error` will be in the response.
+Chỉ có `data` hoặc `error`, không có cả hai.
 
-### Error format
+### Format lỗi
 
 ```json
 {
     "error": {
-        "code": "<HTTP status code>",
-        "message": "<error message>"
+        "code": 404,
+        "message": "Not found"
     }
 }
 ```
 
-### Data format
+### Format dữ liệu
 
-The data format differs depending on the endpoint called. For endpoints that respond with a single object:
+**Single object:**
 
 ```json
 {
     "data": {
-        "object": "<object data>"
+        "object": {}
     }
 }
 ```
 
-For endpoints that respond with a list of objects:
+**List objects:**
 
 ```json
 {
     "data": {
-        "current_object_count": "<number of objects in the current page>",
-        "objects_per_page": "<maximum number of objects that will ever appear on a single page>",
-        "total_objects": "<total number of objects in the list>",
-        "page_index": "<the current page's index, one indexed>",
-        "total_pages": "<total number of pages>",
-        "objects": [
-            "<list of object data>"
-        ]
+        "current_object_count": 10,
+        "objects_per_page": 50,
+        "total_objects": 100,
+        "page_index": 1,
+        "total_pages": 2,
+        "objects": []
     }
 }
 ```
 
-### Filtering
+## Filtering
 
-Most of the API endpoints support filtering via query parameters. There are two types of filtering that are supported, basic filtering and list filtering. Basic filtering allows filtering for a single value, while list filtering allows filtering for a group of values. Each endpoint describes the filtering that it supports, with the name in a codeblock being the query parameter name.
+Hỗ trợ 2 loại filter:
 
-Example of basic filtering: `/api/v2/problems?partial=True` - This will only return problems with partial points enabled.
+**Basic filter:** Lọc một giá trị
+```
+/api/v2/problems?partial=True
+```
 
-Example of list filtering: `/api/v2/problems?organization=1&organization=2&type=Implementation` - This will only return problems (private to organizations 1 OR 2) AND (problem type is Implementation).
+**List filter:** Lọc nhiều giá trị
+```
+/api/v2/problems?organization=1&organization=2&type=Implementation
+```
 
 ## Endpoints
 
-### `/api/v2/contests`
+### Contests
 
-Example: [/api/v2/contests?tag=seasonal&tag=dmopc](https://dmoj.ca/api/v2/contests?tag=seasonal&tag=dmopc)
+**`GET /api/v2/contests`**
 
-#### Basic filters
+Lấy danh sách kỳ thi.
 
-- `is_rated` - boolean
+**Filters:**
+- `is_rated` (boolean)
+- `tag` (list)
+- `organization` (list)
 
-#### List filters
-
-- `tag` - tag name
-- `organization` - organization id
-
-#### Object response
-
+**Response:**
 ```json
 {
-    "key": "<contest key>",
-    "name": "<contest name>",
-    "start_time": "<contest start time in ISO format>",
-    "end_time": "<contest end time in ISO format>",
-    "is_rated": "<whether the contest is rated>",
-    "rate_all": "<whether the contest is rated on join>",
-    "time_limit": "<contest time limit in seconds, or null if the contest is not windowed>",
-    "tags": [
-        "<list of tag name>"
-    ]
+    "key": "contest_key",
+    "name": "Contest Name",
+    "start_time": "2024-01-01T00:00:00Z",
+    "end_time": "2024-01-01T05:00:00Z",
+    "is_rated": true,
+    "tags": ["seasonal"]
 }
 ```
 
-### `/api/v2/contest/<contest key>`
+**`GET /api/v2/contest/<key>`**
 
-Example: [/api/v2/contest/bts19](https://dmoj.ca/api/v2/contest/bts19)
+Lấy chi tiết kỳ thi, bao gồm bảng xếp hạng.
 
-#### Object response
+### Problems
 
+**`GET /api/v2/problems`**
+
+Lấy danh sách bài tập.
+
+**Filters:**
+- `partial` (boolean)
+- `group` (list)
+- `type` (list)
+- `organization` (list)
+- `search` (text)
+
+**Response:**
 ```json
 {
-    "key": "<contest key>",
-    "name": "<contest name>",
-    "start_time": "<contest start time in ISO format>",
-    "end_time": "<contest end time in ISO format>",
-    "time_limit": "<contest time limit in seconds, or null if the contest is not windowed>",
-    "is_rated": "<whether the contest is rated>",
-    "rate_all": "<whether the contest is rated on join>",
-    "has_rating": "<whether the contest has been rated>",
-    "rating_floor": "<the minimum user rating required for the user to be rated>",
-    "rating_ceiling": "<the maximum user rating for the user to be rated>",
-    "hidden_scoreboard": "<whether the contest's scoreboard is hidden>",
-    "scoreboard_visibility": "<whether the scoreboard is (V)isible, visible after (C)ontest, or visible after (P)articipation>",
-    "is_organization_private": "<whether the contest is private to organizations>",
-    "organizations": [
-        "<list of organization id>"
-    ],
-    "is_private": "<whether the contest is private to specific users>",
-    "tags": [
-        "<list of tag name>"
-    ],
-    "format": {
-        "name": "<the name of the contest format>",
-        "config": "<the contest format JSON configuration>"
-    },
-    "problems": [
-        {
-            "points": "<the integer amount of points the problem is worth in contest>",
-            "partial": "<whether it is possible to achieve partial points on the problem>",
-            "is_pretested": "<whether the problem is pretested>",
-            "max_submissions": "<the maximum number of submissions allowed, or null if there is no limit>",
-            "label": "<the label for this problem>",
-            "name": "<problem name>",
-            "code": "<problem code>"
-        }
-    ],
-    "rankings": [
-        {
-            "user": "<participant username>",
-            "start_time": "<effective participation start time in ISO format>",
-            "end_time": "<participation end time in ISO format>",
-            "score": "<participant score>",
-            "cumulative_time": "<participant cumulative time, dependent on the contest format>",
-            "tiebreaker": "<participant tiebreaker value>",
-            "old_rating": "<participant rating before the contest, or null if not rated>",
-            "new_rating": "<participant rating after the contest, or null if not rated>",
-            "is_disqualified": "<whether this participant is disqualified>",
-            "solutions": [
-                "<list of contest format-dependent dictionaries for individual problem scores>"
-            ]
-        }
-    ]
+    "code": "APLUSB",
+    "name": "A Plus B",
+    "types": ["Uncategorized"],
+    "group": "Intro",
+    "points": 100,
+    "partial": true,
+    "is_public": true
 }
 ```
 
-### `/api/v2/participations`
+**`GET /api/v2/problem/<code>`**
 
-Example: [/api/v2/participations?contest=dmopc19c6&virtual_participation_number=0&is_disqualified=True](https://dmoj.ca/api/v2/participations?contest=dmopc19c6&virtual_participation_number=0&is_disqualified=True)
+Lấy chi tiết bài tập.
 
-#### Basic filters
+### Users
 
-- `contest` - contest key
-- `user` - user username
-- `is_disqualified` - boolean
-- `virtual_participation_number` - non-negative integer
+**`GET /api/v2/users`**
 
-#### Object response
+Lấy danh sách người dùng.
 
+**Filters:**
+- `organization` (list)
+
+**Response:**
 ```json
 {
-    "user": "<participant username>",
-    "contest": "<contest key>",
-    "start_time": "<effective participation start time in ISO format>",
-    "end_time": "<participation end time in ISO format>",
-    "score": "<participant score>",
-    "cumulative_time": "<participant cumulative time, dependent on the contest format>",
-    "tiebreaker": "<participant tiebreaker value>",
-    "is_disqualified": "<whether this participant is disqualified>",
-    "virtual_participation_number": "<virtual participation number>"
+    "id": 1,
+    "username": "user123",
+    "points": 1500,
+    "performance_points": 1200,
+    "problem_count": 50,
+    "rank": "Expert",
+    "rating": 1800
 }
 ```
 
-### `/api/v2/problems`
+**`GET /api/v2/user/<username>`**
 
-Example: [/api/v2/problems?partial=True&type=Uncategorized](https://dmoj.ca/api/v2/problems?partial=True&type=Uncategorized)
+Lấy chi tiết người dùng, bao gồm bài đã giải và lịch sử contest.
 
-#### Basic filters
+### Submissions
 
-- `partial` - boolean
+**`GET /api/v2/submissions`**
 
-#### List filters
+Lấy danh sách bài nộp.
 
-- `group` - problem group full name
-- `type` - problem type full name
-- `organization` - organization id
+**Filters:**
+- `user` (username)
+- `problem` (code)
+- `language` (list)
+- `result` (list)
 
-#### Additional filters
-
-- `search` - similar to a list filter, except searches for the list of parameters in the problem's name, code, and description.
-
-#### Object response
-
+**Response:**
 ```json
 {
-    "code": "<problem code>",
-    "name": "<problem name>",
-    "types": [
-        "<list of type full name>"
-    ],
-    "group": "<problem group full name>",
-    "points": "<problem points>",
-    "partial": "<whether partials are enabled for this problem>",
-    "is_organization_private": "<whether the problem is private to organizations>",
-    "is_public": "<whether the problem is publicly visible>"
+    "id": 123456,
+    "problem": "APLUSB",
+    "user": "user123",
+    "date": "2024-01-01T00:00:00Z",
+    "language": "CPP17",
+    "time": 0.1,
+    "memory": 2048,
+    "points": 100,
+    "result": "AC"
 }
 ```
 
-### `/api/v2/problem/<problem code>`
+**`GET /api/v2/submission/<id>`**
 
-Example: [/api/v2/problem/helloworld](https://dmoj.ca/api/v2/problem/helloworld)
+Lấy chi tiết bài nộp, bao gồm kết quả từng test case.
 
-#### Object response
+### Organizations
 
-```json
-{
-    "code": "<problem code>",
-    "name": "<problem name>",
-    "authors": [
-        "<list of author username>"
-    ],
-    "types": [
-        "<list of type full name>"
-    ],
-    "group": "<problem group full name>",
-    "time_limit": "<problem time limit>",
-    "memory_limit": "<problem memory limit>",
-    "language_resource_limits": [
-        {
-            "language": "<language key>",
-            "time_limit": "<language-specific time limit>",
-            "memory_limit": "<language-specific memory limit>"
-        }
-    ],
-    "points": "<problem points>",
-    "partial": "<whether partials are enabled for this problem>",
-    "short_circuit": "<whether short circuit is enabled for this problem>",
-    "languages": [
-        "<list of language key>"
-    ],
-    "is_organization_private": "<whether the problem is private to organizations>",
-    "organizations": [
-        "<list of organization id>"
-    ],
-    "is_public": "<whether the problem is publicly visible>"
-}
+**`GET /api/v2/organizations`**
+
+Lấy danh sách tổ chức.
+
+**Filters:**
+- `is_open` (boolean)
+
+### Languages
+
+**`GET /api/v2/languages`**
+
+Lấy danh sách ngôn ngữ lập trình.
+
+**Filters:**
+- `common_name` (text)
+
+### Judges
+
+**`GET /api/v2/judges`**
+
+Lấy danh sách judge servers và trạng thái.
+
+## Ví dụ sử dụng
+
+### Python
+
+```python
+import requests
+
+API_TOKEN = "your_token_here"
+headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
+# Lấy danh sách bài tập
+response = requests.get(
+    "https://luyencode.net/api/v2/problems",
+    headers=headers
+)
+problems = response.json()["data"]["objects"]
+
+# Lấy chi tiết bài tập
+response = requests.get(
+    "https://luyencode.net/api/v2/problem/APLUSB",
+    headers=headers
+)
+problem = response.json()["data"]["object"]
 ```
 
-#### Additional info
+### JavaScript
 
-`is_public`: Whether the problem is publicly visible to the organizations listed. If `is_organization_private` is `false`, the problem is visible to all users.
+```javascript
+const API_TOKEN = "your_token_here";
+const headers = {
+    "Authorization": `Bearer ${API_TOKEN}`
+};
 
-### `/api/v2/users`
-
-Example: [/api/v2/users?organization=8](https://dmoj.ca/api/v2/users?organization=8)
-
-#### List filters
-
-- `organization` - organization id
-
-#### Object response
-
-```json
-{
-    "id": "<user id>",
-    "username": "<user username>",
-    "points": "<user points>",
-    "performance_points": "<user performance points>",
-    "problem_count": "<number of problems the user has solved>",
-    "rank": "<user display rank>",
-    "rating": "<user rating>"
-}
+// Lấy danh sách bài tập
+fetch("https://luyencode.net/api/v2/problems", { headers })
+    .then(res => res.json())
+    .then(data => {
+        const problems = data.data.objects;
+        console.log(problems);
+    });
 ```
 
-### `/api/v2/user/<user username>`
+### cURL
 
-Example: [/api/v2/user/Xyene](https://dmoj.ca/api/v2/user/Xyene)
-
-#### Object response
-
-```json
-{
-    "id": "<user id>",
-    "username": "<user username>",
-    "points": "<user points>",
-    "performance_points": "<user performance points>",
-    "problem_count": "<number of problems the user has solved>",
-    "solved_problems": [
-        "<list of problem code>"
-    ],
-    "rank": "<user display rank>",
-    "rating": "<user rating>",
-    "organizations": [
-        "<list of organization id>"
-    ],
-    "contests": [
-        {
-            "key": "<contest key>",
-            "score": "<user score>",
-            "cumulative_time": "<user cumulative time, dependent on the contest format>",
-            "rating": "<user rating after this contest, or null if not rated>",
-            "raw_rating": "<user raw rating after this contest, or null if not rated>",
-            "performance": "<user performance, or null if not rated>"
-        }
-    ]
-}
+```bash
+curl -H "Authorization: Bearer your_token_here" \
+     https://luyencode.net/api/v2/problems
 ```
 
-### `/api/v2/submissions`
+## Lưu ý
 
-Example: [/api/v2/submissions?user=Ninjaclasher](https://dmoj.ca/api/v2/submissions?user=Ninjaclasher)
-
-#### Basic filters
-
-- `user` - user username
-- `problem` - problem code
-
-#### List filters
-
-- `language` - language key
-- `result` - string
-
-#### Object response
-
-```json
-{
-    "id": "<submission id>",
-    "problem": "<problem code>",
-    "user": "<user username>",
-    "date": "<submission date in ISO format>",
-    "language": "<language key>",
-    "time": "<submission time usage>",
-    "memory": "<submission memory usage>",
-    "points": "<submission points awarded>",
-    "result": "<submission result>"
-}
-```
-
-### `/api/v2/submission/<submission id>`
-
-Example: [/api/v2/submission/1000000](https://dmoj.ca/api/v2/submission/1000000)
-
-#### Object response
-
-```json
-{
-    "id": "<submission id>",
-    "problem": "<problem code>",
-    "user": "<user username>",
-    "date": "<submission date in ISO format>",
-    "time": "<submission time usage>",
-    "memory": "<submission memory usage>",
-    "points": "<submission points awarded>",
-    "language": "<language key>",
-    "status": "<submission status>",
-    "result": "<submission result>",
-    "case_points": "<submission case points>",
-    "case_total": "<submission case total>",
-    "cases": [
-        "<list of case or batch data>"
-    ]
-}
-```
-
-#### Additional info
-
-`case or batch data`: Each object will be one of the following, depending on whether the current case is a batch or a single test case:
-
-#### Case data
-
-```json
-{
-    "type": "case",
-    "case_id": "<case id>",
-    "status": "<case status>",
-    "time": "<case time usage>",
-    "memory": "<case memory usage>",
-    "points": "<case points awarded>",
-    "total": "<case total points>"
-}
-```
-
-#### Batch data
-
-```json
-{
-    "type": "batch",
-    "batch_id": "<batch id>",
-    "cases": [
-        "<list of case data>"
-    ],
-    "points": "<batch points awarded>",
-    "total": "<batch total points>"
-}
-```
-
-### `/api/v2/organizations`
-
-Example: [/api/v2/organizations?is_open=False](https://dmoj.ca/api/v2/organizations?is_open=False)
-
-#### Basic filters
-
-- `is_open` - boolean
-
-#### Object response
-
-```json
-{
-    "id": "<organization id>",
-    "slug": "<organization slug>",
-    "short_name": "<organization name>",
-    "is_open": "<whether anyone can join the organization>",
-    "member_count": "<number of users in the organization>"
-}
-```
-
-### `/api/v2/languages`
-
-Example: [/api/v2/languages?common_name=Python](https://dmoj.ca/api/v2/languages?common_name=Python)
-
-#### Basic filters
-
-- `common_name` - language common name
-
-#### Object response
-
-```json
-{
-    "id": "<language id>",
-    "key": "<language key>",
-    "short_name": "<language short name>",
-    "common_name": "<language common name>",
-    "ace_mode_name": "<Ace mode name>",
-    "pygments_name": "<Pygments name>",
-    "code_template": "<default code template>"
-}
-```
-
-### `/api/v2/judges`
-
-Example: [/api/v2/judges](https://dmoj.ca/api/v2/judges)
-
-#### Object response
-
-```json
-{
-    "name": "<judge name>",
-    "start_time": "<judge start time in ISO format>",
-    "ping": "<judge ping in milliseconds>",
-    "load": "<judge load>",
-    "languages": [
-        "<list of language key>"
-    ]
-}
-```
+- Không chia sẻ API token với người khác
+- Lưu token an toàn, không commit vào git
+- Tôn trọng rate limit
+- API có thể thay đổi, kiểm tra `api_version`

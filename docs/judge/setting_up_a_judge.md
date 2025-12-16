@@ -1,108 +1,134 @@
-# Setting up a judge
+# Cài đặt Judge
 
-This guide goes through the process of installing a judge and connecting it to
-the site. It is intended for Linux-based machines (WSL included); Windows is
-not supported.
+Hướng dẫn này giúp bạn cài đặt judge (hệ thống chấm bài) và kết nối với website. Hệ thống chỉ hỗ trợ Linux (bao gồm WSL), không hỗ trợ Windows.
 
-It is assumed that the site installation instructions have been followed, and
-that a bridge instance is running.
+**Yêu cầu:** Bạn cần đã cài đặt website và bridge đang chạy.
 
-## Site-side setup
+## Cấu hình trên Website
 
-First, add a judge on the admin page, located under
-[/admin/judge/](https://dmoj.ca/admin/judge/). Provide the
-name of the judge and the authentication key for the judge. You may use the
-`Regenerate` button to generate an authentication key.
+### Bước 1: Thêm judge mới
 
-In `local_settings.py`, find the `BRIDGED_JUDGE_ADDRESS`. This is the address
-you will be connecting a judge to. By default, this should be `localhost:9999`.
-If you are connecting from a different machine, you will need to change
-`localhost` to an actual IP. Also, ensure that this port is **open**, or you
-will receive cryptic error messages when attempting to connect a judge.
+Truy cập trang quản trị tại `/admin/judge/` và thêm judge mới:
+- Đặt tên cho judge
+- Tạo mã xác thực (authentication key) - có thể dùng nút `Regenerate` để tự động tạo
 
-Finally, ensure the bridge is running. You should see something similar to the
-following lines.
+### Bước 2: Kiểm tra địa chỉ kết nối
 
-```shell-session
-$ supervisorctl status
+Trong file `local_settings.py`, tìm `BRIDGED_JUDGE_ADDRESS`. Đây là địa chỉ judge sẽ kết nối đến:
+- Mặc định: `localhost:9999`
+- Nếu judge chạy trên máy khác, đổi `localhost` thành địa chỉ IP thực
+- **Quan trọng:** Đảm bảo port này đã được mở
+
+### Bước 3: Kiểm tra bridge đang chạy
+
+Chạy lệnh sau để kiểm tra:
+
+```sh
+supervisorctl status
+```
+
+Bạn sẽ thấy dòng tương tự:
+```
 bridged RUNNING pid <pid>, uptime <uptime>
 ```
 
-## Judge-side setup
+## Cài đặt Judge
 
-The DMOJ supports installing judges through Docker and a PyPI package. We
-recommend the Docker installation if you are able to use Docker, since we have
-dealt with the hard problem of getting many runtimes co-existing on the same
-machine and keeping them up-to-date. The PyPI package is also supported, and
-may give you more control at the expense of more administrative complexity.
+Chúng tôi khuyên dùng Docker để cài đặt judge vì đơn giản và dễ quản lý.
 
-### With Docker
+### Sử dụng Docker Image có sẵn
 
-#### Pre-built
+LCOJ sử dụng Docker image `tierlcoj` với các ngôn ngữ lập trình phổ biến:
+- Python 2/3
+- C/C++ (GCC)
+- Java 8
+- Pascal
+- Và một số ngôn ngữ khác
 
-We maintain Docker images with all runtimes we support in the
-[runtimes-docker](https://github.com/DMOJ/runtimes-docker) project.
+Xem danh sách đầy đủ tại [trang runtimes](https://luyencode.net/runtimes).
 
-Runtimes are split into three tiers of decreasing support. Tier 1 includes
-Python 2/3, C/C++ (GCC only), Java 8, and Pascal. Tier 3 contains all the
-runtimes we run on [dmoj.ca](https://dmoj.ca). Tier 2 contains some in-between
-mix; read the `Dockerfile` for each tier for details. These images are rebuilt
-and tested every week to contain the latest runtime versions.
+### Build từ mã nguồn
 
-?> VNOJ uses a custom tier, `tiervnoj`, which contains all the runtimes in Tier 1
-and some additional ones. You can find the list of supported runtimes [here](https://oj.vnoi.info/runtimes).
-The Docker image is maintained at [vnoj/judge-tiervnoj](https://hub.docker.com/r/vnoj/judge-tiervnoj).
+Nếu muốn tự build Docker image:
 
-#### From source
-
-The session below build a `judge-tiervnoj`:
-
-```shell-session
-$ git clone --recursive https://github.com/VNOI-Admin/judge-server.git
-$ cd judge/.docker
-$ make judge-tiervnoj
+```sh
+git clone --recursive https://github.com/luyencode/judge-server.git
+cd judge/.docker
+make judge-tierlcoj
 ```
 
-The session below spawns a `tiervnoj` judge image in the same server as the site server.
-**It expects problems to be placed on the host under `/mnt/problems`, and judge-specific
-configuration to be in `/mnt/problems/judge.yml`.**
+### Chạy Judge
 
-?> For first time developers: Both the judge and site can share a common problems folder,
-which is specified at `DMOJ_PROBLEM_DATA_ROOT` in `settings.py` for the site and as below
-for the judge.
+#### Chuẩn bị
 
-Your `judge.yml` file should look something like below:
+Tạo file cấu hình `judge.yml`:
 
 ```yaml
-id: <judge name>
-key: <judge authentication key>
+id: <tên judge>
+key: <mã xác thực>
 problem_storage_globs:
   - /problems/*
 ```
 
-```shell-session
-$ docker run \
+**Lưu ý:** 
+- `id` phải trùng với tên judge đã tạo trên website
+- `key` phải trùng với mã xác thực đã tạo
+- Thư mục `/problems` chứa dữ liệu bài tập
+
+#### Khởi động judge
+
+```sh
+docker run \
     --name judge \
     --network="host" \
     -v /mnt/problems:/problems \
     --cap-add=SYS_PTRACE \
     -d \
     --restart=always \
-    vnoj/judge-tiervnoj:latest \
+    luyencode/judge-tierlcoj:latest \
     run -p 9999 -c /problems/judge.yml localhost -A 0.0.0.0 -a 12345
 ```
 
-If you changed the port that was specified in `BRIDGED_JUDGE_ADDRESS` of the
-site's `local_settings.py`, you need to change the `-p 9999` to match the config as well
+**Giải thích các tham số:**
+- `--name judge`: Tên container
+- `-v /mnt/problems:/problems`: Gắn thư mục bài tập từ máy host vào container
+- `-p 9999`: Port kết nối đến bridge (phải trùng với `BRIDGED_JUDGE_ADDRESS`)
+- `-a 12345`: Port API của judge
 
-If you want to run multiple judges, you need to changes:
+**Lưu ý về port:**
+- Nếu đã đổi port trong `BRIDGED_JUDGE_ADDRESS`, cần đổi `-p 9999` cho khớp
+- Nếu chạy nhiều judge, mỗi judge cần:
+  - Tên container khác nhau (`--name`)
+  - File cấu hình riêng (`judge.yml`)
+  - Port API khác nhau (`-a`)
 
-- Container name (`--name judge`): each judge need different name
-- judge.yml file (`/problems/judge.yml`): each judge need different config file
-- `-a 12345`: change to others ports
+### Chạy nhiều Judge
 
-### Through PyPI
+Để tăng khả năng xử lý, bạn có thể chạy nhiều judge cùng lúc:
 
-!> Not available for VNOJ
+**Judge 1:**
+```sh
+docker run --name judge1 -v /mnt/problems:/problems --cap-add=SYS_PTRACE -d --restart=always --network="host" luyencode/judge-tierlcoj:latest run -p 9999 -c /problems/judge1.yml localhost -A 0.0.0.0 -a 12345
+```
 
-We are not maintaining our judge on PyPI, you should use the docker setup above.
+**Judge 2:**
+```sh
+docker run --name judge2 -v /mnt/problems:/problems --cap-add=SYS_PTRACE -d --restart=always --network="host" luyencode/judge-tierlcoj:latest run -p 9999 -c /problems/judge2.yml localhost -A 0.0.0.0 -a 12346
+```
+
+Mỗi judge cần có file cấu hình riêng (`judge1.yml`, `judge2.yml`) với `id` khác nhau.
+
+## Kiểm tra
+
+Sau khi khởi động judge, kiểm tra trên trang quản trị website (`/admin/judge/`). Judge sẽ hiển thị trạng thái "online" nếu kết nối thành công.
+
+## Xử lý lỗi thường gặp
+
+**Judge không kết nối được:**
+- Kiểm tra bridge đang chạy
+- Kiểm tra port đã mở
+- Kiểm tra `id` và `key` trong `judge.yml` khớp với website
+
+**Judge bị disconnect liên tục:**
+- Kiểm tra kết nối mạng
+- Kiểm tra log của judge: `docker logs judge`

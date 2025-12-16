@@ -1,7 +1,36 @@
-# Standard Grading (IO-based)
+# Chấm điểm chuẩn (Standard Grading)
 
-In this sample, we are using the most common grading system: test input and expected output are stored in a zip file.
+Đây là ví dụ về hệ thống chấm điểm phổ biến nhất: input và output được lưu trong file zip.
 
-The `init.yml` declares the zip file with `archive` in the YAML file. Three test cases are listed in `test_cases`.
+## Cấu trúc
 
-Each test case declares its own input and output files, which can be any file in the zip file. The test cases are worth 5, 20, and 75 points respectively, making the total score out of 100.
+File `init.yml` khai báo file zip bằng `archive`. Ba test case được liệt kê trong `test_cases`.
+
+Mỗi test case khai báo file input và output riêng, có thể là bất kỳ file nào trong zip. Các test case có giá trị lần lượt là 5, 20, và 75 điểm, tổng cộng 100 điểm.
+
+## File init.yml
+
+```yaml
+archive: aplusb.zip
+test_cases:
+- {in: aplusb.1.in, out: aplusb.1.out, points: 5}
+- {in: aplusb.2.in, out: aplusb.2.out, points: 20}
+- {in: aplusb.3.in, out: aplusb.3.out, points: 75}
+```
+
+## Cách hoạt động
+
+1. Judge giải nén `aplusb.zip`
+2. Chạy chương trình với input từ `aplusb.1.in`
+3. So sánh output với `aplusb.1.out`
+4. Nếu đúng, được 5 điểm
+5. Lặp lại cho các test còn lại
+
+## Tính điểm
+
+- Test 1 đúng: 5 điểm
+- Test 2 đúng: 20 điểm
+- Test 3 đúng: 75 điểm
+- **Tổng:** Tối đa 100 điểm
+
+Điểm cuối cùng là tổng điểm của các test đúng.

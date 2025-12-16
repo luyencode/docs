@@ -1,65 +1,201 @@
-# Contest formats
+# Các định dạng kỳ thi
 
-The VNOJ ships with 6 contest formats by default: Default, IOI, Codechef IOI Ranklist (henceforth shortened to simply Legacy IOI), ECOO, AtCoder, and ICPC.
+LCOJ hỗ trợ 6 định dạng kỳ thi: Default, IOI, Legacy IOI, ECOO, AtCoder, và ICPC.
 
-## Default
+## Default (Mặc định)
 
-The `Default` contest format is what all contests ran on pre-April 23, 2019.
+Định dạng chuẩn, đơn giản nhất.
 
-The score is the sum of the highest-scoring submission on each problem, and ties are broken by adding the time of the last submission to each problem with a non-zero maximum score.
+**Cách tính điểm:**
+- Điểm = Tổng điểm cao nhất của mỗi bài
+- Phá tie: Thời gian bài nộp cuối cùng có điểm
 
-Note that *any* submission will increase time penalty, not just score-changing submissions.
+**Lưu ý:** Mọi bài nộp đều tăng thời gian penalty, kể cả bài không tăng điểm.
 
-There are no additional options that can be configured for this contest format.
+**Cấu hình:** Không có tùy chọn đặc biệt.
+
+**Ví dụ:**
+
+| Thí sinh | Bài A | Bài B | Bài C | Tổng điểm | Thời gian |
+|----------|-------|-------|-------|-----------|-----------|
+| Alice    | 100 (10p) | 80 (25p) | 60 (40p) | 240 | 40p |
+| Bob      | 100 (15p) | 80 (20p) | 60 (35p) | 240 | 35p |
+
+Bob thắng vì thời gian ít hơn.
 
 ## IOI
 
-The `IOI` contest format emulates the scoring used by IOI.
+Định dạng của Olympic Tin học Quốc tế.
 
-The score is equal to the sum of the final score on each problem, where the final score for a problem is the maximum score for each subtask across all submissions, and by default, ties are not broken.
-For example, consider a contestant that makes two submissions on a task with two subtasks. The first gets 30 points on the first subtask and 10 points on the second subtask. The second gets 0 points on the first subtask and 40 points on the second subtask. The final score for this problem will be 70.
+**Cách tính điểm:**
+- Mỗi bài có nhiều subtask
+- Điểm subtask = Điểm cao nhất của subtask đó trong tất cả bài nộp
+- Điểm bài = Tổng điểm các subtask
+- Điểm tổng = Tổng điểm các bài
+- Mặc định không phá tie
 
-The `cumtime` option can be set to `true` within the JSON configuration. This will break ties by summing the submission times of the first submissions that pass each subtask.
+**Ví dụ:**
+
+Bài A có 2 subtask (30 điểm và 70 điểm):
+
+| Bài nộp | Subtask 1 | Subtask 2 | Tổng |
+|---------|-----------|-----------|------|
+| Lần 1   | 30        | 10        | 40   |
+| Lần 2   | 0         | 70        | 70   |
+| **Điểm cuối** | **30** | **70** | **100** |
+
+**Tùy chọn:**
+
+```json
+{
+  "cumtime": true
+}
+```
+
+Nếu `cumtime: true`, phá tie bằng tổng thời gian của bài nộp đầu tiên pass mỗi subtask.
 
 ## Legacy IOI
 
-The `Legacy IOI` contest format emulates the scoring used by Codechef's IOI Ranklist.
+Định dạng của Codechef IOI Ranklist.
 
-The score is equal to the sum of the highest-scoring submission on each problem, and by default, ties are not broken.
+**Cách tính điểm:**
+- Điểm = Tổng điểm cao nhất của mỗi bài
+- Mặc định không phá tie
 
-The `cumtime` option can be set to `true` within the JSON configuration. This will break ties by summing the submission times of the most recent total score-changing submissions.
+**Tùy chọn:**
+
+```json
+{
+  "cumtime": true
+}
+```
+
+Nếu `cumtime: true`, phá tie bằng tổng thời gian của bài nộp thay đổi điểm gần nhất.
 
 ## ECOO
 
-The `ECOO` contest format is based on the scoring system used by the ECOO contest.
+Định dạng của kỳ thi ECOO.
 
-The score is equal to the sum of scores of the last submission to each problem.
-By default, ties are not broken, however, setting `cumtime` to `true` will sum the times of the last submission to each problem, and use that for tiebreaking.
+**Cách tính điểm:**
+- Điểm = Tổng điểm của bài nộp **cuối cùng** mỗi bài
+- Mặc định không phá tie
 
-The `first_ac_bonus` field, as suggested by the name, will add the specified number of points to a problem's score if it is solved on the first attempt, excluding compile errors and internal errors.
-This field defaults to 10.
+**Tùy chọn:**
 
-The `time_bonus` field awards a bonus for solving problems faster.
-The field is in minutes, and for each such interval of time before the contest ends, any submission with a non-zero score will have a bonus point added. This field defaults to 5.
-Note that specifying 0 will disable this bonus.
+```json
+{
+  "cumtime": true,
+  "first_ac_bonus": 10,
+  "time_bonus": 5
+}
+```
 
-For example, say a submission with a score of 50/100 is submitted 23 minutes before the contest ends. <math><mo>&lfloor;</mo><mfrac><mn>23</mn><mn>5</mn></mfrac><mo>&rfloor;</mo><mo>=</mo><mn>4</mn></math>, so 4 bonus points are awarded, giving a total score of <math><mn>50</mn><mo>+</mo><mn>4</mn><mo>=</mo><mn>54</mn></math> for that problem.
+**`first_ac_bonus`:** Điểm thưởng nếu AC ngay lần đầu (mặc định 10).
+
+**`time_bonus`:** Điểm thưởng theo thời gian. Cứ mỗi `time_bonus` phút trước khi kết thúc, được thêm 1 điểm (mặc định 5).
+
+**Ví dụ time_bonus:**
+
+- Bài nộp được 50/100 điểm
+- Nộp lúc còn 23 phút
+- Bonus = ⌊23/5⌋ = 4 điểm
+- Tổng = 50 + 4 = 54 điểm
 
 ## AtCoder
 
-The `AtCoder` contest format is based on the contest format used by AtCoder.
+Định dạng của AtCoder.
 
-The score is equal to the sum of the highest-scoring submission on each problem, and ties are broken based on the time of the last score-changing submission plus the penalty.
+**Cách tính điểm:**
+- Điểm = Tổng điểm cao nhất của mỗi bài
+- Phá tie: Thời gian bài nộp cuối thay đổi điểm + penalty
 
-The penalty is specified by the `penalty` field, and defaults to 5 minutes.
-The penalty is equal to the total number of incorrect submissions prior to the highest-scoring submission on each solved problem, multiplied by the specified value, in minutes, and is added to the cumulative time.
+**Penalty:**
+
+```json
+{
+  "penalty": 5
+}
+```
+
+Penalty = Số bài nộp sai trước bài đúng × `penalty` phút (mặc định 5).
+
+**Ví dụ:**
+
+Bài A:
+- Nộp lần 1 (5p): 0 điểm
+- Nộp lần 2 (10p): 0 điểm
+- Nộp lần 3 (15p): 100 điểm
+
+Penalty = 2 × 5 = 10 phút
+
+Thời gian = 15 + 10 = 25 phút
 
 ## ICPC
 
-The `ICPC` contest format is based on the contest format used by the ICPC.
+Định dạng của ACM-ICPC.
 
-The score is equal to the number of problems solved, and ties are broken firstly based on the sum of the elapsed time that a correct submission was submitted to each problem plus the penalty, and secondly based on the time of the last score-changing submission.
+**Cách tính điểm:**
+- Điểm = Số bài AC
+- Phá tie 1: Tổng thời gian + penalty
+- Phá tie 2: Thời gian bài nộp cuối thay đổi điểm
 
-The penalty is specified by the `penalty` field, and defaults to 20 minutes.
-The penalty is equal to the number of incorrect submissions prior to the first correct submission, multiplied by the specified value, in minutes, and is added to the cumulative time.
-Note that the time penalty is applied to all problems with a non-zero score (this format will not automatically disable partial points).
+**Penalty:**
+
+```json
+{
+  "penalty": 20
+}
+```
+
+Penalty = Số bài nộp sai trước bài AC × `penalty` phút (mặc định 20).
+
+**Ví dụ:**
+
+| Bài | Thời gian AC | Số lần sai | Penalty | Thời gian tổng |
+|-----|--------------|------------|---------|----------------|
+| A   | 10p          | 0          | 0       | 10p            |
+| B   | 25p          | 2          | 40p     | 65p            |
+| C   | 50p          | 1          | 20p     | 70p            |
+
+Tổng: 3 bài, 145 phút
+
+## So sánh các định dạng
+
+| Định dạng | Điểm | Phá tie | Penalty | Phù hợp |
+|-----------|------|---------|---------|---------|
+| Default | Tổng điểm cao nhất | Thời gian cuối | Mọi bài nộp | Kỳ thi thông thường |
+| IOI | Tổng điểm subtask | Không | Không | Olympic, có subtask |
+| Legacy IOI | Tổng điểm cao nhất | Tùy chọn | Không | Tương tự IOI |
+| ECOO | Điểm bài cuối | Tùy chọn | Có bonus | Kỳ thi ECOO |
+| AtCoder | Tổng điểm cao nhất | Thời gian + penalty | Bài sai | Kỳ thi AtCoder |
+| ICPC | Số bài AC | Thời gian + penalty | Bài sai | ACM-ICPC |
+
+## Cách chọn định dạng
+
+**Default:** Phù hợp nhất cho kỳ thi thông thường, dễ hiểu.
+
+**IOI:** Dùng khi bài có subtask rõ ràng, muốn thí sinh được điểm từng phần.
+
+**ICPC:** Dùng khi muốn tập trung vào số bài AC, không quan trọng điểm từng phần.
+
+**AtCoder:** Cân bằng giữa điểm và thời gian, có penalty nhẹ.
+
+**ECOO:** Có tính năng đặc biệt như bonus AC đầu tiên, bonus thời gian.
+
+## Cấu hình trong Admin
+
+1. Vào trang tạo/sửa contest
+2. Chọn _Contest format_
+3. Nhập JSON config nếu cần (ví dụ: `{"cumtime": true, "penalty": 10}`)
+4. Lưu
+
+**Ví dụ config:**
+
+```json
+{
+  "cumtime": true,
+  "penalty": 10,
+  "first_ac_bonus": 15,
+  "time_bonus": 3
+}
+```

@@ -1,26 +1,102 @@
-# Configuring a judge
+# Cấu hình Judge
 
-The VNOJ judge is configured with a YAML file, which contains the runtimes, problems folders, and other information.
+Judge được cấu hình thông qua file YAML, chứa thông tin về ngôn ngữ lập trình, thư mục bài tập và các thiết lập khác.
 
-A sample configuration file is available [here](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/judge_conf.yml).
+File cấu hình mẫu: [judge_conf.yml](https://github.com/luyencode/docs/blob/master/sample_files/judge_conf.yml)
 
-## Runtimes
+## Cấu trúc file cấu hình
 
-The runtimes are configured with a `runtime` node. While most runtimes can be automatically configured with `dmoj-autoconf`, those that are not in the `$PATH` variable will not be automatically detected, and will need to be manually configured.
+### ID - Tên judge
 
-## Problems
+Tên hiển thị của judge, phải trùng với tên đã tạo trên website:
 
-The problems are configured with `problem_storage_globs`. This is a list of (potentially recursive) globs, as defined by Python's `glob` library.
-Any folders that match any of the listed globs and contain an `init.yml` will be treated as a problem directory.
-For example:
-- `/mnt/problems/folder1/*` will match `/mnt/problems/folder1/problem1`.
-- `/mnt/problems/folder2/**/` will match all subfolders of `/mnt/problems/folder2`, e.g. `/mnt/problems/folder2/foo/bar/problem2`.
-- `/mnt/problems/folder3/year20[0-9][0-9]` will match `/mnt/problems/folder3/year2023`.
+```yaml
+id: judge1
+```
 
-## ID
+### Key - Mã xác thực
 
-The judge's display name is configured with an `id` node. This is a string, and it should match the one on the site interface.
+Mã bảo mật để judge kết nối với bridge, phải trùng với mã trên website:
 
-## Key
+```yaml
+key: your_secret_key_here
+```
 
-This key is used to validate your judge's connection to the bridge, and as such, should match the one on the site interface. This is configured with a `key` node.
+### Problem Storage - Thư mục bài tập
+
+Danh sách các thư mục chứa bài tập. Mỗi thư mục bài tập phải có file `init.yml`:
+
+```yaml
+problem_storage_globs:
+  - /problems/*
+  - /problems/archive/**
+```
+
+**Ví dụ:**
+- `/problems/*` - Tìm tất cả thư mục con trực tiếp trong `/problems`
+  - Khớp: `/problems/bai1`, `/problems/bai2`
+  - Không khớp: `/problems/folder/bai3`
+
+- `/problems/archive/**` - Tìm tất cả thư mục con (bao gồm thư mục lồng nhau)
+  - Khớp: `/problems/archive/2023/bai1`, `/problems/archive/bai2`
+
+- `/problems/year20[0-9][0-9]` - Tìm thư mục theo pattern
+  - Khớp: `/problems/year2023`, `/problems/year2024`
+
+### Runtimes - Ngôn ngữ lập trình
+
+Cấu hình các ngôn ngữ lập trình được hỗ trợ:
+
+```yaml
+runtime:
+  python3: /usr/bin/python3
+  gcc: /usr/bin/gcc
+  g++: /usr/bin/g++
+```
+
+**Lưu ý:** 
+- Hầu hết ngôn ngữ được tự động phát hiện bằng lệnh `dmoj-autoconf`
+- Chỉ cần cấu hình thủ công nếu chương trình không nằm trong `$PATH`
+
+## File cấu hình đầy đủ
+
+Ví dụ file `judge.yml` hoàn chỉnh:
+
+```yaml
+id: judge1
+key: my_secret_authentication_key
+
+problem_storage_globs:
+  - /problems/*
+
+runtime:
+  python3: /usr/bin/python3
+  python2: /usr/bin/python2
+  gcc: /usr/bin/gcc
+  g++: /usr/bin/g++
+  java: /usr/bin/java
+```
+
+## Tự động phát hiện ngôn ngữ
+
+Để tự động phát hiện các ngôn ngữ có sẵn trên hệ thống:
+
+```sh
+dmoj-autoconf > judge.yml
+```
+
+Sau đó chỉnh sửa file `judge.yml` để thêm `id`, `key` và `problem_storage_globs`.
+
+## Kiểm tra cấu hình
+
+Sau khi chỉnh sửa file cấu hình, khởi động lại judge:
+
+```sh
+docker restart judge
+```
+
+Kiểm tra log để đảm bảo không có lỗi:
+
+```sh
+docker logs judge
+```

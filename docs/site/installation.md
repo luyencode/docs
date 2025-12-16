@@ -1,243 +1,298 @@
-# Installing the site
+# Cài đặt Website
 
-## Installing the prerequisites
+Hướng dẫn này giúp bạn cài đặt website LCOJ từ đầu. Hệ thống chỉ hỗ trợ Linux.
 
-```shell-session
-$ apt update
-$ apt install git gcc g++ make python3-dev python3-pip python3-venv libxml2-dev libxslt1-dev zlib1g-dev gettext curl redis-server pkg-config
-$ curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-$ apt install nodejs
+**Lưu ý:** Nếu bạn muốn cài đặt nhanh bằng Docker, xem [lcoj-docker](https://github.com/luyencode/lcoj-docker).
+
+## Bước 1: Cài đặt các công cụ cần thiết
+
+### Cài đặt các gói phần mềm cơ bản
+
+```sh
+apt update
+apt install git gcc g++ make python3-dev python3-pip python3-venv libxml2-dev libxslt1-dev zlib1g-dev gettext curl redis-server pkg-config
 ```
 
-## Creating the database
+### Cài đặt Node.js
 
-Next, we will set up the database using MariaDB. The VNOJ is only tested to work with MySQL, and it is unlikely to work with anything else. Please visit [the MariaDB site](https://mariadb.org/download/?t=repo-config) and follow the download instructions.
-
-When asked, you should select the latest MariaDB version.
-
-```shell-session
-$ apt update
-$ apt install mariadb-server libmysqlclient-dev
+```sh
+curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+apt install nodejs
 ```
 
-The next step is to set up the database itself. You should execute the commands listed below to create the necessary database and user.
+## Bước 2: Cài đặt Database
 
-```shell-session
-$ sudo mysql
-mariadb> CREATE DATABASE dmoj DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_general_ci;
-mariadb> GRANT ALL PRIVILEGES ON dmoj.* TO 'dmoj'@'localhost' IDENTIFIED BY '<mariadb user password>';
-mariadb> exit
+### Cài đặt MariaDB
+
+Truy cập [trang MariaDB](https://mariadb.org/download/?t=repo-config) và làm theo hướng dẫn cài đặt. Chọn phiên bản mới nhất.
+
+```sh
+apt update
+apt install mariadb-server libmysqlclient-dev
 ```
 
-## Installing prerequisites
+### Tạo database
 
-Now that you are done, you can start installing the site. First, create a virtual environment and activate it. Here, we'll create a virtual environment named `vnojsite`.
-
-```shell-session
-$ python3 -m venv vnojsite
-$ . vnojsite/bin/activate
+```sh
+sudo mysql
 ```
 
-You should see `(vnojsite)` prepended to your shell. Henceforth, `(vnojsite)` commands assume you are in the code directory, with the virtual environment active.
+Trong MySQL shell, chạy các lệnh sau:
 
-?> The virtual environment will help keep the modules needed separate from the system package manager, and save you many headaches when updating. Read more about virtual environments [here](https://docs.python.org/3/tutorial/venv.html).
-
-Now, fetch the site source code:
-
-```shell-session
-(vnojsite) $ git clone --recursive https://github.com/VNOI-Admin/OJ.git site
-(vnojsite) $ cd site
+```sql
+CREATE DATABASE lcoj DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_general_ci;
+GRANT ALL PRIVILEGES ON lcoj.* TO 'lcoj'@'localhost' IDENTIFIED BY 'mat_khau_cua_ban';
+exit
 ```
 
-Install Python dependencies into the virtual environment.
+**Lưu ý:** Thay `mat_khau_cua_ban` bằng mật khẩu thực tế.
 
-```shell-session
-(vnojsite) $ pip3 install -r requirements.txt
+## Bước 3: Cài đặt mã nguồn website
+
+### Tạo môi trường Python
+
+```sh
+python3 -m venv lcojsite
+source lcojsite/bin/activate
 ```
 
-Install Node.js packages:
+Bạn sẽ thấy `(lcojsite)` xuất hiện trước dòng lệnh. Từ giờ, tất cả lệnh đều chạy trong môi trường này.
 
-```shell-session
-(vnojsite) $ npm install
+### Tải mã nguồn
+
+```sh
+git clone --recursive https://github.com/luyencode/OJ.git site
+cd site
 ```
 
-You will now need to configure `dmoj/local_settings.py`. You should make a copy of [this sample settings file](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/local_settings.py) and read through it, making changes as necessary. Most importantly, you will want to update MariaDB credentials.
+### Cài đặt thư viện Python
 
-?> Leave debug mode on for now; we'll disable it later after we've verified that the site works. <br> <br>
-Generally, it's recommended that you add your settings in `dmoj/local_settings.py` rather than modifying `dmoj/settings.py` directly. `settings.py` will automatically read `local_settings.py` and load it, so write your configuration there.
-
-## Compiling assets
-
-VNOJ uses `sass` and `autoprefixer` to generate the site stylesheets. VNOJ comes with a `make_style.sh` script that may be run to compile and optimize the stylesheets.
-
-```shell-session
-(vnojsite) $ ./make_style.sh
+```sh
+pip3 install -r requirements.txt
 ```
 
-Now, collect static files into `STATIC_ROOT` as specified in `dmoj/local_settings.py`.
+### Cài đặt thư viện Node.js
 
-```shell-session
-(vnojsite) $ ./manage.py collectstatic
+```sh
+npm install
 ```
 
-You will also need to generate internationalization files.
+## Bước 4: Cấu hình
 
-```shell-session
-(vnojsite) $ ./manage.py compilemessages
-(vnojsite) $ ./manage.py compilejsi18n
+### Tạo file cấu hình
+
+Tạo file `dmoj/local_settings.py` từ [file mẫu](https://github.com/luyencode/docs/blob/master/sample_files/local_settings.py).
+
+Các thiết lập quan trọng cần chỉnh sửa:
+
+```python
+# Thông tin database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'lcoj',
+        'USER': 'lcoj',
+        'PASSWORD': 'mat_khau_cua_ban',
+        'HOST': 'localhost',
+        'PORT': '3306',
+    }
+}
+
+# Tên website
+SITE_NAME = 'LCOJ'
+SITE_LONG_NAME = 'LuyenCode Online Judge'
+
+# Để DEBUG = True trong lúc cài đặt, sau đó đổi thành False
+DEBUG = True
 ```
 
-## Setting up Celery
+## Bước 5: Biên dịch giao diện
 
-The VNOJ uses Celery workers to perform most of its heavy lifting, such as batch rescoring submissions. We will use Redis as its broker, though note that other brokers that Celery supports will work as well.
+### Tạo file CSS
 
-Start up the Redis server, which is needed by the Celery workers.
-
-```shell-session
-$ service redis-server start
+```sh
+./make_style.sh
 ```
 
-Configure `local_settings.py` by uncommenting `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND`. By default, Redis listens on localhost port 6379, which is reflected in `local_settings.py`. You will need to update the addresses if you changed Redis's settings.
+### Thu thập static files
 
-We will test that Celery works soon.
-
-## Setting up database tables
-
-We must generate the schema for the database, since it is currently empty.
-
-```shell-session
-(vnojsite) $ ./manage.py migrate
+```sh
+./manage.py collectstatic
 ```
 
-Next, load some initial data so that your install is not entirely blank.
+### Tạo file ngôn ngữ
 
-```shell-session
-(vnojsite) $ ./manage.py loaddata navbar
-(vnojsite) $ ./manage.py loaddata language_small
-(vnojsite) $ ./manage.py loaddata demo
+```sh
+./manage.py compilemessages
+./manage.py compilejsi18n
 ```
 
-!> Keep in mind that the `demo` fixture creates a superuser account with a username and password of `admin`. If your
-site is exposed to others, you should change the user's password or remove the user entirely.
+## Bước 6: Cấu hình Celery
 
-You should create an admin account with which to log in initially.
+Celery giúp xử lý các tác vụ nặng như chấm lại bài hàng loạt.
 
-```shell-session
-(vnojsite) $ ./manage.py createsuperuser
+### Khởi động Redis
+
+```sh
+service redis-server start
 ```
 
-## Running the server
+### Cấu hình trong local_settings.py
 
-Now, you should verify that everything is going according to plan.
+Bỏ comment (xóa dấu `#`) ở các dòng:
 
-```shell-session
-(vnojsite) $ ./manage.py check
+```python
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
 ```
 
-At this point, you should attempt to run the server, and see if it all works.
+## Bước 7: Khởi tạo database
 
-```shell-session
-(vnojsite) $ ./manage.py runserver 0.0.0.0:8000
+### Tạo bảng trong database
+
+```sh
+./manage.py migrate
 ```
 
-You should Ctrl-C to exit after verifying.
+### Load dữ liệu mẫu
 
-!> **Do not use `runserver` in production!** <br> <br>
-We will set up a proper webserver using nginx and uWSGI soon.
-
-You should also test to see if `bridged` runs.
-
-```shell-session
-(vnojsite) $ ./manage.py runbridged
+```sh
+./manage.py loaddata navbar
+./manage.py loaddata language_small
+./manage.py loaddata demo
 ```
 
-If there are no errors after about 10 seconds, it probably works.
-You should Ctrl-C to exit.
+**Lưu ý:** Lệnh `loaddata demo` tạo tài khoản admin với username và password đều là `admin`. Bạn nên đổi mật khẩu sau khi đăng nhập.
 
-Next, test that the Celery workers run.
+### Tạo tài khoản admin
 
-```shell-session
-(vnojsite) $ celery -A dmoj_celery worker
+```sh
+./manage.py createsuperuser
 ```
 
-You can Ctrl-C to exit.
+Làm theo hướng dẫn để tạo tài khoản.
 
-## Setting up uWSGI
+## Bước 8: Kiểm tra
 
-`runserver` is insecure and not meant for production workloads, and should not be used beyond testing.
-In the rest of this guide, we will be installing `uwsgi` and `nginx` to serve the site, using `supervisord`
-to keep `site` and `bridged` running. It's likely other configurations may work, but they are unsupported.
+### Kiểm tra cấu hình
 
-First, copy our `uwsgi.ini` ([link](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/uwsgi.ini)). You should change the paths to reflect your install.
-
-You need to install `uwsgi`.
-
-```shell-session
-(vnojsite) $ pip3 install uwsgi
+```sh
+./manage.py check
 ```
 
-To test, run:
+### Chạy thử server
 
-```shell-session
-(vnojsite) $ uwsgi --ini uwsgi.ini
+```sh
+./manage.py runserver 0.0.0.0:8000
 ```
 
-If it says workers are spawned, it probably works.
-You should Ctrl-C to exit.
+Truy cập `http://localhost:8000` để kiểm tra. Nhấn Ctrl+C để dừng.
 
-## Setting up supervisord
+**Cảnh báo:** Không dùng `runserver` cho production!
 
-You should now install `supervisord` and configure it.
+### Kiểm tra bridge
 
-```shell-session
-$ apt install supervisor
+```sh
+./manage.py runbridged
 ```
 
-Copy our `site.conf` ([link](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/site.conf)) to `/etc/supervisor/conf.d/site.conf`, `bridged.conf` ([link](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/bridged.conf)) to `/etc/supervisor/conf.d/bridged.conf`, `celery.conf` ([link](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/celery.conf)) to `/etc/supervisor/conf.d/celery.conf` and fill in the fields.
+Đợi 10 giây, nếu không có lỗi thì OK. Nhấn Ctrl+C để dừng.
 
-Next, reload `supervisord` and check that the site, bridged, and celery have started.
+### Kiểm tra Celery
 
-```shell-session
-$ supervisorctl update
-$ supervisorctl status
+```sh
+celery -A dmoj_celery worker
 ```
 
-If all three processes are running, everything is good! Otherwise, peek at the logs and see what's wrong.
+Nhấn Ctrl+C để dừng.
 
-## Setting up nginx
+## Bước 9: Cài đặt uWSGI
 
-Now, it's time to set up `nginx`.
+uWSGI giúp chạy website một cách an toàn và hiệu quả.
 
-```shell-session
-$ apt install nginx
+### Cài đặt
+
+```sh
+pip3 install uwsgi
 ```
 
-You should copy the sample `nginx.conf` ([link](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/nginx.conf)), edit it and place it in wherever it is supposed to be for your nginx install.
+### Cấu hình
 
-?> Typically, `nginx` site files are located in `/etc/nginx/conf.d`.
-Some installations might place it at `/etc/nginx/sites-available` and require a symlink in `/etc/nginx/sites-enabled`.
+Tạo file `uwsgi.ini` từ [file mẫu](https://github.com/luyencode/docs/blob/master/sample_files/uwsgi.ini). Chỉnh sửa đường dẫn cho phù hợp.
 
-Next, check if there are any issues with your nginx setup.
+### Kiểm tra
 
-```shell-session
-$ nginx -t
+```sh
+uwsgi --ini uwsgi.ini
 ```
 
-If not, reload the `nginx` configuration.
+Nếu thấy "spawned uWSGI worker" thì OK. Nhấn Ctrl+C để dừng.
 
-```shell-session
-$ service nginx reload
+## Bước 10: Cài đặt Supervisor
+
+Supervisor giúp tự động chạy và giám sát các dịch vụ.
+
+### Cài đặt
+
+```sh
+apt install supervisor
 ```
 
-You should be good to go. Visit the site at where you set it up to verify.
+### Cấu hình
 
-If it does not work, check `nginx` logs and `uwsgi` log `stdout`/`stderr` for details.
+Copy các file cấu hình vào `/etc/supervisor/conf.d/`:
 
-?> Now that your site is installed, remember to set `DEBUG` to `False` in `local_settings`. Leaving it `True` is a security risk.
+- [site.conf](https://github.com/luyencode/docs/blob/master/sample_files/site.conf)
+- [bridged.conf](https://github.com/luyencode/docs/blob/master/sample_files/bridged.conf)
+- [celery.conf](https://github.com/luyencode/docs/blob/master/sample_files/celery.conf)
 
-## Configuration of event server
+Chỉnh sửa đường dẫn trong các file cho phù hợp.
 
-Create `config.js` inside directory `websocket` with the following content:
+### Khởi động
+
+```sh
+supervisorctl update
+supervisorctl status
+```
+
+Tất cả dịch vụ phải có trạng thái RUNNING.
+
+## Bước 11: Cài đặt Nginx
+
+Nginx là web server giúp phục vụ website ra internet.
+
+### Cài đặt
+
+```sh
+apt install nginx
+```
+
+### Cấu hình
+
+Copy [file cấu hình mẫu](https://github.com/luyencode/docs/blob/master/sample_files/nginx.conf) vào `/etc/nginx/conf.d/lcoj.conf`.
+
+Chỉnh sửa:
+- `server_name`: Tên miền của bạn
+- Các đường dẫn cho phù hợp
+
+### Kiểm tra và khởi động
+
+```sh
+nginx -t
+service nginx reload
+```
+
+Truy cập website qua trình duyệt để kiểm tra.
+
+**Quan trọng:** Sau khi kiểm tra xong, đổi `DEBUG = False` trong `local_settings.py`.
+
+## Bước 12: Cấu hình Event Server
+
+Event server giúp cập nhật realtime (như bảng xếp hạng trong contest).
+
+### Tạo file cấu hình
+
+Tạo file `websocket/config.js`:
 
 ```js
 const config = {
@@ -253,26 +308,53 @@ const config = {
 export default config;
 ```
 
-This assumes you use `nginx`, or there be dragons.
-You may need to shuffle ports if they are already used.
+### Cài đặt thư viện
 
-`get_port` should be the same as the port for `/event/` in `nginx.conf`.
-`http_port` should be the same as the port for `/channels/` in `nginx.conf`.
-`post_port` should be the same as the port in `EVENT_DAEMON_POST` in `local_settings`.
-You need to configure `EVENT_DAEMON_GET` and `EVENT_DAEMON_POLL`.
-You need to uncomment the relevant section in the `nginx` configuration.
-
-Need to install the dependencies.
-
-```shell-session
-(vnojsite) $ pip3 install websocket-client
+```sh
+pip3 install websocket-client
 ```
 
-Now copy `wsevent.conf` ([link](https://github.com/VNOI-Admin/vnoj-docs/blob/master/sample_files/wsevent.conf)) to `/etc/supervisor/conf.d/wsevent.conf`, changing paths, and then update supervisor and nginx.
+### Cấu hình trong local_settings.py
 
-```shell-session
-$ supervisorctl update
-$ supervisorctl restart bridged
-$ supervisorctl restart site
-$ service nginx restart
+Thêm:
+
+```python
+EVENT_DAEMON_GET = 'ws://127.0.0.1:15100/'
+EVENT_DAEMON_POST = 'http://127.0.0.1:15101/'
+EVENT_DAEMON_POLL = '/channels/'
 ```
+
+### Cấu hình Nginx
+
+Bỏ comment các section `/event/` và `/channels/` trong file nginx config.
+
+### Cấu hình Supervisor
+
+Copy [wsevent.conf](https://github.com/luyencode/docs/blob/master/sample_files/wsevent.conf) vào `/etc/supervisor/conf.d/`.
+
+### Khởi động lại
+
+```sh
+supervisorctl update
+supervisorctl restart bridged
+supervisorctl restart site
+service nginx restart
+```
+
+## Hoàn tất!
+
+Website của bạn đã sẵn sàng. Truy cập `/admin` để quản lý hệ thống.
+
+## Xử lý lỗi thường gặp
+
+**Website không hiển thị:**
+- Kiểm tra log: `supervisorctl tail -f site`
+- Kiểm tra nginx: `tail -f /var/log/nginx/error.log`
+
+**Database lỗi:**
+- Kiểm tra thông tin kết nối trong `local_settings.py`
+- Kiểm tra MariaDB đang chạy: `service mariadb status`
+
+**Static files không load:**
+- Chạy lại: `./manage.py collectstatic`
+- Kiểm tra đường dẫn `STATIC_ROOT` trong cấu hình

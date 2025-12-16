@@ -1,46 +1,207 @@
-# SSL proxying for user content
+# SSL Proxy cho nội dung người dùng
 
-!> Untested on VNOJ
+Khi website dùng HTTPS nhưng người dùng nhúng hình ảnh HTTP, trình duyệt sẽ chặn (mixed content). SSL proxy giúp giải quyết vấn đề này.
 
-User-generated content (e.g., comments) poses a threat to site security, and can cause mixed-content warnings. If your site is served over HTTPS, this may be suboptimal - routing user content through a secure server can help.
+**Lưu ý:** Tính năng này tùy chọn, chỉ cần nếu cho phép người dùng nhúng hình ảnh từ nguồn bên ngoài.
 
-The DMOJ site provides support for this through the [Github Camo](https://github.com/atmos/camo) project, which requires CoffeeScript to be installed (`apt install coffeescript`).
+## Cài đặt Camo
 
-!>  Setting up Camo on the same server as your site can leave you open to attacks, even if you are set up behind Cloudflare: a
-    malicious user can link an image to their domain, have Camo access it, and then view their server logs to see the requesting
-    IP (allowing them to attack you behind e.g. Cloudflare). <br> <br>
-    If this is important in your scenario, consider running Camo on a separate server.
+Camo là proxy server chuyển HTTP thành HTTPS.
 
-## Installing Camo to `/code`
+### Bước 1: Cài đặt Node.js
 
-```shell-session
-$ cd /code
-$ git clone https://github.com/atmos/camo.git camo
+```sh
+curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+apt install nodejs
 ```
 
-Now, Camo may be started by running `/code/camo/server.coffee`.
+### Bước 2: Cài đặt Camo
 
-```shell-session
-$ PORT="<port>" CAMO_KEY="<key>" coffee /code/camo/server.coffee
+```sh
+npm install -g camo
 ```
 
-- Camo will listen on `<port>`.
-- `<key>` is the HMAC secret key used for digests. Set it to anything you want. This is used for cache-busting purposes, so it does not need to be secure.
+### Bước 3: Tạo secret key
 
-## Configuring DMOJ to use Camo
+```sh
+openssl rand -hex 32
+```
 
-To enable the use of Camo in the DMOJ site, you need to specify a couple of variables in your `local_settings.py`.
+Lưu key này, sẽ dùng ở bước sau.
+
+### Bước 4: Chạy Camo
+
+```sh
+PORT=8081 CAMO_KEY="your_secret_key_here" camo
+```
+
+## Cấu hình LCOJ
+
+Thêm vào `local_settings.py`:
 
 ```python
-# The URL on which Camo is listening
-DMOJ_CAMO_URL = "https://example.com[:port]"
-# The key you specified for running Camo
-DMOJ_CAMO_KEY = "<key>"
-# Domains to exclude from Camo proxying. Typically, these would be your own domains which you use
-# for content delivery, and you know to already be secure.
-DMOJ_CAMO_EXCLUDE = ("https://dmoj.ml", "https://dmoj.ca")
-# Whether Camo should use HTTPS for protocol neutral URIs (you probably want this)
-DMOJ_CAMO_HTTPS = True
+# URL của Camo
+DMOJ_CAMO_URL = "https://luyencode.net:8081"
+
+# Secret key (phải giống với CAMO_KEY)
+DMOJ_CAMO_KEY = "your_secret_key_here"
+
+# Domains không cần proxy (domains của bạn)
+DMOJ_CAMO_EXCLUDE = ["luyencode.net", "cdn.luyencode.net"]
 ```
 
-Restart DMOJ for the changes to take effect. After restarting, you may have to purge Django's cache before seeing any changes.
+## Cấu hình Nginx
+
+### Reverse proxy cho Camo
+
+```nginx
+location /camo/ {
+    proxy_pass http://localhost:8081/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+### Khởi động lại
+
+```sh
+service nginx reload
+supervisorctl restart site
+```
+
+## Chạy Camo với Supervisor
+
+Tạo file `/etc/supervisor/conf.d/camo.conf`:
+
+```ini
+[program:camo]
+command=/usr/bin/camo
+directory=/tmp
+user=camo
+environment=PORT="8081",CAMO_KEY="your_secret_key_here"
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/camo.log
+```
+
+Khởi động:
+
+```sh
+supervisorctl update
+supervisorctl start camo
+```
+
+## Cách hoạt động
+
+### Trước khi có Camo
+
+```
+User -> HTTPS -> Website -> HTTP image -> ❌ Blocked
+```
+
+### Sau khi có Camo
+
+```
+User -> HTTPS -> Website -> HTTPS -> Camo -> HTTP image -> ✓ OK
+```
+
+### Ví dụ
+
+**URL gốc:**
+```
+http://example.com/image.png
+```
+
+**URL qua Camo:**
+```
+https://luyencode.net/camo/abc123.../image.png
+```
+
+## Kiểm tra
+
+### Test Camo
+
+```sh
+curl http://localhost:8081/
+```
+
+Nếu thấy "hwhat", Camo đang chạy.
+
+### Test proxy
+
+1. Tạo bình luận với hình ảnh HTTP
+2. Kiểm tra source code trang
+3. URL hình ảnh phải qua Camo
+
+## Xử lý lỗi
+
+**Hình ảnh không load:**
+- Kiểm tra Camo đang chạy
+- Kiểm tra `DMOJ_CAMO_URL` và `DMOJ_CAMO_KEY`
+- Xem log Camo: `supervisorctl tail -f camo`
+
+**Mixed content warning:**
+- Kiểm tra `DMOJ_CAMO_URL` dùng HTTPS
+- Kiểm tra nginx config
+
+**Hình ảnh bị chặn:**
+- Một số site chặn proxy
+- Không có cách giải quyết, người dùng phải upload hình lên server
+
+## Bảo mật
+
+### Giới hạn kích thước
+
+Thêm vào Camo config:
+
+```sh
+CAMO_MAX_SIZE=5242880  # 5MB
+```
+
+### Giới hạn loại file
+
+Chỉ cho phép hình ảnh:
+
+```sh
+CAMO_ALLOWED_CONTENT_TYPES="image/*"
+```
+
+### Rate limiting
+
+Dùng nginx để giới hạn:
+
+```nginx
+location /camo/ {
+    limit_req zone=camo burst=10;
+    proxy_pass http://localhost:8081/;
+}
+```
+
+## Tối ưu
+
+### Cache
+
+Camo tự động cache. Để tăng cache time:
+
+```sh
+CAMO_TIMING_ALLOW_ORIGIN="*"
+CAMO_HEADER_VIA="Camo"
+```
+
+### CDN
+
+Nếu có CDN, đặt Camo sau CDN:
+
+```
+User -> CDN -> Camo -> HTTP image
+```
+
+## Lưu ý
+
+- Camo tốn băng thông vì proxy tất cả hình ảnh
+- Nên giới hạn kích thước và loại file
+- Không proxy video (quá nặng)
+- Khuyến khích người dùng upload hình lên server thay vì dùng link ngoài

@@ -1,111 +1,200 @@
-# Rendering LaTeX diagrams in problem statements
+# Hiển thị sơ đồ LaTeX
 
-!> Untested on VNOJ
+LCOJ hỗ trợ hiển thị sơ đồ TikZ/PGF trong đề bài, giúp vẽ đồ thị, hình học, và sơ đồ phức tạp.
 
-The DMOJ platform is capable of rendering LaTeX documents onto problem statements. This can be useful for things like
-drawing graphs with ease, porting over PDF resources, and so on. An example of this functionality can be seen live
-[here](https://dmoj.ca/problem/ds4), [here](https://dmoj.ca/problem/ccoqr16p3), and
-[here](https://dmoj.ca/problem/ccoqr16p1).
+**Lưu ý:** Tính năng này tùy chọn và nâng cao. Nếu chỉ cần công thức toán, dùng [Mathoid](/site/mathoid.md).
 
-DMOJ supports this through a related project, [Texoid](https://github.com/DMOJ/texoid). Texoid interfaces with texlive
-to provide a REST endpoint for LaTeX rendering.
+## Cài đặt Texoid
 
-## Installing Texoid
+Texoid render sơ đồ TikZ thành hình ảnh.
 
-First, clone the Texoid repository, and install it and its dependencies into a new virtualenv.
+### Bước 1: Cài đặt LaTeX
 
-```shell-session
-$ git clone https://github.com/DMOJ/texoid.git
-$ cd texoid
-$ python3 -m venv env
-$ . env/bin/activate
-$ pip install -e .
+```sh
+apt update
+apt install texlive-full
 ```
 
-Texoid relies on LaTeX distribution to render documents to DVI format, `dvisvgm` to convert to SVGs, and ImageMagick to
-convert SVGs into PNGs. On a typical Debian or Ubuntu machine, you can fetch everything you need with:
+**Lưu ý:** `texlive-full` rất lớn (~5GB). Nếu muốn nhẹ hơn:
 
-```shell-session
-$ apt install texlive-latex-base texlive-binaries imagemagick
+```sh
+apt install texlive-latex-base texlive-latex-extra texlive-pictures
 ```
 
-## Running Texoid
+### Bước 2: Clone Texoid
 
-To start the Texoid server, run:
-
-```shell-session
-$ export LATEX_BIN=<path to latex>
-$ export DVISVGM_BIN=<path to dvisvgm>
-$ export CONVERT_BIN=<path to convert>
-$ env/bin/texoid --port=<port>
+```sh
+git clone https://github.com/DMOJ/texoid.git
+cd texoid
 ```
 
-The environment variables are not necessary if all three executables are present in `$PATH`, as they should be if you
-followed the installation instructions above. Here, convert refers to ImageMagick's `convert` tool.
+### Bước 3: Cài đặt dependencies
 
-To test, start Texoid with `--port=8886`. Then, we can request a render of a simple LaTeX document.
-
-```latex
-\documentclass{standalone}
-\begin{document}
-$E=mc^2$
-\end{document}
+```sh
+python3 -m venv env
+source env/bin/activate
+pip install -e .
 ```
 
-The response should contain JSON, with SVG and a Base64-encoded PNG inside.
+### Bước 4: Chạy Texoid
 
-```shell-session
-$ curl --data 'q=%5Cdocumentclass%7Bstandalone%7D%0A%5Cbegin%7Bdocument%7D%0A%24E%3Dmc%5E2%24%0A%5Cend%7Bdocument%7D' http://localhost:8886
-{
-    "success": true,
-    "svg": "<?xml version='1.0'?><svg...</svg>",
-    "png": "iVBORw0KGgoA...kSuQmCC\n",
-    "meta": {
-        "width": "48",
-        "height": "10"
-    }
+```sh
+env/bin/texoid --port=8886
+```
+
+## Cấu hình LCOJ
+
+Thêm vào `local_settings.py`:
+
+```python
+# URL của Texoid
+TEXOID_URL = 'http://localhost:8886'
+
+# Thư mục cache
+TEXOID_CACHE_ROOT = '/home/lcoj/texoid_cache'
+
+# URL cache
+TEXOID_CACHE_URL = '//luyencode.net/texoid/'
+```
+
+### Cấu hình Nginx
+
+```nginx
+location /texoid/ {
+    alias /home/lcoj/texoid_cache/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
 }
 ```
 
-## Configuring DMOJ to use Texoid
+### Tạo thư mục cache
 
-Once Texoid is installed, configuring DMOJ to generate LaTeX diagrams with it requires the addition of a few lines to
-`local_settings.py`.
-
-```python
-# The URL Texoid is running on.
-TEXOID_URL = 'http://localhost:8886'
-
-# A directory accessible by the user running Texoid, as well as the web (nginx)
-# user.
-#
-# For optimal performance (since launching texlive is expensive), change this
-# to something more persistent than /tmp.
-TEXOID_CACHE_ROOT = '/tmp/texoid_cache'
-
-# The URL base TEXOID_CACHE_ROOT is configured to be served under in your
-# webserver. For example, if /tmp/texoid_cache/render.png exists,
-# example.com/texoid/render.png should serve it.
-TEXOID_CACHE_URL = '//example.com/texoid/'
+```sh
+mkdir -p /home/lcoj/texoid_cache
+chown www-data:www-data /home/lcoj/texoid_cache
+chmod 755 /home/lcoj/texoid_cache
 ```
 
-Restart DMOJ for the changes to take effect. After restarting, you may have to purge Django's cache before seeing any changes.
+### Khởi động lại
 
-## Using LaTeX diagrams in problem statements
+```sh
+supervisorctl restart site
+service nginx reload
+```
 
-To invoke Texoid to generate LaTeX diagrams, wrap your LaTeX code in `<latex>` blocks.
+## Sử dụng
+
+### Cú pháp cơ bản
+
+Dùng `$$tikz...$$` để vẽ sơ đồ:
 
 ```markdown
-## This is a LaTeX Demo
-
-The diagram below is **real LaTeX!**
-
-<latex>
-\documentclass{standalone}
-\begin{document}
-$E=mc^2$
-\end{document}
-</latex>
+$$tikz
+\begin{tikzpicture}
+\draw (0,0) -- (2,0) -- (2,2) -- (0,2) -- cycle;
+\end{tikzpicture}
+$$
 ```
 
-Typically, `\documentclass{standalone}` works best for inlining diagrams.
+### Ví dụ: Vẽ đồ thị
+
+```markdown
+$$tikz
+\begin{tikzpicture}[node distance=2cm]
+\node[circle,draw] (1) {1};
+\node[circle,draw] (2) [right of=1] {2};
+\node[circle,draw] (3) [below of=1] {3};
+\draw[->] (1) -- (2);
+\draw[->] (1) -- (3);
+\draw[->] (2) -- (3);
+\end{tikzpicture}
+$$
+```
+
+### Ví dụ: Vẽ cây
+
+```markdown
+$$tikz
+\begin{tikzpicture}[level distance=1.5cm,
+  level 1/.style={sibling distance=3cm},
+  level 2/.style={sibling distance=1.5cm}]
+\node[circle,draw] {1}
+  child {node[circle,draw] {2}
+    child {node[circle,draw] {4}}
+    child {node[circle,draw] {5}}
+  }
+  child {node[circle,draw] {3}
+    child {node[circle,draw] {6}}
+    child {node[circle,draw] {7}}
+  };
+\end{tikzpicture}
+$$
+```
+
+### Ví dụ: Hình học
+
+```markdown
+$$tikz
+\begin{tikzpicture}
+\coordinate (A) at (0,0);
+\coordinate (B) at (4,0);
+\coordinate (C) at (2,3);
+\draw (A) -- (B) -- (C) -- cycle;
+\node[below left] at (A) {A};
+\node[below right] at (B) {B};
+\node[above] at (C) {C};
+\end{tikzpicture}
+$$
+```
+
+## Chạy với Supervisor
+
+Tạo file `/etc/supervisor/conf.d/texoid.conf`:
+
+```ini
+[program:texoid]
+command=/path/to/texoid/env/bin/texoid --port=8886
+directory=/path/to/texoid
+user=texoid
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/texoid.log
+```
+
+Khởi động:
+
+```sh
+supervisorctl update
+supervisorctl start texoid
+```
+
+## Xử lý lỗi
+
+**Sơ đồ không hiển thị:**
+- Kiểm tra Texoid đang chạy
+- Kiểm tra LaTeX đã cài đặt: `pdflatex --version`
+- Xem log Texoid
+
+**Lỗi compile:**
+- Kiểm tra cú pháp TikZ
+- Test trên [Overleaf](https://www.overleaf.com/)
+- Cài đặt package LaTeX thiếu
+
+**Timeout:**
+- Sơ đồ phức tạp có thể mất thời gian
+- Tăng timeout trong Texoid config
+- Đơn giản hóa sơ đồ
+
+## Tài nguyên học TikZ
+
+- [TikZ Tutorial](https://www.overleaf.com/learn/latex/TikZ_package)
+- [TikZ Examples](https://texample.net/tikz/examples/)
+- [PGF Manual](http://mirrors.ctan.org/graphics/pgf/base/doc/pgfmanual.pdf)
+
+## Lưu ý
+
+- TikZ phức tạp, cần thời gian học
+- Nếu chỉ cần hình đơn giản, dùng hình ảnh thông thường
+- Cache giúp tăng tốc độ load
+- Không nên vẽ sơ đồ quá phức tạp

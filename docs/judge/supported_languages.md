@@ -1,6 +1,7 @@
-# Supported languages
+# Các ngôn ngữ được hỗ trợ
 
-The DMOJ supports grading in [56 languages](https://github.com/VNOI-Admin/judge-server/tree/master/dmoj/executors):
+LCOJ hỗ trợ chấm bài với [56 ngôn ngữ lập trình](https://github.com/luyencode/judge-server/tree/master/dmoj/executors):
+
 Ada, Assembly (x64/x86), AWK, Brain\*\*\*\*,
 C (Clang/GCC), C#, C++14 (Clang/GCC),
 C++03/11/17/20, C11, COBOL, D, Dart, F#, Forth,
@@ -10,20 +11,31 @@ NASM64, OCaml, Pascal, Perl, PHP, Pike, Prolog,
 PyPy 2/3, Python 2/3, Racket, Ruby, Rust, Scala,
 Scheme, Sed, Swift, TCL, Text, Turing,
 V8 JavaScript, Visual Basic, Zig.
-All these languages are tested in production on the [DMOJ](https://dmoj.ca/).
 
-As it stands, some languages are used more than others in the scope of competitive programming, so some executors have
-been tested more than others. As a result, they are more likely to be bug-free.
-[This page](https://dmoj.ca/stats/language/) lists the most used languages on the DMOJ, along with the number of
-submissions in those languages. As of October 2022, the stats are:
+## Ngôn ngữ phổ biến
 
-```
-Java 8: 1047632
-Python 3: 900484
-C++11: 589256
-C++14: 510588
-C++17: 393980
-Java (latest): 172589
-C++20: 163351
-Python 2: 142767
-```
+Các ngôn ngữ được sử dụng nhiều nhất trong lập trình thi đấu:
+
+- **Python 3**: Dễ học, cú pháp đơn giản
+- **C++**: Nhanh, mạnh mẽ, phổ biến nhất
+- **Java**: Ổn định, nhiều thư viện
+- **C**: Nhanh, gần với phần cứng
+- **Pascal**: Dễ học cho người mới
+
+## Phiên bản C++
+
+LCOJ hỗ trợ nhiều phiên bản C++:
+
+- **C++03**: Phiên bản cũ
+- **C++11**: Thêm auto, lambda, range-based for
+- **C++14**: Cải tiến C++11
+- **C++17**: Thêm structured binding, if constexpr
+- **C++20**: Thêm concepts, ranges, coroutines
+
+**Khuyến nghị:** Sử dụng C++17 hoặc C++20 cho các tính năng mới nhất.
+
+## Lưu ý
+
+- Một số ngôn ngữ ít được sử dụng có thể có lỗi chưa được phát hiện
+- Nếu gặp vấn đề với ngôn ngữ nào, vui lòng [báo lỗi](https://github.com/luyencode/judge-server/issues)
+- Xem danh sách ngôn ngữ đầy đủ tại [trang runtimes](https://luyencode.net/runtimes)

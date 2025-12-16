@@ -1,189 +1,187 @@
-# Permission system
+# Hệ thống phân quyền
 
-The VNOJ's permission system is very extensive and allows fine-tuning a user's permissions. Here, we will document which permissions are required to perform certain tasks on the site. Any undocumented models means that they follow Django's default permission system of (`can_add_<model>`, `can_change_<model>`, `can_delete_<model>`, and `can_view_<model>`).
+LCOJ có hệ thống phân quyền chi tiết, cho phép kiểm soát những gì người dùng có thể làm.
 
-## Blog posts
+## Các quyền cơ bản
 
-Blog posts follow Django's default permission system.
+Django cung cấp 4 quyền mặc định cho mỗi model:
+- `can_add_<model>`: Thêm mới
+- `can_change_<model>`: Chỉnh sửa
+- `can_delete_<model>`: Xóa
+- `can_view_<model>`: Xem
 
-#### `edit_all_post` (Edit all posts)
+## Blog Posts
 
-**Prerequisite permissions**: `change_blogpost`
+**`edit_all_post`** - Chỉnh sửa tất cả bài viết
 
-The user can edit all blog posts on the admin site.
+Người dùng có thể chỉnh sửa mọi bài viết trên trang admin.
 
-## Comments
+## Comments (Bình luận)
 
-Comments and comment locks follow Django's default permission system.
+**`override_comment_lock`** - Bỏ qua khóa bình luận
 
-#### `override_comment_lock` (Override comment lock)
+Người dùng có thể bình luận ngay cả khi trang đã bị khóa bình luận.
 
-The user can post comments on pages which are comment locked.
+## Contests (Kỳ thi)
 
-## Contests
+**`see_private_contest`** - Xem kỳ thi riêng tư
 
-Contest participations, contest problems, contest submissions, and contest tags follow Django's default permission system.
+Người dùng có thể xem tất cả kỳ thi mà không cần là organizer. Cũng có thể xem bảng xếp hạng ẩn.
 
-#### `see_private_contest` (See private contests)
+**`edit_own_contest`** - Chỉnh sửa kỳ thi của mình
 
-The user can see all contests without explicitly set as organizer. The user will also be able to see hidden scoreboards. However, they will *not* be able to edit contests on the admin site.
+Người dùng có thể chỉnh sửa kỳ thi mà họ là organizer.
 
-#### `edit_own_contest` (Edit own contests)
+**`edit_all_contest`** - Chỉnh sửa tất cả kỳ thi
 
-The user can edit contests on the admin site, but only if they are explicitly set as organizer.
+Người dùng có thể xem và chỉnh sửa mọi kỳ thi, không cần là organizer.
 
-#### `edit_all_contest` (Edit all contests)
+**`clone_contest`** - Nhân bản kỳ thi
 
-**Prerequisite permissions: `edit_own_contest`**
+Người dùng có thể nhân bản kỳ thi mà họ có quyền chỉnh sửa.
 
-**Superseded permissions: `see_private_contest`**
+**`moss_contest`** - Chạy MOSS
 
-The user can see and edit all contests on the admin site without explicitly set as organizer.
+Người dùng có thể chạy MOSS (phát hiện gian lận) trên kỳ thi.
 
-#### `clone_contest` (Clone contest)
+**`contest_rating`** - Xem rating
 
-The user can clone contests that they can edit on the admin site.
+Người dùng có thể xem rating của thí sinh trong kỳ thi.
 
-#### `moss_contest` (MOSS contest)
+**`contest_access_code`** - Xem mã truy cập
 
-The user can run MOSS on contests that they can edit on the admin site.
+Người dùng có thể xem mã truy cập của kỳ thi.
 
-#### `contest_rating` (Rate contests)
+**`create_private_contest`** - Tạo kỳ thi riêng tư
 
-The user can edit rating-related fields on the contest admin page, and rate the contest.
+Người dùng có thể tạo kỳ thi riêng tư.
 
-#### `contest_access_code` (Contest access codes)
+## Problems (Bài tập)
 
-The user can edit the `access_code` field on the contest admin page.
+**`see_private_problem`** - Xem bài tập riêng tư
 
-#### `create_private_contest` (Create private contests)
+Người dùng có thể xem tất cả bài tập, kể cả bài riêng tư.
 
-The user can create organization-private and user-private contests. The user can also edit the `is_visible` field
-on the contest admin page as long as the contest is organization-private or user-private.
+**`edit_own_problem`** - Chỉnh sửa bài tập của mình
 
-#### `change_contest_visibility` (Change contest visibility)
+Người dùng có thể chỉnh sửa bài tập mà họ là tác giả hoặc curator.
 
-The user can edit the `is_visible` field on the contest admin page.
+**`edit_all_problem`** - Chỉnh sửa tất cả bài tập
 
-#### `contest_problem_label` (Edit contest problem label script)
+Người dùng có thể chỉnh sửa mọi bài tập.
 
-The user can edit the contest problem label script on the contest admin page. The contest problem label script is a LUA script for customizing the header for each problem on the scoreboard.
+**`edit_public_problem`** - Chỉnh sửa bài tập công khai
 
-#### `lock_contest` (Change lock status of contest)
+Người dùng có thể chỉnh sửa bài tập công khai.
 
-The user will be able to lock and unlock submissions from a contest. Note that this permission does not require the `lock_submission` permission. See the `lock_submission` permission for more details on what locking a submission entails.
+**`problem_full_markup`** - Dùng full markup
 
-## Organizations
+Người dùng có thể dùng HTML/JavaScript trong đề bài.
 
-Organizations follow Django's default permission system.
+**`clone_problem`** - Nhân bản bài tập
 
-#### `organization_admin` (Administer organizations)
+Người dùng có thể nhân bản bài tập.
 
-The user can edit `registrant`, `admins`, `is_open`, `slots` fields on the admin site.
+## Submissions (Bài nộp)
 
-#### `edit_all_organization` (Edit all organizations)
+**`abort_any_submission`** - Hủy bất kỳ bài nộp
 
-**Prerequisite permissions: `change_organization`**
+Người dùng có thể hủy bài nộp của bất kỳ ai.
 
-The user can edit all organizations.
+**`rejudge_submission`** - Chấm lại bài nộp
 
-## Problems
+Người dùng có thể chấm lại bài nộp.
 
-#### `see_organization_problem` (See organization-private problems)
+**`rejudge_submission_lot`** - Chấm lại hàng loạt
 
-The user can see organization-private (but public) problems.
+Người dùng có thể chấm lại nhiều bài nộp cùng lúc.
 
-#### `see_private_problem` (See hidden problems)
+**`spam_submission`** - Đánh dấu spam
 
-**Superseded permissions: `see_organization_problem`**
+Người dùng có thể đánh dấu bài nộp là spam.
 
-The user can see all problems. However, they will *not* be able to edit problems on the admin site or view submission source code.
+**`view_all_submission`** - Xem tất cả bài nộp
 
-#### `edit_own_problem` (Edit own problems)
+Người dùng có thể xem mã nguồn của mọi bài nộp.
 
-The user can edit problems on the admin site, but only if they are explicitly set as author or curator. They will also be able to view submission source code for these problems.
+**`resubmit_other`** - Nộp lại cho người khác
 
-#### `edit_public_problem` (Edit public problems)
+Người dùng có thể nộp lại bài của người khác.
 
-**Prerequisite permissions: `edit_own_problem`**
+## Organizations (Tổ chức)
 
-The user can edit problems on the admin site, but only if the problem is publicly visible. Note that this includes all problems which are marked as public, regardless of whether they are only public to specific organizations or everyone. They will also be able to view submission source code for these problems.
+**`organization_admin`** - Quản trị tổ chức
 
-#### `edit_all_problem` (Edit all problems)
+Người dùng có thể quản lý tổ chức mà họ là admin.
 
-**Prerequisite permissions: `edit_own_problem`**
+**`edit_all_organization`** - Chỉnh sửa tất cả tổ chức
 
-**Superseded permissions: `see_private_problem`, `edit_public_problem`, `view_all_submission`**
+Người dùng có thể chỉnh sửa mọi tổ chức.
 
-The user can see and edit all problems on the admin site.
+## Users (Người dùng)
 
-#### `problem_full_markup` (Edit problems with full markup)
+**`edit_profile`** - Chỉnh sửa profile
 
-The user will be able to edit the description of problems which offer full markup. Full markup includes access to all HTML tags, including the `<script>` and `<style>` tags. Without this permission, the user will only be able to edit problems whose description offers a safe, limited subset of HTML tags.
+Người dùng có thể chỉnh sửa profile của người khác.
 
-#### `clone_problem` (Clone problem)
+**`totp`** - Quản lý 2FA
 
-The user can clone problems that they can edit.
+Người dùng có thể quản lý 2FA của người khác.
 
-#### `change_public_visibility` (Change is_public field)
+## Judges
 
-The user can change the `is_public` field.
+**`test_site`** - Test judge
 
-#### `change_manually_managed` (Change is_manually_managed field)
+Người dùng có thể test judge.
 
-The user can change the `is_manually_managed` field.
+## Cách cấp quyền
 
-### Problem solutions
+### Cách 1: Qua Groups
 
-Problem solutions follow Django's default permission system.
+1. Vào `/admin/auth/group/`
+2. Tạo group mới (ví dụ: "Problem Setters")
+3. Chọn các quyền cần thiết
+4. Thêm người dùng vào group
 
-#### `see_private_solution` (See hidden solutions)
+### Cách 2: Qua User
 
-The user can see all problem solutions for problems they can access, regardless of if the solution is public or not.
+1. Vào `/admin/judge/profile/`
+2. Chọn người dùng
+3. Chọn các quyền trong phần "User permissions"
 
-## Profile
+## Các role thường dùng
 
-Profiles follow Django's default permission system.
+### Admin
 
-#### `totp` (Edit TOTP settings)
+Có tất cả quyền, quản lý toàn bộ hệ thống.
 
-The user can see and edit TOTP-related fields, such as a user's TOTP key.
+### Problem Setter
 
-## Submissions
+Quyền cần thiết:
+- `edit_own_problem`
+- `see_private_problem`
+- `view_all_submission`
+- `rejudge_submission`
 
-Submission visibility and editability are determined by problem permissions.
-If the user can edit the problem, they can also edit related submissions.
-No user can add submissions, and deleting permissions follow Django's default permission system.
+### Contest Organizer
 
-#### `abort_any_submission` (Abort any submission)
+Quyền cần thiết:
+- `edit_own_contest`
+- `see_private_contest`
+- `clone_contest`
+- `contest_rating`
 
-The user can abort any submission. Without this permission, the user can only abort
-submissions that they have submitted and which have not been rejudged.
+### Moderator
 
-#### `rejudge_submission` (Rejudge the submission)
+Quyền cần thiết:
+- `edit_all_post`
+- `override_comment_lock`
+- `spam_submission`
+- `view_all_submission`
 
-**Prerequisite permissions: `edit_own_problem`**
+## Lưu ý
 
-The user can rejudge submissions for problems they can edit.
-
-#### `rejudge_submission_lot` (Rejudge a lot of submissions)
-
-**Prerequisite permissions: `rejudge_submission`**
-
-The user can batch-rejudge submissions, and bypass the `DMOJ_SUBMISSIONS_REJUDGE_LIMIT` setting.
-
-#### `spam_submission` (Submit without limit)
-
-The user can bypass the `DMOJ_SUBMISSION_LIMIT` setting, meaning they can have an infinite number of non-rejudged submissions queued.
-
-#### `view_all_submission` (View all submission)
-
-The user can view submissions for all problems, but *cannot* edit them on the admin site.
-
-#### `resubmit_other` (Resubmit others' submission)
-
-The user can resubmit submissions by other users.
-
-#### `lock_submission` (Change lock status of submission)
-
-The user will be able to lock and unlock submissions. Locked submissions will not be rejudgeable by anyone (including superusers) until they are unlocked.
+- Cấp quyền cẩn thận, tránh cấp quá nhiều quyền
+- Dùng groups để quản lý quyền dễ dàng hơn
+- Thường xuyên review quyền của người dùng
+- Một số quyền yêu cầu quyền khác (prerequisite)

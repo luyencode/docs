@@ -1,258 +1,278 @@
-# Custom graders
+# Custom Grader
 
-## Custom grader behaviour
+Custom grader được dùng khi cần tương tác đặc biệt với chương trình thí sinh, không chỉ đơn giản là so sánh input/output.
 
-An `init.yml` object can contain a top-level `custom_judge` node, which contains a path to a Python file to be executed as a grader for the problem. The grader has access to the archive specified in `archive`.
+## Khi nào dùng Custom Grader?
 
-In most use cases, either using one of the built-in graders, or a custom checker will suffice. A custom grader is only truly necessary if the normal interaction between the judge and the submission is insufficient.
+- **Bài interactive**: Cần trao đổi dữ liệu qua lại với chương trình
+- **Bài IOI-style**: Thí sinh implement hàm, không có input/output thông thường
+- **Chấm điểm phức tạp**: Cần logic chấm điểm đặc biệt
 
-```python
-class Grader(BaseGrader):
-  def grade(self, case):
-    pass
+**Lưu ý:** Hầu hết trường hợp chỉ cần dùng checker có sẵn hoặc custom checker. Custom grader chỉ cần khi tương tác thông thường không đủ.
+
+## Custom Grader cơ bản
+
+Trong `init.yml`, thêm:
+
+```yaml
+custom_judge: grader.py
 ```
 
-### Parameters
-
-`case` is a `TestCase` object.
-
-- `case.position` is an integer, the current test case with a zero-based index.
-- `case.input_data()` is a buffer containing the contents of the `in` file specified for the current case in `init.yml`. May be `b''`, if no case input file was specified.
-- `case.output_data()` is a buffer containing the contents of the `out` file specified for the current case in `init.yml`. May be `b''`, if no case output file was specified.
-- `case.points` is an integer, the max points that can be awarded for the current test case.
-
-### Returns
-
-A `Result` object (`from dmoj.result import Result`). Some notable fields include:
-
-- `result_flag`: stores a mask defining the current test case result code.
-- `proc_output`: contains the string that will be displayed in the partial output pane. However, if `result_flag` is `Result.AC`, then the partial output pane will not be shown.
-- `feedback`: contains the feedback given by the judge.
-- `extended_feedback`: contains any extended feedback that would not fit into the shorter `feedback` field, and is displayed as a separate pane beside the partial output on the site.
-
-### Example
-
-To illustrate, in a problem where the process must echo a line of input, an interactive approach would look like this:
+File `grader.py`:
 
 ```python
-import subprocess
-
 from dmoj.graders.standard import StandardGrader
 from dmoj.result import Result
 
-
 class Grader(StandardGrader):
-  def grade(self, case):
-    result = Result(case)
-    case_input = b'Hello, World!\n'
-
-    self._current_proc = self.binary.launch(
-      time=self.problem.time_limit,
-      memory=self.problem.memory_limit,
-      stdin=subprocess.PIPE,
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      wall_time=case.config.wall_time_factor * self.problem.time_limit,
-    )
-    output, error = self._current_proc.communicate(case_input)
-    self.binary.populate_result(error, result, self._current_proc)
-
-    if output == case_input:
-      result.extended_feedback = 'Correct answer! This will be displayed in the output pane.'
-      if result.result_flag == Result.AC:
-        result.points = case.points
-    else:
-      result.result_flag |= Result.WA
-      result.feedback = 'Wrong answer! :('
-
-    return result
+    def grade(self, case):
+        # Logic chấm bài
+        pass
 ```
 
-A simple solution to this problem is `print(input())`.
+### Tham số `case`
 
-The associated `init.yml` for this problem would look like this:
+- `case.position`: vị trí test (bắt đầu từ 0)
+- `case.input_data()`: nội dung file input
+- `case.output_data()`: nội dung file output chuẩn
+- `case.points`: điểm tối đa của test
+
+### Giá trị trả về
+
+Trả về object `Result`:
+
+```python
+from dmoj.result import Result
+
+result = Result(case)
+result.result_flag = Result.AC  # Hoặc Result.WA, Result.TLE, etc.
+result.points = case.points
+result.feedback = 'Phản hồi ngắn'
+result.extended_feedback = 'Phản hồi chi tiết'
+result.proc_output = 'Output của chương trình'
+```
+
+### Ví dụ
+
+Bài tập: In ra dòng "Hello, World!"
+
+```python
+import subprocess
+from dmoj.graders.standard import StandardGrader
+from dmoj.result import Result
+
+class Grader(StandardGrader):
+    def grade(self, case):
+        result = Result(case)
+        case_input = b'Hello, World!\n'
+
+        # Chạy chương trình
+        self._current_proc = self.binary.launch(
+            time=self.problem.time_limit,
+            memory=self.problem.memory_limit,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        output, error = self._current_proc.communicate(case_input)
+        self.binary.populate_result(error, result, self._current_proc)
+
+        # Kiểm tra output
+        if output == case_input:
+            result.extended_feedback = 'Chính xác!'
+            if result.result_flag == Result.AC:
+                result.points = case.points
+        else:
+            result.result_flag |= Result.WA
+            result.feedback = 'Sai rồi!'
+
+        return result
+```
+
+File `init.yml`:
 
 ```yaml
-custom_judge: interactor.py
+custom_judge: grader.py
 unbuffered: true
 test_cases:
 - points: 100
 ```
 
-Since we use no input or output files (our test case is hardcoded), we do not need to specify the `archive` or related `in` and `out` fields.
+**Lưu ý `unbuffered`:** Đặt `true` để tắt buffering, thí sinh không cần `flush()`.
 
-In this example, it's important to note the `unbuffered` node. If set to `true`, the judge will use a pseudoterminal device for a submission's input and output pipes. Since ptys are not buffered by design, setting `unbuffered` to `true` removes the need for user submissions to `flush()` their output stream to guarantee that the `grader` receives their response. **The `unbuffered` node is not exclusive to interactive grading: it may be specified regardless of judging mode.**
+## Interactive Grading
 
-## Interactive grading
-
-Interactive grading is used for problems where users should implement an online algorithm or where the grader must generate input or compute a score based on the user's previous output.
-Using an interactive grader is similar to using a custom grader: the `custom_judge` node also needs to be set. Rewriting the previous custom judge using an interactive grader would result in:
+Dùng cho bài tập cần tương tác qua lại với chương trình.
 
 ```python
 from dmoj.graders.interactive import InteractiveGrader
 from dmoj.utils.unicode import utf8text
 
-
 class Grader(InteractiveGrader):
-  def interact(self, case, interactor):
-    # The line to print
-    case_input = 'Hello, World!'
-
-    # Print the line, using the interactor
-    interactor.writeln(case_input)
-
-    # interact can return either a boolean, or a Result
-    return case_input == utf8text(interactor.readln())
+    def interact(self, case, interactor):
+        # Gửi dữ liệu cho thí sinh
+        interactor.writeln('Hello, World!')
+        
+        # Nhận phản hồi
+        response = utf8text(interactor.readln())
+        
+        # Trả về True nếu đúng, False nếu sai
+        return response == 'Hello, World!'
 ```
 
-### Parameters
+### Các hàm của `interactor`
 
-`case` is a `TestCase` object, and is identical to the one in the `Grader` section.
-`interactor` is an `Interactor` object.
+**Đọc dữ liệu:**
+- `interactor.read()`: đọc tất cả output
+- `interactor.readln(strip_newline=True)`: đọc một dòng
+- `interactor.readtoken(delim=None)`: đọc một token
+- `interactor.readint(lo=-inf, hi=inf, delim=None)`: đọc số nguyên (tự động WA nếu không hợp lệ)
+- `interactor.readfloat(lo=-inf, hi=inf, delim=None)`: đọc số thực
 
-- `interactor.read()` reads all of the submission's output available.
-- `interactor.readln(strip_newline=True)` reads the next line of the submission's output. If `strip_newline` is true, the trailing newline is stripped, otherwise it is retained.
-- `interactor.readtoken(delim=None)` reads the next available token of the submission's output, as determined by `string.split(delim)`.
-- `interactor.readint(lo=float('-inf'), hi=float('inf'), delim=None)` reads the next token of the submission's output, as determined by `string.split(delim)`. Additionally, the checker will automatically generate a wrong answer verdict if either the token cannot be converted to an integer, or if it is not in the range <math><mo>[</mo><mi>lo</mi><mo>,</mo><mi>hi</mi><mo>]</mo></math>.
-- `interactor.readfloat(lo=float('-inf'), hi=float('inf'), delim=None)` reads the next token of the submission's output, as determined by `string.split(delim)`. Additionally, the checker will automatically generate a wrong answer verdict if either the token cannot be converted to a float, or if it is not in the range <math><mo>[</mo><mi>lo</mi><mo>,</mo><mi>hi</mi><mo>]</mo></math>.
-- `interactor.write(val)` writes `val`, cast to a string, to the submission's standard input.
-- `interactor.writeln(val)` writes `val`, cast to a string, to the submission's standard input, followed by a newline.
-- `interactor.close()` closes the submission's `stdin` stream.
+**Ghi dữ liệu:**
+- `interactor.write(val)`: ghi dữ liệu
+- `interactor.writeln(val)`: ghi dữ liệu + xuống dòng
+- `interactor.close()`: đóng stdin
 
-### Returns
+### Ví dụ: Đoán số
 
-Either a boolean or a `Result` (`from dmoj.result import Result`) object. The boolean is `True` if the submission should score full points, and `False` otherwise. The `Result` object is handled the same way as custom graders.
+```python
+from dmoj.graders.interactive import InteractiveGrader
 
-## Native interactive grading
+class Grader(InteractiveGrader):
+    def interact(self, case, interactor):
+        secret = 42
+        attempts = 0
+        max_attempts = 10
+        
+        while attempts < max_attempts:
+            guess = interactor.readint(1, 100)
+            attempts += 1
+            
+            if guess == secret:
+                interactor.writeln('Correct!')
+                return True
+            elif guess < secret:
+                interactor.writeln('Higher')
+            else:
+                interactor.writeln('Lower')
+        
+        interactor.writeln('Out of attempts!')
+        return False
+```
 
-Sometimes, an interactive grader will be very computationally expensive.
-In these cases, one can use the `bridged` grader.
-To invoke the `bridged` grader, `interactive` should be a top-level node that contains `files`.
-`files` is either a single filename, or a list of filenames, corresponding to the interactor.
+## Native Interactive Grading
 
-Optional arguments are:
+Dùng interactor viết bằng C/C++ cho hiệu năng cao.
 
-- `lang`: the language of the interactor. If empty, the judge will attempt to detect the language from the filename extension(s). Currently, the judge can detect `.cpp`, `.cc`, and `.c`.
-- `flags`: flags to pass to the compiler.
-- `compiler_time_limit`: the time limit allocated to compiling the interactor. It defaults to `env['compiler_time_limit']`.
-- `preprocessing_time`: the interactor's time limit is equal to this value plus the time limit of the problem, in seconds. It defaults to 2.
-- `memory_limit`: the memory limit allocated to the interactor. It defaults to `env['generator_memory_limit']`.
-- `type`: specifies the arguments to pass to the checker and how to interpret the checker's return code and output.
-  - The `default` type passes the arguments in the order `input_file judge_file`. A return code of `0` is an AC, `1` is a WA, and anything else results in an internal error.
-  - The `testlib` type passes the arguments in the order `input_file output_file judge_file`.
-  Note that `output_file` will always be `/dev/null`, and is passed to maintain compatibility with `testlib.h`. A return code of `0` is an AC, `1` is a WA, `2` is a presentation error, `3` corresponds to an assertion failing,
-  and `7`, along with an output to `stderr` of the format `points X` for an integer <math><mi>X</mi></math> awards <math><mi>X</mi></math> points. Anything else results in an internal error.
-  - The `coci` type passes the arguments in the order `input_file judge_file`. Its parsing of return codes is the same as the `testlib` type, but has partial format `partial X/Y`, which awards <math><mfrac><mi>X</mi><mi>Y</mi></mfrac></math> of the points.
-  - The `peg` type exists for compatibility with the WCIPEG judge, and is not meant to be used here.
-
-The interactor's standard input is connected to the submission's standard output, and vice versa.
-After the interactor prints, it is required to flush.
-
-To specify a correct answer, the interactor should return 0.
-To specify an incorrect answer, the interactor should return 1.
-All other return values will be considered internal errors.
-To override this behaviour, you can change `type` to a valid `contrib` module, such as `testlib`.
-
-### Example
-
-An example `init.yml` would be as follows:
+Trong `init.yml`:
 
 ```yaml
 unbuffered: true
-archive: seed2.zip
-interactive: {files: interactor.cpp, type: testlib}
+archive: data.zip
+interactive:
+  files: interactor.cpp
+  type: testlib
 test_cases:
-- {in: seed2.1.in, points: 20}
-- {in: seed2.2.in, points: 20}
-- {in: seed2.3.in, points: 20}
-- {in: seed2.4.in, points: 20}
-- {in: seed2.5.in, points: 20}
+- {in: test1.in, points: 50}
+- {in: test2.in, points: 50}
 ```
 
-An example of interactor is as follows. Note that it is not necessary to flush,
-even if `unbuffered` is false.
+**Tham số:**
+- `files`: file interactor (hoặc danh sách file)
+- `lang`: ngôn ngữ (tự động detect từ extension)
+- `flags`: flag compile
+- `compiler_time_limit`: thời gian compile
+- `preprocessing_time`: thời gian thêm cho interactor (mặc định 2s)
+- `memory_limit`: giới hạn bộ nhớ
+- `type`: loại interactor (`default`, `testlib`, `coci`, `peg`)
+
+**Ví dụ interactor.cpp (testlib):**
 
 ```cpp
-#include <cstdio>
-#include <cstdlib>
+#include "testlib.h"
+#include <iostream>
 
-inline void read(long long *i) {
-  if (scanf("%lld", i) != 1 || *i < 1 || *i > 2000000000)
-    exit(2);
-}
-
-int main(int argc, char *argv[]) {
-  FILE *input_file = fopen(argv[1], "r");
-  int N, guesses = 0;
-  long long guess;
-  fscanf(input_file, "%d", &N);
-  while (guess != N) {
-    read(&guess);
-    if (guess == N) {
-      puts("OK");
-    } else if (guess > N) {
-      puts("FLOATS");
-    } else {
-      puts("SINKS");
+int main(int argc, char* argv[]) {
+    registerInteraction(argc, argv);
+    
+    int secret = inf.readInt();  // Đọc từ input file
+    int attempts = 0;
+    
+    while (attempts < 10) {
+        int guess = ouf.readInt(1, 100);  // Đọc từ thí sinh
+        attempts++;
+        
+        if (guess == secret) {
+            std::cout << "Correct!" << std::endl;
+            quitf(_ok, "Solved in %d attempts", attempts);
+        } else if (guess < secret) {
+            std::cout << "Higher" << std::endl;
+        } else {
+            std::cout << "Lower" << std::endl;
+        }
     }
-    guesses++;
-  }
-  if (guesses <= 31)
-    return 0; // AC
-  else
-    return 1; // WA
+    
+    quitf(_wa, "Too many attempts");
 }
 ```
 
-## Function signature grading (IOI-style)
+## Function Signature Grading (IOI-style)
 
-Signature grading is used for problems where users should implement an online algorithm or interact with the grader directly without the need for traditional input and output routines. This is commonly seen in competitions such as the IOI, where all input is passed through function arguments and output is replaced with return values or directly modifying specifically allocated memory for the computed answer.
+Dùng cho bài tập kiểu IOI, thí sinh implement hàm thay vì đọc/ghi input/output.
 
-The following languages are supported for this mode:
-
-- The C family: C, C11, Clang
-- The C++ family: C++03, C++11, C++14, C++17, C++20, Clang++
-
-`signature_grader` should be a top-level node that contains `entry` and `header`. `entry` is a C or C++ file that contains the `main` function. It should read input from `stdin`, call the user's implemented functions specified in `header`, and write output to `stdout`. You may specify a custom `checker` to interpret the `entry`'s output. If no custom checker is specified, it will be compared to the output file using the default checker.
-
-The user's submission will be automatically modified to include the file `header`, and the symbol `main` is redefined as `main_GUID` where `GUID` is a randomly generated GUID. This is so users testing their program do not have to manually remove their `main` function before submissions; it does not protect against the preprocessor directive `#undef main`.
-
-The global variables in the `entry` should be declared static to prevent name collisions. Optimally, `header` should have an include guard, in case it contains something other than function prototypes.
-
-### Example
-
-An example of the `init.yml`:
+Trong `init.yml`:
 
 ```yaml
-signature_grader: {entry: handler.c, header: header.h}
+signature_grader:
+  entry: handler.c
+  header: header.h
 test_cases:
-- {in: siggrade.1.in, out: siggrade.1.out, points: 50}
-- {in: siggrade.2.in, out: siggrade.2.out, points: 50}
+- {in: test1.in, out: test1.out, points: 50}
+- {in: test2.in, out: test2.out, points: 50}
 ```
 
-An example of the `entry` file:
+**Ngôn ngữ hỗ trợ:** C, C++, Clang
 
-```c
-#include "header.h"
-#include <stdbool.h>
-#include <stdio.h>
+### Ví dụ
 
-static int n;
-
-int main() {
-  scanf("%d", &n);
-  bool valid = is_valid(n); // Defined in header
-  printf(valid ? "correct" : "wrong");
-  return 0;
-}
-```
-
-An example of the `header` file:
+**header.h:**
 
 ```c
 #ifndef _GRADER_HEADER_INCLUDED
 #define _GRADER_HEADER_INCLUDED
 #include <stdbool.h>
-bool is_valid(int);
+bool is_valid(int n);
 #endif
 ```
+
+**handler.c (entry):**
+
+```c
+#include "header.h"
+#include <stdio.h>
+
+static int n;
+
+int main() {
+    scanf("%d", &n);
+    bool valid = is_valid(n);  // Hàm thí sinh implement
+    printf(valid ? "correct" : "wrong");
+    return 0;
+}
+```
+
+**Bài nộp của thí sinh:**
+
+```c
+#include <stdbool.h>
+
+bool is_valid(int n) {
+    return n > 0 && n % 2 == 0;
+}
+```
+
+Hệ thống tự động:
+- Include `header.h` vào bài nộp
+- Đổi tên `main` của thí sinh thành `main_GUID`
+- Compile và link với `handler.c`

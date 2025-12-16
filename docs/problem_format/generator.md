@@ -1,38 +1,218 @@
-# Generators
+# Generator
 
-When there is a large amount of test data, a generator file can be used instead of input and output files.
-A generator is a program that takes command line arguments for each case, and outputs the input and output data for each case.
+Generator được dùng khi có nhiều test data, thay vì tạo file input/output thủ công.
 
-## The `generator` node
+Generator là chương trình nhận tham số dòng lệnh và tạo ra input/output cho mỗi test case.
 
-The `generator` node can contain either:
+## Node `generator`
 
-- a single value, the name of the generator file.
-- an array, in which case the first element is the source file (in either C or C++), and the remaining elements are auxiliary files, such as header files.
-- a YAML associative array that can contain the following keys:
-  - `source`: either a single string: the name of generator file, or an array, in which case the first file is the generator source, and the remaining files are auxiliary files (e.g. header files).
-  - `language`: the language the generator is written in. If empty, the judge tries to infer the language from `source`.
-  - `flags`: additional flags to pass to the compiler. It defaults to `[]`.
-  - `compiler_time_limit`: the compiler time limit for the generator. It defaults to `env.compiler_time_limit`, as defined in `dmoj/judgeenv.py`. It is recommended to set this value to 60 seconds if using `testlib.h`.
-  - `time_limit`: the time limit allocated to the generator. It defaults to `env.time_limit`, as defined in `dmoj/judgeenv.py`.
-  - `memory_limit`: the memory limit allocated to the generator. It defaults to `env.memory_limit`, as defined in `dmoj/judgeenv.py`.
+Node `generator` có thể là:
 
-Additionally, it is possible to specify this node in each test case, so several generators can be used for a single problem.
+**1. Tên file đơn:**
 
-## Generator arguments
+```yaml
+generator: gen.cpp
+```
 
-The `generator_args` node contains a list of arguments that will be cast to a Python `str`, then passed to the compiled generator. `generator_args` can be specified as a top-level node, or more commonly, as a key in a test case node. For example, consider:
+**2. Mảng (file chính + file phụ):**
+
+```yaml
+generator: [gen.cpp, testlib.h, utils.h]
+```
+
+**3. YAML object với các key:**
+
+```yaml
+generator:
+  source: gen.cpp  # Hoặc [gen.cpp, testlib.h]
+  language: CPP17
+  flags: ['-O2', '-std=c++17']
+  compiler_time_limit: 60
+  time_limit: 10
+  memory_limit: 256000
+```
+
+**Các tham số:**
+- `source`: file generator (hoặc mảng file)
+- `language`: ngôn ngữ (tự động detect nếu không chỉ định)
+- `flags`: flag compile
+- `compiler_time_limit`: thời gian compile (mặc định từ `dmoj/judgeenv.py`)
+- `time_limit`: thời gian chạy generator
+- `memory_limit`: giới hạn bộ nhớ
+
+**Lưu ý:** Nếu dùng `testlib.h`, nên đặt `compiler_time_limit: 60`.
+
+## Tham số Generator
+
+Dùng `generator_args` để truyền tham số cho generator:
 
 ```yaml
 generator: gen.cpp
 test_cases:
 - {generator_args: [false, 123, "a b\nc"], points: 10}
-- {points: 20}
+- {generator_args: [true, 456], points: 20}
+- {points: 30}  # generator_args mặc định là []
 ```
 
-For the first test case, the generator will receive 4 arguments: `"_aux_file"`, `"False"`, `"123"`, `"a b\nc"`.
-For the second test case, `generator_args` defaults to `[]`, so the generator will receive 1 argument: `"_aux_file"`.
+**Cách hoạt động:**
+- Tham số đầu tiên luôn là `"_aux_file"`
+- Các tham số khác được convert thành string
+- Test 1: `"_aux_file"`, `"False"`, `"123"`, `"a b\nc"`
+- Test 2: `"_aux_file"`, `"True"`, `"456"`
+- Test 3: `"_aux_file"`
 
-The generator should output the test case's input data to `stdout`, and the output data to `stderr`.
+## Output của Generator
 
-If a test case already has an input file **and** output file defined by the `in` and `out` keys, the generator will not be run for that test case.
+Generator phải:
+- In **input** ra `stdout`
+- In **output** ra `stderr`
+
+**Ví dụ generator (C++):**
+
+```cpp
+#include <iostream>
+#include <cstdlib>
+using namespace std;
+
+int main(int argc, char* argv[]) {
+    // argv[1] = "_aux_file"
+    // argv[2] = tham số thứ nhất
+    // argv[3] = tham số thứ hai
+    
+    int n = atoi(argv[2]);
+    bool hard = string(argv[3]) == "True";
+    
+    // In input ra stdout
+    cout << n << endl;
+    
+    // In output ra stderr
+    int answer = n * 2;
+    if (hard) answer *= 2;
+    cerr << answer << endl;
+    
+    return 0;
+}
+```
+
+## Generator cho từng test case
+
+Có thể dùng generator khác nhau cho mỗi test:
+
+```yaml
+test_cases:
+- generator: gen_easy.cpp
+  generator_args: [10]
+  points: 30
+- generator: gen_hard.cpp
+  generator_args: [100]
+  points: 70
+```
+
+## Kết hợp Generator và File
+
+Nếu test case đã có `in` và `out`, generator sẽ không chạy:
+
+```yaml
+generator: gen.cpp
+test_cases:
+- {in: manual.in, out: manual.out, points: 10}  # Không dùng generator
+- {generator_args: [50], points: 20}  # Dùng generator
+- {generator_args: [100], points: 30}  # Dùng generator
+```
+
+## Ví dụ hoàn chỉnh
+
+**init.yml:**
+
+```yaml
+archive: data.zip
+generator:
+  source: gen.cpp
+  language: CPP17
+  compiler_time_limit: 60
+  time_limit: 5
+test_cases:
+- {generator_args: [10, easy], points: 20}
+- {generator_args: [100, medium], points: 30}
+- {generator_args: [1000, hard], points: 50}
+```
+
+**gen.cpp:**
+
+```cpp
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+using namespace std;
+
+int main(int argc, char* argv[]) {
+    int n = atoi(argv[2]);
+    string difficulty = argv[3];
+    
+    srand(time(0));
+    
+    // In input
+    cout << n << endl;
+    for (int i = 0; i < n; i++) {
+        cout << rand() % 100 << " ";
+    }
+    cout << endl;
+    
+    // Tính output
+    int sum = 0;
+    for (int i = 0; i < n; i++) {
+        sum += rand() % 100;
+    }
+    
+    // In output ra stderr
+    cerr << sum << endl;
+    
+    return 0;
+}
+```
+
+## Generator với testlib.h
+
+`testlib.h` là thư viện phổ biến để viết generator:
+
+```cpp
+#include "testlib.h"
+#include <iostream>
+using namespace std;
+
+int main(int argc, char* argv[]) {
+    registerGen(argc, argv, 1);
+    
+    int n = atoi(argv[2]);
+    
+    // In input
+    cout << n << endl;
+    for (int i = 0; i < n; i++) {
+        cout << rnd.next(1, 100) << " ";
+    }
+    cout << endl;
+    
+    // Tính và in output ra stderr
+    // ...
+    
+    return 0;
+}
+```
+
+**init.yml:**
+
+```yaml
+generator:
+  source: [gen.cpp, testlib.h]
+  compiler_time_limit: 60
+test_cases:
+- {generator_args: [10], points: 100}
+```
+
+## Lợi ích của Generator
+
+- **Tiết kiệm dung lượng**: Không cần lưu file input/output lớn
+- **Dễ quản lý**: Thay đổi test chỉ cần sửa generator
+- **Tạo test ngẫu nhiên**: Dễ dàng tạo nhiều test khác nhau
+- **Kiểm tra tính đúng**: Generator có thể tính output chuẩn
