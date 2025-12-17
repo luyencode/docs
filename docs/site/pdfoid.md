@@ -2,7 +2,10 @@
 
 LCOJ hỗ trợ xuất đề bài ra file PDF, hữu ích cho kỳ thi onsite khi thí sinh nhận đề bài giấy.
 
-**Lưu ý:** Tính năng này tùy chọn, không bắt buộc.
+**Lưu ý:** 
+- Tính năng này tùy chọn, không bắt buộc
+- Hướng dẫn này cho bare metal install
+- Với Docker, cần setup Pdfoid riêng trên host hoặc container khác
 
 ## Cài đặt Pdfoid
 
@@ -54,6 +57,14 @@ DMOJ_PDF_PROBLEM_TIMEOUT = 30
 ```
 
 ### Khởi động lại
+
+**Docker:**
+
+```sh
+docker compose restart site
+```
+
+**Bare metal:**
 
 ```sh
 supervisorctl restart site
@@ -139,7 +150,8 @@ DMOJ_PDF_PROBLEM_FOOTER = """
 **PDF không tạo được:**
 - Kiểm tra Pdfoid đang chạy: `curl http://localhost:8888`
 - Kiểm tra Chrome/Chromium đã cài đặt
-- Xem log Pdfoid: `supervisorctl tail -f pdfoid`
+- Xem log Pdfoid Docker: `docker compose logs -f pdfoid` (nếu chạy trong Docker)
+- Xem log Pdfoid bare metal: `supervisorctl tail -f pdfoid`
 
 **PDF bị lỗi font:**
 - Cài đặt font cần thiết:

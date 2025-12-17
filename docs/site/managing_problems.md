@@ -4,13 +4,19 @@ LCOJ cung cấp giao diện web để tạo và chỉnh sửa bài tập, bao g�
 
 ## Cấu hình
 
-Trong `local_settings.py`, đặt `DMOJ_PROBLEM_DATA_ROOT` trỏ đến thư mục lưu test data:
+### Với Docker (khuyến nghị)
+
+Test data được lưu trong thư mục `dmoj/problems/` và tự động mount vào container.
+
+Không cần cấu hình thêm, đã được setup sẵn trong Docker.
+
+### Với bare metal
+
+Trong `local_settings.py`, đặt `DMOJ_PROBLEM_DATA_ROOT`:
 
 ```python
 DMOJ_PROBLEM_DATA_ROOT = '/home/lcoj/problems'
 ```
-
-Tất cả test data của các bài tập sẽ được lưu trong thư mục này.
 
 ## Thêm bài tập mới
 
@@ -248,5 +254,7 @@ Sau khi sửa test data, nên rejudge các bài nộp cũ:
 - Xem log lỗi trong admin
 
 **Rejudge không chạy:**
-- Kiểm tra Celery đang chạy: `supervisorctl status celery`
-- Xem log Celery: `supervisorctl tail -f celery`
+- Kiểm tra Celery đang chạy Docker: `docker compose ps celery`
+- Xem log Celery Docker: `docker compose logs -f celery`
+- Kiểm tra Celery bare metal: `supervisorctl status celery`
+- Xem log Celery bare metal: `supervisorctl tail -f celery`

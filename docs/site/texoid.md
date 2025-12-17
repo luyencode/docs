@@ -2,7 +2,11 @@
 
 LCOJ hỗ trợ hiển thị sơ đồ TikZ/PGF trong đề bài, giúp vẽ đồ thị, hình học, và sơ đồ phức tạp.
 
-**Lưu ý:** Tính năng này tùy chọn và nâng cao. Nếu chỉ cần công thức toán, dùng [Mathoid](/site/mathoid.md).
+**Lưu ý:** 
+- Tính năng này tùy chọn và nâng cao
+- Hướng dẫn này cho bare metal install
+- Với Docker, cần setup Texoid riêng
+- Nếu chỉ cần công thức toán, dùng [Mathoid](/site/mathoid.md)
 
 ## Cài đặt Texoid
 
@@ -76,6 +80,14 @@ chmod 755 /home/lcoj/texoid_cache
 ```
 
 ### Khởi động lại
+
+**Docker:**
+
+```sh
+docker compose restart site nginx
+```
+
+**Bare metal:**
 
 ```sh
 supervisorctl restart site

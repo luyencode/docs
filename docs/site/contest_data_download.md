@@ -6,76 +6,54 @@ Tính năng này mặc định bị tắt. Để bật, cấu hình trong `local
 
 ## Cấu hình
 
-### Bước 1: Cấu hình trong local_settings.py
+### Với Docker (khuyến nghị)
+
+Thư mục cache đã được setup sẵn trong Docker volume `contestdatacache`.
+
+Thêm vào `environment/site.env`:
+
+```env
+DMOJ_CONTEST_DATA_DOWNLOAD=True
+DMOJ_CONTEST_DATA_CACHE=/contestdatacache/
+DMOJ_CONTEST_DATA_INTERNAL=/contestdatacache
+```
+
+Restart:
+
+```sh
+docker compose restart site celery nginx
+```
+
+### Với bare metal
+
+Cấu hình trong `local_settings.py`:
 
 ```python
-# Bỏ comment để cho phép tải dữ liệu kỳ thi
 DMOJ_CONTEST_DATA_DOWNLOAD = True
-
-# Thư mục cache dữ liệu kỳ thi
-# Admin chịu trách nhiệm dọn dẹp file cũ
 DMOJ_CONTEST_DATA_CACHE = '/home/dmoj-uwsgi/contestdatacache'
-
-# Đường dẫn cho tính năng X-Accel-Redirect của nginx
-# Phải là internal location trỏ đến thư mục trên
 DMOJ_CONTEST_DATA_INTERNAL = '/contestdatacache'
-
-# Tần suất cho phép tải dữ liệu
-# Áp dụng cho mỗi kỳ thi, không phải mỗi người dùng
 DMOJ_CONTEST_DATA_DOWNLOAD_RATELIMIT = datetime.timedelta(days=1)
 ```
 
-### Bước 2: Cấu hình Nginx
-
-Bỏ comment section sau trong file cấu hình nginx:
-
-```nginx
-# Bỏ comment nếu cho phép tải dữ liệu kỳ thi
-# Location name phải khớp với DMOJ_CONTEST_DATA_INTERNAL
-location /contestdatacache {
-    internal;
-    root /home/dmoj-uwsgi/;
-    
-    # Đường dẫn không bao gồm /contestdatacache ở cuối
-    # Ví dụ: nếu cache ở /home/dmoj-uwsgi/contestdatacache
-    # thì root là /home/dmoj-uwsgi/
-}
-```
-
-### Bước 3: Tạo thư mục cache
-
-```sh
-mkdir -p /home/dmoj-uwsgi/contestdatacache
-chown dmoj-uwsgi:dmoj-uwsgi /home/dmoj-uwsgi/contestdatacache
-chmod 755 /home/dmoj-uwsgi/contestdatacache
-```
-
-### Bước 4: Khởi động lại dịch vụ
-
-```sh
-supervisorctl restart site
-service nginx reload
-```
+Cấu hình nginx và tạo thư mục cache tương tự user_data_download.
 
 ## Dọn dẹp file cũ
 
-File dữ liệu không tự động xóa. Mỗi kỳ thi chỉ có tối đa 1 file trên server, nhưng nên dọn dẹp file cũ định kỳ.
-
-### Tạo Cron job
+### Với Docker
 
 ```sh
-crontab -e
+# Chạy thủ công
+docker compose exec site find /contestdatacache/ -type f -mtime +2 -delete
+
+# Cron job
+0 */4 * * * docker compose -f /path/to/lcoj-docker/dmoj/docker-compose.yml exec -T site find /contestdatacache/ -type f -mtime +2 -delete
 ```
 
-Thêm dòng sau:
+### Với bare metal
 
 ```
 0 */4 * * * find /home/dmoj-uwsgi/contestdatacache/ -type f -mtime +2 -delete
 ```
-
-Cron job này sẽ xóa file cũ hơn 2 ngày, chạy mỗi 4 giờ.
-
-**Lưu ý:** Điều chỉnh thời gian cho phù hợp với `RATELIMIT`.
 
 ## Sử dụng
 
@@ -166,8 +144,10 @@ GRAPH
 
 **File không tạo được:**
 - Kiểm tra quyền thư mục cache
-- Kiểm tra Celery đang chạy: `supervisorctl status celery`
-- Xem log: `supervisorctl tail -f celery`
+- Kiểm tra Celery Docker: `docker compose ps celery`
+- Xem log Docker: `docker compose logs -f celery`
+- Kiểm tra Celery bare metal: `supervisorctl status celery`
+- Xem log bare metal: `supervisorctl tail -f celery`
 
 **File quá lớn:**
 - Lọc theo thời gian hoặc bài tập

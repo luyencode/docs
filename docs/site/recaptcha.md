@@ -26,16 +26,32 @@ Sau khi tạo, bạn sẽ nhận được:
 
 ## Cài đặt
 
-### Bước 1: Cài đặt thư viện
+### Với Docker (khuyến nghị)
+
+**Bước 1:** Thêm vào `environment/site.env`:
+
+```env
+RECAPTCHA_PUBLIC_KEY=your_site_key_here
+RECAPTCHA_PRIVATE_KEY=your_secret_key_here
+```
+
+**Bước 2:** Restart site:
+
+```sh
+cd lcoj-docker/dmoj
+docker compose restart site
+```
+
+### Với bare metal
+
+**Bước 1:** Cài đặt thư viện:
 
 ```sh
 source lcojsite/bin/activate
 pip3 install django-recaptcha2
 ```
 
-### Bước 2: Cấu hình
-
-Thêm vào `local_settings.py`:
+**Bước 2:** Thêm vào `local_settings.py`:
 
 ```python
 # reCAPTCHA keys
@@ -48,7 +64,7 @@ INSTALLED_APPS += (
 )
 ```
 
-### Bước 3: Khởi động lại
+**Bước 3:** Khởi động lại:
 
 ```sh
 supervisorctl restart site
@@ -108,7 +124,8 @@ RECAPTCHA_TESTING = True  # Chỉ dùng khi development
 **Luôn báo lỗi:**
 - Kiểm tra `RECAPTCHA_PRIVATE_KEY`
 - Kiểm tra server có kết nối internet
-- Xem log: `supervisorctl tail -f site`
+- Xem log Docker: `docker compose logs -f site`
+- Xem log bare metal: `supervisorctl tail -f site`
 
 **Bị block khi test:**
 - Dùng `RECAPTCHA_TESTING = True` khi development

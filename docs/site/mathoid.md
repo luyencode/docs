@@ -2,7 +2,10 @@
 
 LCOJ hỗ trợ hiển thị công thức toán học LaTeX trong đề bài, giúp trình bày công thức đẹp và chuyên nghiệp.
 
-**Lưu ý:** Tính năng này tùy chọn, không bắt buộc phải cài đặt.
+**Lưu ý:** 
+- Tính năng này tùy chọn, không bắt buộc
+- Hướng dẫn này cho bare metal install
+- Với Docker, cần setup Mathoid riêng trên host hoặc container khác
 
 ## Cài đặt Mathoid
 
@@ -69,6 +72,14 @@ chmod 755 /home/lcoj/mathoid_cache
 ```
 
 ### Khởi động lại
+
+**Docker:**
+
+```sh
+docker compose restart site nginx
+```
+
+**Bare metal:**
 
 ```sh
 supervisorctl restart site

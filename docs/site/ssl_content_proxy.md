@@ -37,6 +37,18 @@ PORT=8081 CAMO_KEY="your_secret_key_here" camo
 
 ## Cấu hình LCOJ
 
+### Với Docker
+
+Thêm vào `environment/site.env`:
+
+```env
+DMOJ_CAMO_URL=https://luyencode.net/camo
+DMOJ_CAMO_KEY=your_secret_key_here
+DMOJ_CAMO_EXCLUDE=luyencode.net,cdn.luyencode.net
+```
+
+### Với bare metal
+
 Thêm vào `local_settings.py`:
 
 ```python
@@ -65,6 +77,14 @@ location /camo/ {
 ```
 
 ### Khởi động lại
+
+**Docker:**
+
+```sh
+docker compose restart nginx site
+```
+
+**Bare metal:**
 
 ```sh
 service nginx reload
@@ -141,7 +161,8 @@ Nếu thấy "hwhat", Camo đang chạy.
 **Hình ảnh không load:**
 - Kiểm tra Camo đang chạy
 - Kiểm tra `DMOJ_CAMO_URL` và `DMOJ_CAMO_KEY`
-- Xem log Camo: `supervisorctl tail -f camo`
+- Xem log Camo Docker: `docker compose logs -f camo` (nếu chạy trong Docker)
+- Xem log Camo bare metal: `supervisorctl tail -f camo`
 
 **Mixed content warning:**
 - Kiểm tra `DMOJ_CAMO_URL` dùng HTTPS

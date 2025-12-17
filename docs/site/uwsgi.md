@@ -1,8 +1,12 @@
 # uWSGI
 
-uWSGI là application server chạy Django, thay thế cho `runserver` trong production.
+**Lưu ý quan trọng:** Tài liệu này chỉ dành cho cài đặt bare metal (không dùng Docker). 
 
-**Lưu ý:** Nếu dùng Docker, không cần cấu hình này. Xem [lcoj-docker](https://github.com/luyencode/lcoj-docker).
+**Nếu bạn dùng Docker (khuyến nghị), xem [Cài đặt với Docker](/site/installation.md).**
+
+---
+
+uWSGI là application server chạy Django, thay thế cho `runserver` trong production.
 
 ## Cài đặt
 
