@@ -110,6 +110,174 @@ Chạy load balancer cho nhiều judge.
 
 ## Problem Management
 
+### generate_editorials - Tạo editorial tự động
+
+Tạo editorial (lời giải) tự động cho bài tập bằng AI, sử dụng Pydantic structured output để đảm bảo định dạng nhất quán.
+
+```sh
+./manage.py generate_editorials [options]
+```
+
+**Yêu cầu:**
+- Cài đặt packages: `pip install openai pydantic`
+- Thiết lập API key: `export OPENAI_API_KEY="sk-..."`
+- Hoặc cấu hình trong `environment/openai.env`
+
+**Tùy chọn:**
+
+| Tùy chọn | Mô tả | Mặc định |
+|----------|-------|----------|
+| `--problem CODE`, `-p CODE` | Xử lý một bài cụ thể | Tất cả bài chưa có editorial |
+| `--limit N`, `-l N` | Số bài tối đa cần xử lý | 10 |
+| `--offset N` | Bắt đầu từ vị trí thứ N | 0 |
+| `--dry-run` | Chế độ xem trước, không lưu vào DB | False |
+| `--verbose` | Hiển thị chi tiết quá trình | False |
+| `--model MODEL` | Model OpenAI sử dụng | mimo-v2-flash |
+| `--temperature T` | Độ sáng tạo (0.0-2.0) | 0.7 |
+| `--max-retries N` | Số lần thử lại khi API lỗi | 3 |
+| `--retry-delay S` | Thời gian chờ giữa các lần thử (giây) | 2 |
+| `--log-file PATH` | Lưu log vào file | None |
+
+**Ví dụ:**
+
+```sh
+# Bước 1: Test với một bài (dry run - QUAN TRỌNG)
+./manage.py generate_editorials --problem cb01 --dry-run --verbose
+
+# Bước 2: Tạo editorial cho một bài
+./manage.py generate_editorials --problem cb01 --verbose
+
+# Bước 3: Xử lý nhiều bài với logging
+./manage.py generate_editorials --limit 20 --log-file /tmp/editorials.log --verbose
+
+# Bước 4: Tiếp tục từ bài thứ 50
+./manage.py generate_editorials --limit 50 --offset 50
+
+# Sử dụng model khác
+./manage.py generate_editorials --problem cb01 --model gpt-4 --temperature 0.5
+```
+
+**Cách hoạt động:**
+
+1. Tìm các bài chưa có editorial (is_public=True)
+2. Lấy 3 bài nộp AC khác nhau (ưu tiên C/C++)
+3. Gửi đến OpenAI API với Pydantic structured output
+4. Tạo editorial theo định dạng chuẩn với các phần:
+   - Hiểu bài toán
+   - Các cách tiếp cận (từ đơn giản đến tối ưu)
+   - Phân tích độ phức tạp
+   - Bài học kinh nghiệm
+   - Lỗi thường gặp
+5. Lưu vào database với trạng thái PUBLIC
+
+**Định dạng editorial:**
+
+```markdown
+## Hiểu bài toán
+[Giải thích rõ ràng về bài toán]
+
+## Các cách tiếp cận
+
+### Cách Brute Force
+```cpp
+[code]
+```
+* **Time Complexity**: O(n²)
+* **Space Complexity**: O(1)
+[Giải thích chi tiết]
+
+### Cách Hash Map
+[code + giải thích]
+
+## Phân tích độ phức tạp
+| Cách tiếp cận | Time | Space | Tên |
+|--------------|------|-------|-----|
+| 1 | O(n²) | O(1) | Brute Force |
+| 2 | O(n) | O(n) | Hash Map |
+
+## Bài học kinh nghiệm
+- [Insight 1]
+- [Insight 2]
+
+## Lỗi thường gặp
+- [Pitfall 1]
+- [Pitfall 2]
+```
+
+**Kiểm tra và xuất bản:**
+
+```sh
+# Kiểm tra trong database
+./manage.py shell
+>>> from judge.models import Solution
+>>> s = Solution.objects.get(problem__code='cb01')
+>>> print(s.content[:500])
+>>> print(f"Is public: {s.is_public}")
+>>> print(f"Authors: {[a.user.username for a in s.authors.all()]}")
+
+# Xem trên website
+# https://luyencode.net/problem/cb01/editorial
+```
+
+**Xử lý hàng loạt:**
+
+```sh
+# Chạy trong background với nohup
+nohup ./manage.py generate_editorials --limit 100 --log-file /tmp/editorials.log > /tmp/output.log 2>&1 &
+
+# Theo dõi tiến trình
+tail -f /tmp/output.log
+
+# Kiểm tra kết quả
+grep "✓" /tmp/editorials.log | wc -l  # Số bài thành công
+grep "✗" /tmp/editorials.log | wc -l  # Số bài thất bại
+```
+
+**Rollback nếu cần:**
+
+```sh
+./manage.py shell
+>>> from judge.models import Solution
+
+# Xóa editorial của một bài cụ thể
+>>> Solution.objects.filter(problem__code='cb01').delete()
+
+# Xóa tất cả editorial PUBLIC (cẩn thận!)
+>>> Solution.objects.filter(is_public=True).delete()
+
+# Xóa 10 editorial mới nhất
+>>> from django.db.models import Max
+>>> last_id = Solution.objects.aggregate(Max('id'))['id__max']
+>>> Solution.objects.filter(id__gte=last_id - 10).delete()
+```
+
+**Lưu ý:**
+- Editorial được tạo với trạng thái PUBLIC (is_public=True)
+- Hệ thống tự động thêm admin và tác giả solutions vào danh sách authors
+- Sử dụng `--dry-run` để test trước khi tạo thật
+- API có thể bị rate limit, giảm `--limit` nếu gặp lỗi
+- Thời gian xử lý: ~5-15 giây/bài
+
+**Troubleshooting:**
+
+```sh
+# Lỗi: "OpenAI package not installed"
+pip install openai pydantic
+
+# Lỗi: "OPENAI_API_KEY not set"
+export OPENAI_API_KEY="sk-..."
+
+# Lỗi: "No AC solutions found"
+# Kiểm tra xem bài có submissions AC không
+./manage.py shell
+>>> from judge.models import Submission
+>>> Submission.objects.filter(problem__code='xxx', result='AC').count()
+
+# Lỗi: API rate limit
+# Giảm batch size và tăng delay
+./manage.py generate_editorials --limit 5 --retry-delay 5
+```
+
 ### create_problem - Tạo bài tập
 
 Tạo bài tập mới nhanh chóng.
@@ -325,6 +493,35 @@ Cập nhật credit hàng tháng cho users.
 
 # Tạo bài tập mẫu
 ./manage.py create_problem HELLO "Hello World" --time-limit 1 --memory-limit 65536 --points 100
+```
+
+### Tạo editorial tự động
+
+```sh
+# Bước 1: Cài đặt dependencies
+pip install openai pydantic
+
+# Bước 2: Thiết lập API key
+export OPENAI_API_KEY="sk-..."
+
+# Bước 3: Test với một bài (dry run)
+./manage.py generate_editorials --problem cb01 --dry-run --verbose
+
+# Bước 4: Tạo editorial thật
+./manage.py generate_editorials --problem cb01 --verbose
+
+# Bước 5: Kiểm tra kết quả
+./manage.py shell
+>>> from judge.models import Solution
+>>> s = Solution.objects.get(problem__code='cb01')
+>>> print(f"Editorial created: {s.is_public}")
+>>> print(f"Content length: {len(s.content)} chars")
+
+# Bước 6: Xử lý hàng loạt
+./manage.py generate_editorials --limit 50 --log-file /tmp/editorials.log
+
+# Bước 7: Theo dõi tiến trình
+tail -f /tmp/editorials.log
 ```
 
 ### Quản lý contest
