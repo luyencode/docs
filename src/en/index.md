@@ -1,5 +1,8 @@
 ---
 layout: home
+title: LCOJ Documentation
+titleTemplate: ":title - LCOJ: Luyện Code Online Judge"
+description: Documentation for LCOJ (Luyện Code Online Judge). Guides for installing and operating the site, writing problems, running contests and taking quizzes, in English and Vietnamese.
 
 hero:
   name: LCOJ

@@ -1,5 +1,8 @@
 ---
 layout: home
+title: Tài liệu LCOJ
+titleTemplate: ":title - LCOJ: Luyện Code Online Judge"
+description: Tài liệu LCOJ - Luyện Code Online Judge. Hướng dẫn cài đặt, vận hành, ra đề, tổ chức kỳ thi và làm bài trắc nghiệm, bằng tiếng Việt và tiếng Anh.
 
 hero:
   name: LCOJ
