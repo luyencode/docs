@@ -12,6 +12,7 @@ Cần Node.js 18 trở lên.
 npm install
 npm run dev      # http://localhost:5173, tự reload khi sửa file
 npm run build    # build ra src/.vitepress/dist, báo lỗi nếu có link hỏng
+npm run check:locales  # kiểm tra mỗi trang có đủ bản tiếng Việt và tiếng Anh
 npm run preview  # xem bản build
 ```
 
@@ -23,11 +24,17 @@ src/
 ├── .vitepress/locales/       # menu, sidebar cho từng ngôn ngữ (vi, en)
 ├── public/                   # ảnh, logo, CNAME
 ├── index.md                  # trang chủ tiếng Việt
-├── site/ judge/ problem_format/ about/
-└── en/                       # bản tiếng Anh (đang dịch)
+├── features/ site/ judge/ problem_format/ about/
+└── en/                       # bản tiếng Anh, cùng cấu trúc với bản tiếng Việt
 ```
 
-Thêm trang mới: tạo file `.md` trong `src/`, rồi thêm link vào sidebar trong `src/.vitepress/locales/vi.mts`.
+**Mỗi trang phải có đủ hai ngôn ngữ.** Thêm trang mới:
+
+1. Tạo `src/<đường-dẫn>.md` (tiếng Việt) và `src/en/<đường-dẫn>.md` (tiếng Anh).
+2. Thêm link vào sidebar trong cả `src/.vitepress/locales/vi.mts` và `en.mts`.
+3. Chạy `npm run check:locales`. CI sẽ báo lỗi nếu một trang chỉ có một ngôn ngữ.
+
+Tài liệu không dùng ảnh chụp màn hình. Hãy dùng sơ đồ Mermaid (khối ` ```mermaid `), bảng và hộp lưu ý (`::: tip`, `::: warning`).
 
 ## Triển khai
 

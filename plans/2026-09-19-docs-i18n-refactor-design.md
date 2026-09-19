@@ -66,7 +66,7 @@ docs/                                # repo root (luyencode/docs)
 │   │   ├── locales/vi.mts           # vi nav/sidebar/labels
 │   │   ├── locales/en.mts           # en nav/sidebar/labels
 │   │   └── theme/                   # LCOJ colors, logo, legacy-hash redirect, custom components
-│   ├── public/                      # CNAME, favicon, logo, img/ (screenshots)
+│   ├── public/                      # CNAME, favicon, logo
 │   ├── index.md                     # vi home (root locale)
 │   ├── start/ learn/ setter/ organize/ admin/ operate/ reference/ about/
 │   └── en/                          # mirror of the tree above, English
@@ -117,7 +117,7 @@ Every how-to page uses the same template:
 > 1–2 sentence summary. ⏱ ~10 phút · 👤 Người ra đề · 🔑 Cần quyền: judge.add_problem
 
 ## Trước khi bắt đầu / Before you start   (prereqs as a checklist)
-## Các bước / Steps                       (numbered, one action per step, screenshot where UI)
+## Các bước / Steps                       (numbered, one action per step, diagram where it helps)
 ## Kiểm tra kết quả / Verify               (what success looks like)
 ## Sự cố thường gặp / Troubleshooting      (symptom → fix table)
 ## Tiếp theo / Next steps                  (2–3 links)
@@ -239,7 +239,7 @@ Rules. Some names are code identifiers, and renaming those in the docs would mak
 |---|---|
 | Site name/title/email/URL examples (`VNOJ`, `oj.vnoi.info`, `vnoj@vnoi.info`, `//oj.vnoi.info/tos/`) → `LCOJ`, `luyencode.net` | Upstream credits: "LCOJ is built on DMOJ and VNOJ" (required AGPL attribution) in README, home footer, about/license |
 | Links to VNOI-Admin repos for things LCOJ forks (judge-server executors, site) → `luyencode/*` if a fork exists, else keep with "upstream" label | Code identifiers: `dmoj` Python package, `dmoj-cli`, `judge/`, `VNOJ_*` / `DMOJ_*` settings names, the `vnoj` contest format key |
-| Screenshots/examples showing VNOJ UI → LCOJ UI | Docker image tag `vnoj/judge-tier3` (decided: keep) |
+| Examples showing VNOJ UI text → LCOJ | Docker image tag `vnoj/judge-tier3` (decided: keep) |
 | Generic "VNOJ" wording in prose → "LCOJ" | Names of external judges in the tagging feature (`VNOJ` is one of the `OJ_LIST` judges) |
 
 ---
@@ -250,7 +250,6 @@ Rules. Some names are code identifiers, and renaming those in the docs would mak
 - `scripts/check-locales.mjs` runs in CI and fails on missing twins. A page can temporarily carry `translation: pending` in its frontmatter, which renders a "not yet translated" banner instead of failing the build.
 - Vietnamese is written first (existing content and audience), then English. Both are updated in the **same PR** from then on.
 - A shared glossary (`start/glossary`) keeps terminology consistent, sourced from `dmoj/repo/locale/vi/LC_MESSAGES/*.po`.
-- Screenshots use one set, taken in the vi UI (the audience majority). English captions describe them. Screenshots are only re-taken when the UI changes.
 
 ---
 
@@ -258,16 +257,16 @@ Rules. Some names are code identifiers, and renaming those in the docs would mak
 
 Each phase is its own PR and deploys independently.
 
-| Phase | Scope | Done when |
-|---|---|---|
-| **0. Platform** | Scaffold VitePress, port existing vi pages 1:1, sidebar, theme/logo, local search, Mermaid, GitHub Actions deploy, legacy `#/` redirect, switch the Pages source | docs.luyencode.net serves the same content on VitePress; old links redirect; CI green |
-| **1. Restructure + accuracy + brand** | Move pages into the audience IA (§3). Apply the §6 fixes and the §7 branding. Delete `sample_files/`. Add the architecture and submission diagrams. | No stale commands; no VNOJ product branding; dead-link check passes |
-| **2. Missing features** | P0 quiz, then P1, then P2 (§5), in vi | Every URL namespace in `dmoj/urls.py` + `quiz/urls.py` that a user can reach is covered by some page |
-| **3. Beginner rewrite** | Apply the §4 template to all pages. Add the 3 tutorials (first problem, first contest, first quiz), screenshots, FAQ, glossary. | Each page has prereqs / steps / verify / troubleshooting / next |
-| **4. English** | Translate everything into `src/en/`, turn on the locale parity check as blocking | Parity check passes with zero `translation: pending` |
-| **5. Maintenance hooks** | "Edit this page on GitHub" links, `lastUpdated`, CONTRIBUTING (how to add a page in both languages), an optional lcoj-site PR template checkbox "docs updated?" | — |
+| Phase | Scope | Done when | Status |
+|---|---|---|---|
+| **0. Platform** | Scaffold VitePress, port existing vi pages 1:1, sidebar, theme/logo, local search, Mermaid, GitHub Actions deploy, legacy `#/` redirect, switch the Pages source | docs.luyencode.net serves the same content on VitePress; old links redirect; CI green | ✅ PR #2 (Pages source switch + merge pending) |
+| **1. Restructure + accuracy + brand** | Move pages into the audience IA (§3). Apply the §6 fixes and the §7 branding. Delete `sample_files/`. Add the architecture and submission diagrams. Also fix the issues found while translating (§11). | No stale commands; no VNOJ product branding; dead-link check passes | Next |
+| **2. Missing features** | P0 quiz, then P1, then P2 (§5), in vi **and en** | Every URL namespace in `dmoj/urls.py` + `quiz/urls.py` that a user can reach is covered by some page | 🟡 Quiz (student + authoring), exam library, URL shortener done in PR #2. P1/P2 remain. |
+| **3. Beginner rewrite** | Apply the §4 template to all pages. Add the 3 tutorials (first problem, first contest, first quiz), FAQ, glossary. | Each page has prereqs / steps / verify / troubleshooting / next | Not started (new feature pages already follow the template) |
+| **4. English** | Translate everything into `src/en/`, turn on the locale parity check as blocking | Parity check passes | ✅ PR #2: all 31 pages in both locales, `check:locales` blocks CI |
+| **5. Maintenance hooks** | "Edit this page on GitHub" links, `lastUpdated`, CONTRIBUTING (how to add a page in both languages), an optional lcoj-site PR template checkbox "docs updated?" | — | 🟡 Edit links + lastUpdated done; CONTRIBUTING pending |
 
-Phases 2 and 3 can run in parallel per section. Phase 4 can start per section as soon as that section's vi text is stable.
+From now on, every content change updates **both** locales in the same PR (enforced by `npm run check:locales`).
 
 ---
 
@@ -277,14 +276,20 @@ Phases 2 and 3 can run in parallel per section. Phase 4 can start per section as
 2. **Default locale:** `vi` at `/`, `en` at `/en/`.
 3. **Self-hosting is a goal.** The full `operate/` section stays. Every operator page ends with a "Cần hỗ trợ? / Need help?" box linking to GitHub Issues, https://behitek.com and https://luyencode.net/about/#lien-he. The same links go in the home page footer and in `start/faq`.
 4. **Excluded from docs:** the `/magazine/` page and `dmoj/start-judge.sh`. The judge page describes running several judges generically, with `<name>`/`<key>` placeholders.
-5. **Screenshots:** automated with Playwright (see §11).
+5. **No screenshots.** Visuals come from Mermaid diagrams, tables and callouts only. This avoids touching the production DB and keeps pages from going stale when the UI changes.
 
-## 11. Screenshot pipeline
+## 11. Issues found while translating and writing (to fix)
 
-The Docker stack in `lcoj-docker/dmoj` on the maintainer machine **is production** (`HOST=luyencode.net`, `DEBUG=0`). Because of that:
+**Docs content** (wrong in both locales; fix in Phase 1):
+- `site/permission_system`: five permission descriptions don't match the model labels (`spam_submission` = "Submit without limit", not "mark as spam"; also `contest_rating`, `moss_contest`, `see_private_problem`, `test_site`).
+- `problem_format/generator`: the full `gen.cpp` example computes the expected output from fresh `rand()` calls, so it doesn't match the input it prints; `difficulty` is unused.
+- `judge/setting_up_a_judge`: clones `judge-server` then `cd judge/.docker`.
+- `site/mathoid`: says `$...$` is display math; `managing_problems` uses `$...$` while `mathoid` says inline is `~...~`.
+- `site/ssl_content_proxy`: the "Cache" section lists env vars unrelated to caching.
+- `site/user_data_download`: a garbled "Docker / bare metal" restart section. `site/installation`: host-side certbot while nginx runs in Docker.
 
-- **No credentials are read or copied from the DB.** Password hashes are useless for logging in anyway. `scripts/screenshots/login.py`, run via `./scripts/manage.py shell`, mints a Django session for a chosen username and prints only the session key. Playwright injects it as the `sessionid` cookie against `http://localhost:8071`. The session is deleted afterwards.
-- **Use a dedicated `docs-demo` account** in a `docs-demo` organization, with the minimum permissions needed for each screen (student, then setter with `quiz.edit_own_quiz` / `judge.add_problem`, then staff). Don't use a real admin account, so that screenshots never show real users' private data.
-- **Read-only against prod.** Authoring flows (creating a problem, quiz or contest, or importing) are shot on a throwaway local instance (`docker compose -p lcoj-docs` with the `demo` fixture plus a seeded demo quiz and problem), never on prod.
-- `scripts/screenshots/shoot.mjs` holds a list of `{url, selector?, locale, file}` entries. It captures at 1280×800 in light theme, the `vi` UI and the `en` UI where the page text matters, and writes to `src/public/img/<section>/`. Re-running it refreshes every image after UI changes.
-- Before committing, blur or crop anything personal: usernames other than `docs-demo`, emails, IPs in the admin.
+**lcoj-site app bugs** (not docs; for the app backlog):
+- URL shortener: `URLShortenerMiddleware` isn't in `MIDDLEWARE` and `URLSHORTENER_DOMAIN` is unset, so short links 404. The model isn't in Django admin and has no menu entry. Add-only users get a 403 after create. A short code `create` collides with the create route.
+- Quiz: the MA "correct only" strategy gives full marks for ticking every choice. `max_attempts=0` shows ∞ but blocks all attempts. SA patterns are split on `|`, so the form's own example `(?i)(true|yes)` is rejected. The web importer drops Answer Display; export writes Points=1. Abandoned attempts only finalize when the student returns. Integrity toasts are hardcoded English.
+- Quiz vi translations (`locale/vi/.../django.po`): time limit labeled "(giây)" but it is minutes; "shuffle questions" → "Lời giải"; "max attempts" → "Số thành viên tối đa"; `edit_all_quiz` → "Chỉnh sửa toàn bộ tổ chức".
+- Exam library: not in `sitemap.xml` or the navbar fixture. `pdf_url` is read-only in admin, and replaced PDFs stay on disk. OG metadata is cached for 24h without invalidation. Flipbook tooltips are untranslated. The admin calls the model "resource / Tài nguyên".
