@@ -4,6 +4,40 @@ import taskLists from 'markdown-it-task-lists'
 import { vi } from './locales/vi.mts'
 import { en } from './locales/en.mts'
 
+// Pages moved in the 2026-09 restructure: old path -> new path (no locale prefix, no extension)
+const LEGACY_PATHS: Record<string, string> = {
+  'features/quiz': 'learn/quiz',
+  'features/quiz_authoring': 'setter/quiz-authoring',
+  'features/library': 'learn/exam-library',
+  'features/url_shortener': 'admin/url-shortener',
+  'site/installation': 'operate/installation',
+  'site/operations': 'operate/operations',
+  'site/updating': 'operate/updating',
+  'site/uwsgi': 'operate/architecture',
+  'site/management_commands': 'reference/management-commands',
+  'site/contest_formats': 'organize/contest-formats',
+  'site/permission_system': 'admin/permissions',
+  'site/managing_problems': 'setter/managing-problems',
+  'site/mathoid': 'operate/mathoid',
+  'site/texoid': 'operate/texoid',
+  'site/pdfoid': 'operate/pdfoid',
+  'site/recaptcha': 'operate/recaptcha',
+  'site/ssl_content_proxy': 'operate/ssl-content-proxy',
+  'site/user_data_download': 'operate/user-data-download',
+  'site/contest_data_download': 'organize/contest-data-download',
+  'site/api': 'reference/api',
+  'judge/setting_up_a_judge': 'operate/judge-setup',
+  'judge/judge_configuration': 'operate/judge-configuration',
+  'judge/supported_languages': 'reference/languages',
+  'judge/status_codes': 'reference/status-codes',
+  'problem_format/problem_format': 'setter/problem-format',
+  'problem_format/custom_checkers': 'setter/checkers',
+  'problem_format/custom_graders': 'setter/graders',
+  'problem_format/generator': 'setter/generators',
+  'problem_format/problem_examples': 'setter/examples',
+  'about/LICENSE': 'about/license',
+}
+
 const SITE_URL = 'https://docs.luyencode.net'
 const OG_IMAGE = `${SITE_URL}/og_logo.png`
 
@@ -37,14 +71,18 @@ export default withMermaid(
       ['meta', { name: 'twitter:site', content: '@nguyenvanhieuvn' }],
       ['meta', { name: 'twitter:creator', content: '@nguyenvanhieuvn' }],
       ['meta', { name: 'twitter:image', content: OG_IMAGE }],
-      // Old Docsify links look like /#/site/installation?id=buoc-2 — send them to /site/installation#buoc-2
+      // Redirect old URLs. GitHub Pages has no server-side redirects, but this runs on every page,
+      // including 404.html, so both Docsify links (/#/site/x?id=y) and pre-restructure paths
+      // (/site/x, /en/site/x) land on the page's current URL.
       [
         'script',
         {},
-        `(function(){var h=location.hash;if(h.indexOf('#/')!==0)return;` +
-          `var m=h.slice(1).match(/^([^?]*)(?:\\?id=(.*))?$/);` +
-          `var p=m[1].replace(/\\.md$/,'').replace(/\\/README$/i,'/');` +
-          `location.replace(p+(m[2]?'#'+m[2]:''));})();`,
+        `(function(){var R=${JSON.stringify(LEGACY_PATHS)};` +
+          `var h=location.hash,p=location.pathname,a=h,fromHash=h.indexOf('#/')===0;` +
+          `if(fromHash){var m=h.slice(1).match(/^([^?]*)(?:\\?id=(.*))?$/);p=m[1];a=m[2]?'#'+m[2]:'';}` +
+          `p=p.replace(/\\.(md|html)$/,'').replace(/\\/README$/i,'/');` +
+          `var en=p.indexOf('/en/')===0,k=en?p.slice(3):p,n=R[k.replace(/^\\//,'')];` +
+          `if(n)location.replace((en?'/en/':'/')+n+a);else if(fromHash)location.replace(p+a);})();`,
       ],
     ],
 

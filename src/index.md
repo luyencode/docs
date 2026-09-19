@@ -7,31 +7,49 @@ description: Tài liệu LCOJ - Luyện Code Online Judge. Hướng dẫn cài �
 hero:
   name: LCOJ
   text: Hệ thống chấm bài trực tuyến
-  tagline: Tài liệu hướng dẫn cài đặt, vận hành và sử dụng LCOJ, được phát triển dựa trên DMOJ và VNOJ.
+  tagline: Tài liệu cho học sinh, người ra đề, người tổ chức kỳ thi và người tự cài đặt LCOJ.
   image:
     src: /logo.png
     alt: LCOJ
   actions:
     - theme: brand
-      text: Cài đặt website
-      link: /site/installation
+      text: Bắt đầu làm bài
+      link: /learn/submissions
     - theme: alt
-      text: Cấu trúc bài tập
-      link: /problem_format/problem_format
+      text: Tự cài đặt LCOJ
+      link: /operate/architecture
 
 features:
-  - title: Tính năng
-    details: Bài trắc nghiệm, thư viện đề thi và rút gọn liên kết, cho học sinh, giáo viên và quản trị viên.
-    link: /features/quiz
-  - title: Hệ thống Website
-    details: Cài đặt, vận hành, cập nhật và cấu hình website LCOJ bằng Docker.
-    link: /site/installation
-  - title: Hệ thống Judge
-    details: Cài đặt và cấu hình judge, các ngôn ngữ được hỗ trợ và mã trạng thái.
-    link: /judge/setting_up_a_judge
-  - title: Định dạng bài tập
-    details: Cách tạo bài tập, viết checker, grader, generator, kèm ví dụ thực tế.
-    link: /problem_format/problem_format
+  - icon: 🎓
+    title: Học sinh
+    details: Nộp bài và đọc kết quả chấm, làm bài trắc nghiệm, đọc đề thi trong thư viện.
+    link: /learn/submissions
+    linkText: Bắt đầu
+  - icon: ✍️
+    title: Người ra đề
+    details: Tạo bài tập, cấu trúc bộ test, viết checker, grader, generator và soạn bài trắc nghiệm.
+    link: /setter/managing-problems
+    linkText: Ra đề
+  - icon: 🏆
+    title: Tổ chức kỳ thi
+    details: Chọn định dạng kỳ thi phù hợp và tải dữ liệu kỳ thi.
+    link: /organize/contest-formats
+    linkText: Tổ chức
+  - icon: 🛡️
+    title: Quản trị viên
+    details: Phân quyền cho người dùng và quản lý link rút gọn.
+    link: /admin/permissions
+    linkText: Quản trị
+  - icon: ⚙️
+    title: Vận hành
+    details: Kiến trúc hệ thống, cài đặt bằng Docker, cấu hình judge, sao lưu và cập nhật.
+    link: /operate/architecture
+    linkText: Tự cài đặt
+  - icon: 📚
+    title: Tham khảo
+    details: Mã trạng thái, ngôn ngữ được hỗ trợ, management commands và API.
+    link: /reference/status-codes
+    linkText: Tra cứu
 ---
 
 ## Hỗ trợ
