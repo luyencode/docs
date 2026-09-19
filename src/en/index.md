@@ -7,31 +7,49 @@ description: Documentation for LCOJ (Luyện Code Online Judge). Guides for inst
 hero:
   name: LCOJ
   text: Online judge
-  tagline: Guides for installing, operating and using LCOJ, built on DMOJ and VNOJ.
+  tagline: Documentation for students, problem setters, contest organizers and anyone self-hosting LCOJ.
   image:
     src: /logo.png
     alt: LCOJ
   actions:
     - theme: brand
-      text: Install the website
-      link: /en/site/installation
+      text: Start solving
+      link: /en/learn/submissions
     - theme: alt
-      text: Problem structure
-      link: /en/problem_format/problem_format
+      text: Self-host LCOJ
+      link: /en/operate/architecture
 
 features:
-  - title: Features
-    details: Quizzes, the exam library and the URL shortener, for students, teachers and admins.
-    link: /en/features/quiz
-  - title: Website
-    details: Install, operate, update and configure the LCOJ website with Docker.
-    link: /en/site/installation
-  - title: Judge
-    details: Set up and configure judges, supported languages and status codes.
-    link: /en/judge/setting_up_a_judge
-  - title: Problem format
-    details: How to create problems and write checkers, graders and generators, with real examples.
-    link: /en/problem_format/problem_format
+  - icon: 🎓
+    title: Students
+    details: Submit solutions and read verdicts, take quizzes, and read past exams in the library.
+    link: /en/learn/submissions
+    linkText: Get started
+  - icon: ✍️
+    title: Problem setters
+    details: Create problems, structure test data, write checkers, graders and generators, and author quizzes.
+    link: /en/setter/managing-problems
+    linkText: Write problems
+  - icon: 🏆
+    title: Contest organizers
+    details: Pick the right contest format and download contest data.
+    link: /en/organize/contest-formats
+    linkText: Run contests
+  - icon: 🛡️
+    title: Site admins
+    details: Grant permissions to users and manage short links.
+    link: /en/admin/permissions
+    linkText: Administer
+  - icon: ⚙️
+    title: Operators
+    details: System architecture, installing with Docker, judge setup, backups and updates.
+    link: /en/operate/architecture
+    linkText: Self-host
+  - icon: 📚
+    title: Reference
+    details: Status codes, supported languages, management commands and the API.
+    link: /en/reference/status-codes
+    linkText: Look it up
 ---
 
 ## Support
