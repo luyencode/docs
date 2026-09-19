@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import taskLists from 'markdown-it-task-lists'
 import { vi } from './locales/vi.mts'
 import { en } from './locales/en.mts'
 
@@ -52,6 +53,8 @@ export default withMermaid(
 
     markdown: {
       languageAlias: { env: 'dotenv', cron: 'shellscript' },
+      // Render "- [ ] item" checklists (used in "Before you start" sections) as checkboxes
+      config: (md) => md.use(taskLists, { label: true }),
     },
 
     vite: {

@@ -4,12 +4,22 @@ export const vi: LocaleSpecificConfig<DefaultTheme.Config> = {
   description: 'Tài liệu hệ thống chấm bài trực tuyến LCOJ',
   themeConfig: {
     nav: [
+      { text: 'Tính năng', link: '/features/quiz' },
       { text: 'Website', link: '/site/installation' },
       { text: 'Judge', link: '/judge/setting_up_a_judge' },
       { text: 'Bài tập', link: '/problem_format/problem_format' },
       { text: 'luyencode.net', link: 'https://luyencode.net' },
     ],
     sidebar: [
+      {
+        text: 'Tính năng',
+        items: [
+          { text: 'Làm bài trắc nghiệm', link: '/features/quiz' },
+          { text: 'Tạo bài trắc nghiệm', link: '/features/quiz_authoring' },
+          { text: 'Thư viện đề thi', link: '/features/library' },
+          { text: 'Rút gọn liên kết', link: '/features/url_shortener' },
+        ],
+      },
       {
         text: 'Hệ thống Website',
         items: [

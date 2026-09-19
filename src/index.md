@@ -17,6 +17,9 @@ hero:
       link: /problem_format/problem_format
 
 features:
+  - title: Tính năng
+    details: Bài trắc nghiệm, thư viện đề thi và rút gọn liên kết, cho học sinh, giáo viên và quản trị viên.
+    link: /features/quiz
   - title: Hệ thống Website
     details: Cài đặt, vận hành, cập nhật và cấu hình website LCOJ bằng Docker.
     link: /site/installation

@@ -48,7 +48,7 @@ LCOJ hỗ trợ Markdown với các tính năng mở rộng:
 
 **Ví dụ đề bài:**
 
-```markdown
+````markdown
 # Đề bài
 
 Cho hai số nguyên $a$ và $b$. Hãy tính tổng của chúng.
@@ -77,7 +77,7 @@ In ra một số nguyên duy nhất là $a + b$.
 
 - Thời gian: 1 giây
 - Bộ nhớ: 256 MB
-```
+````
 
 Xem [template đầy đủ](https://raw.githubusercontent.com/luyencode/docs/master/sample_files/problem_markdown_example.md.txt).
 

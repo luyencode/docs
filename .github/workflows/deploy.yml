@@ -27,6 +27,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run check:locales # every page must exist in both vi and en
       - run: npm run build # fails on dead internal links
       - uses: actions/configure-pages@v5
         if: github.event_name != 'pull_request'

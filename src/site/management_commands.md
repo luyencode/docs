@@ -172,7 +172,7 @@ Tạo editorial (lời giải) tự động cho bài tập bằng AI, sử dụn
 
 **Định dạng editorial:**
 
-```markdown
+````markdown
 ## Hiểu bài toán
 [Giải thích rõ ràng về bài toán]
 
@@ -202,7 +202,7 @@ Tạo editorial (lời giải) tự động cho bài tập bằng AI, sử dụn
 ## Lỗi thường gặp
 - [Pitfall 1]
 - [Pitfall 2]
-```
+````
 
 **Kiểm tra và xuất bản:**
 
