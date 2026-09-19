@@ -62,9 +62,9 @@ In other words, environment variables only override **the settings that `local_s
 
 | Variable | Required? | Default (if unset) | Meaning |
 |---|---|---|---|
-| `HOST` | Yes | `localhost` | Public domain name, without `http://`. Used for `ALLOWED_HOSTS = [HOST]` and the WebSocket addresses `ws://HOST/event/` and `wss://HOST/event/` |
-| `SITE_FULL_URL` | Recommended | `http://localhost/` | Full site URL, used to build absolute links (for example in webhooks) |
-| `MEDIA_URL` | Yes | `http://localhost/` | Base URL for media files. nginx serves media at the site root (`/martor`, `/pdf`, ...), so this usually matches `SITE_FULL_URL`. Must end with `/` |
+| `HOST` | Yes | `localhost` | Public domain name, without `http://` and without a port. Used for `ALLOWED_HOSTS = [HOST]` and the WebSocket addresses `ws://HOST/event/` and `wss://HOST/event/` |
+| `SITE_FULL_URL` | Recommended | `http://localhost/` | Full site URL, used to build absolute links (for example in webhooks). Use `https://` when the site runs behind an HTTPS reverse proxy |
+| `MEDIA_URL` | Yes | `http://localhost/` | Base URL for media files. nginx serves media at the site root (`/martor`, `/pdf`, ...), so this usually matches `SITE_FULL_URL` (including `https://`). Must end with `/` |
 | `DEBUG` | No | `0` | Enabled only when the value is **exactly** `1`. Anything else (`true`, `yes`, ...) means off |
 | `SECRET_KEY` | Yes | empty | Django's secret key. If it's empty, Django refuses to start |
 | `EVENT_DAEMON_POST` | No | `ws://wsevent:15101/` | Where the site posts events to wsevent |
@@ -72,16 +72,16 @@ In other words, environment variables only override **the settings that `local_s
 | `CELERY_BROKER_URL` | No | `redis://redis:6379/1` | Celery task queue |
 | `CELERY_RESULT_BACKEND` | No | `redis://redis:6379/1` | Where Celery stores task results |
 | `BRIDGED_HOST` | No | `bridged` | Hostname of bridged. The site connects to `BRIDGED_HOST:9998`; bridged listens for judges on `BRIDGED_HOST:9999` |
-| `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` | Yes (on LCOJ) | empty | Google OAuth client ID |
-| `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` | Yes (on LCOJ) | empty | Google OAuth client secret |
+| `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` | Yes (when `OAUTH_ONLY = True`) | empty | Google OAuth client ID |
+| `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` | Yes (when `OAUTH_ONLY = True`) | empty | Google OAuth client secret |
 | `MOSS_API_KEY` | No | empty | [MOSS](https://theory.stanford.edu/~aiken/moss/) key for contest plagiarism checks |
 
-Example production `site.env` (secrets shown as placeholders):
+Example `site.env` for an install served over HTTPS at `lcoj.example.com` (secrets shown as placeholders):
 
 ```ini
-HOST=luyencode.net
-SITE_FULL_URL=https://luyencode.net/
-MEDIA_URL=https://luyencode.net/
+HOST=lcoj.example.com
+SITE_FULL_URL=https://lcoj.example.com/
+MEDIA_URL=https://lcoj.example.com/
 
 DEBUG=0
 SECRET_KEY=<long random string>
@@ -107,10 +107,11 @@ MOSS_API_KEY=<moss-user-id>
 
 Things to note:
 
-- **One domain only.** `ALLOWED_HOSTS` contains exactly `HOST`. To serve another domain as well (for example `www.luyencode.net`), edit `ALLOWED_HOSTS` in `local_settings.py`.
-- **OAuth-only sign-up.** LCOJ sets `OAUTH_ONLY = True` in `local_settings.py`, so password registration is disabled. Without the two Google OAuth variables, new users have no way to sign up.
+- **One domain only.** `ALLOWED_HOSTS` contains exactly `HOST`. To serve another domain as well (for example `www.lcoj.example.com`), edit `ALLOWED_HOSTS` (and `CSRF_TRUSTED_ORIGINS` if you use HTTPS) in `local_settings.py`.
+- **HTTPS needs extra Django settings.** Switching `SITE_FULL_URL`/`MEDIA_URL` to `https://` isn't enough: you also need `CSRF_TRUSTED_ORIGINS` and `SECURE_PROXY_SSL_HEADER` in `local_settings.py`. See [Installation: Configure Django for HTTPS](/en/operate/installation#django-https).
+- **OAuth-only sign-up.** The bundled `local_settings.py` sets `OAUTH_ONLY = True`, so password registration is disabled. Without the two Google OAuth variables, new users have no way to sign up.
 - **`SITE_FULL_URL` and the trailing `/`.** The template ends with `/` and the site works fine. However, some code (webhooks) concatenates strings directly, such as `SITE_FULL_URL + '/user/...'`, which can produce `//` in links. If you use webhooks, consider dropping the trailing `/`.
-- **Empty `MOSS_API_KEY`.** The code only checks `MOSS_API_KEY is not None`, and the default is an empty string, so the MOSS tab still shows on contest pages (for users with the `moss_contest` permission) even without a key, and fails when used.
+- **Empty `MOSS_API_KEY`.** The MOSS tab still shows on contest pages (for users with the `moss_contest` permission) even without a key, and fails when used. Only use it after you've set `MOSS_API_KEY`.
 - **Internal Docker values** (`EVENT_DAEMON_POST`, `REDIS_*`, `CELERY_*`, `BRIDGED_HOST`) use service names from `docker-compose.yml`. Only change them if you move services to other machines.
 
 ::: danger Never enable DEBUG in production
@@ -121,7 +122,7 @@ Things to note:
 
 `docker-compose.yml` publishes nginx with `${NGINX_PORT:-8071}:80`. This is a **Docker Compose substitution variable**, read when Compose parses the YAML file, not a variable inside the container.
 
-- Default: `8071` (Cloudflare Tunnel points at this port).
+- Default: `8071`. The HTTPS reverse proxy on the host (Caddy or nginx) forwards to this port; it's best bound to `127.0.0.1` only. See [Installation: HTTPS on a VPS](/en/operate/installation#https).
 - Compose only takes the value from your shell environment or a `dmoj/.env` file (next to `docker-compose.yml`). Setting `NGINX_PORT` in `environment/site.env` does **not** change the published port; it just ends up inside the nginx container, where nothing uses it.
 
 To change the port, create or edit `dmoj/.env`:
@@ -181,6 +182,7 @@ These settings are hardcoded in `local_settings.py` and can't be changed through
 | `ALLOWED_HOSTS` | `[HOST]` | Derived from `HOST` |
 | `EVENT_DAEMON_GET`, `EVENT_DAEMON_GET_SSL` | `ws://{HOST}/event/`, `wss://{HOST}/event/` | Derived from `HOST` |
 | `EVENT_DAEMON_POLL` | `'/channels/'` | Long-polling path |
+| `CSRF_TRUSTED_ORIGINS`, `SECURE_PROXY_SSL_HEADER` | not set | Add them when running behind an HTTPS reverse proxy; see [Installation](/en/operate/installation#django-https) |
 | `DMOJ_PROBLEM_DATA_ROOT`, `MEDIA_ROOT`, `STATIC_ROOT` | `/problems/`, `/media/`, `/assets/static/` | Match the volumes in `docker-compose.yml` |
 | `VNOJ_CP_TICKET` | `5` | Setting inherited from VNOJ |
 | Email (`EMAIL_BACKEND`, ...), `ADMINS` | not configured (commented out) | |

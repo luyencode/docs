@@ -12,7 +12,7 @@
 
 Nếu gặp thuật ngữ lạ (container, volume, reverse proxy, judge...), xem [Thuật ngữ](/start/glossary).
 
-Mọi thông tin dưới đây lấy từ repo [lcoj-docker](https://github.com/luyencode/lcoj-docker): `dmoj/docker-compose.yml`, các `Dockerfile` trong `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf` và `dmoj/config/`.
+Cấu hình của các dịch vụ nằm trong repo [lcoj-docker](https://github.com/luyencode/lcoj-docker): `dmoj/docker-compose.yml`, các `Dockerfile` trong `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf` và `dmoj/config/`.
 
 LCOJ dựa trên [DMOJ](https://github.com/DMOJ/online-judge) và [VNOJ](https://github.com/VNOI-Admin/OJ). Toàn bộ website chạy bằng Docker Compose; riêng các máy chấm (judge) chạy tách biệt và kết nối vào hệ thống qua cổng 9999.
 
@@ -20,8 +20,8 @@ LCOJ dựa trên [DMOJ](https://github.com/DMOJ/online-judge) và [VNOJ](https:/
 
 ```mermaid
 flowchart LR
-    user([Người dùng]) -->|HTTPS| cf[Cloudflare Tunnel]
-    cf -->|HTTP :8071| nginx
+    user([Người dùng]) -->|HTTPS :443| proxy["Reverse proxy trên host<br/>Caddy / nginx"]
+    proxy -->|"HTTP 127.0.0.1:8071"| nginx
 
     subgraph compose["Docker Compose (thư mục dmoj/)"]
         nginx[nginx :80]
@@ -51,14 +51,14 @@ flowchart LR
 
 Tóm tắt một request:
 
-1. Người dùng truy cập `https://luyencode.net`. HTTPS kết thúc tại **Cloudflare Tunnel**; tunnel chuyển tiếp HTTP thuần tới cổng nginx trên máy chủ (mặc định `8071`).
+1. Người dùng truy cập `https://<tên-miền>`. HTTPS kết thúc tại **reverse proxy chạy trên máy chủ** (Caddy hoặc nginx của hệ điều hành); proxy chuyển tiếp HTTP thuần tới cổng nginx của Docker (mặc định `127.0.0.1:8071`).
 2. **nginx** trả trực tiếp file tĩnh (`/static`, icon, `robots.txt`...) và file media (`/martor`, `/pdf`, `/submission_file`...). Các request còn lại được chuyển tới **site** qua giao thức uwsgi (`site:8000`).
 3. `/event/` (WebSocket) và `/channels/` (long polling) được chuyển tới **wsevent** để cập nhật trực tiếp kết quả chấm, bảng xếp hạng.
 4. Khi có bài nộp, **site** gửi yêu cầu chấm tới **bridged** (cổng 9998). bridged chọn một judge rảnh (judge đã kết nối vào cổng 9999), nhận kết quả và ghi vào **db**.
 5. Tác vụ nặng hoặc chạy nền (rejudge hàng loạt, xuất dữ liệu...) được đẩy vào hàng đợi Redis cho **celery** xử lý.
 
-::: warning HTTPS nằm ở Cloudflare, không phải nginx
-Trên production, nginx chỉ phục vụ HTTP (`listen 80`) bên trong. Chứng chỉ và HTTPS do Cloudflare Tunnel đảm nhận. Cloudflare Tunnel (`cloudflared`) không nằm trong `docker-compose.yml`, nó chạy riêng trên máy chủ và trỏ vào cổng nginx đã publish.
+::: warning HTTPS nằm ở reverse proxy trên host, không phải nginx trong Docker
+nginx trong container chỉ phục vụ HTTP (`listen 80`). Chứng chỉ và HTTPS do một reverse proxy chạy trực tiếp trên máy chủ đảm nhận (Caddy, hoặc nginx + certbot). Proxy này không nằm trong `docker-compose.yml`; bạn cài riêng và trỏ nó vào cổng nginx đã publish. Cách cài xem [Cài đặt: HTTPS trên VPS](/operate/installation#https).
 :::
 
 ## Các dịch vụ
@@ -99,7 +99,7 @@ Trong cùng mạng, các dịch vụ gọi nhau bằng tên dịch vụ: `db`, `
 
 | Cổng | Dịch vụ | Publish ra máy chủ? | Dùng cho |
 |---|---|---|---|
-| `${NGINX_PORT:-8071}` → 80 | nginx | Có | Cổng web duy nhất; Cloudflare Tunnel trỏ vào đây |
+| `${NGINX_PORT:-8071}` → 80 | nginx | Có | Cổng web duy nhất; reverse proxy HTTPS trên host trỏ vào đây. Nên chỉ bind vào `127.0.0.1` |
 | 9999 | bridged | Có (`9999:9999`) | Judge kết nối vào |
 | 9998 | bridged | Có (`9998:9998`) | Site gửi yêu cầu chấm |
 | 8000 | site | Không | nginx → uWSGI |
@@ -108,7 +108,7 @@ Trong cùng mạng, các dịch vụ gọi nhau bằng tên dịch vụ: `db`, `
 | 6379 | redis | Không (đang comment) | Redis |
 
 ::: warning Không để lộ cổng 9998/9999 ra Internet
-Hai cổng của bridged được publish trên mọi địa chỉ của máy chủ. Hãy dùng tường lửa để chỉ các máy judge của bạn truy cập được 9999, và chặn 9998 từ bên ngoài.
+Hai cổng của bridged được publish trên mọi địa chỉ của máy chủ. Hãy dùng tường lửa để chỉ các máy judge của bạn truy cập được 9999, và chặn 9998 từ bên ngoài. Lưu ý cổng do Docker publish không chịu tác động của `ufw`; cách xử lý xem [Cài đặt: tường lửa](/operate/installation#firewall).
 :::
 
 `NGINX_PORT` được Docker Compose thay thế khi đọc `docker-compose.yml`, nên phải đặt trong shell hoặc file `dmoj/.env`, không phải trong `environment/site.env`. Xem [Biến môi trường](/operate/environment#nginx-port).
@@ -206,7 +206,7 @@ Gợi ý khi điều chỉnh:
 
 - **`workers`**: mỗi worker là một tiến trình Django riêng, thường tốn vài trăm MB RAM. Tăng khi CPU còn rảnh mà request phải chờ; giảm khi máy thiếu RAM. Ước lượng RAM tối đa khoảng `workers × reload-on-rss`.
 - **`reload-on-rss`**: hạ xuống nếu máy ít RAM, tăng lên nếu thấy worker bị khởi động lại liên tục trong log.
-- Máy phát triển có thể thêm `py-autoreload = 1` để uWSGI tự nạp lại khi file Python thay đổi. Không nên bật trên production.
+- Máy phát triển có thể thêm `py-autoreload = 1` để uWSGI tự nạp lại khi file Python thay đổi. Không bật trên máy chủ đang phục vụ người dùng.
 
 ::: warning `initialize` ghi đè cấu hình
 Chạy lại `./scripts/initialize` sẽ sao chép đè `dmoj/config/uwsgi.ini` lên `dmoj/repo/uwsgi.ini`. Nếu bạn chỉ sửa bản trong `repo/`, thay đổi sẽ mất.

@@ -17,7 +17,7 @@ This page has three parts, for three audiences:
 ::: warning Short links only work once a dedicated domain is configured
 Redirects for `/<short-code>` are handled **only** on the dedicated short domain (Part 3). The main domain (for example `luyencode.net`) has no route for `/<short-code>`, so `https://luyencode.net/hsg2026` returns 404.
 
-LCOJ's default configuration (`dmoj/config/local_settings.py`) does **not** set `URLSHORTENER_DOMAIN` and does **not** add `URLShortenerMiddleware` to `MIDDLEWARE`. In that state you can still create and manage links, but the copied link is just the relative path `/<short-code>` and does not work. Ask your operator to complete Part 3 first.
+The default lcoj-docker configuration (`dmoj/config/local_settings.py`) does **not** set `URLSHORTENER_DOMAIN` and does **not** add `URLShortenerMiddleware` to `MIDDLEWARE`. In that state you can still create and manage links, but the copied link is just the relative path `/<short-code>` and does not work. Ask your operator to complete Part 3 first.
 :::
 
 ## How it works
@@ -25,12 +25,12 @@ LCOJ's default configuration (`dmoj/config/local_settings.py`) does **not** set 
 ```mermaid
 sequenceDiagram
     participant V as Visitor
-    participant CF as DNS / Tunnel
+    participant P as TLS reverse proxy
     participant N as nginx
     participant S as site (Django)
     participant DB as MariaDB
-    V->>CF: GET s.example.com/hsg2026
-    CF->>N: Host s.example.com
+    V->>P: GET s.example.com/hsg2026
+    P->>N: Host s.example.com
     N->>S: uwsgi_pass site:8000
     S->>S: Middleware matches Host
     S->>DB: Look up code hsg2026
@@ -220,7 +220,7 @@ You can also check from the Django shell:
 
 ## 3. Using a dedicated short domain
 
-⏱ ~15 min · 👤 Server operator · 🔑 access to the server, `dmoj/repo/dmoj/local_settings.py` and DNS / Cloudflare Tunnel configuration
+⏱ ~15 min · 👤 Server operator · 🔑 access to the server, `dmoj/repo/dmoj/local_settings.py` and the DNS and TLS reverse proxy configuration (Caddy / host nginx)
 
 This part configures a dedicated domain, for example `s.example.com`, so that `https://s.example.com/<short-code>` redirects to the original URL. In the examples below, replace `s.example.com` with your real domain.
 
@@ -249,13 +249,21 @@ Consequences:
 ### Before you start
 
 - LCOJ is running fine on the main domain (see [Installation](/en/operate/installation)).
-- You control DNS for the short domain, and the Cloudflare Tunnel (if used, as in production).
-- In `docker-compose.yml`, nginx is published on the host at port `${NGINX_PORT:-8071}` (default `8071`). The main domain's tunnel points at this port.
+- You control DNS for the short domain and the TLS reverse proxy (Caddy or nginx installed on the host) that fronts the site.
+- In `docker-compose.yml`, nginx is published on the host at port `${NGINX_PORT:-8071}` (default `8071`). The main domain's reverse proxy forwards to this port.
 - You know the live config file is `dmoj/repo/dmoj/local_settings.py` (ignored by git). `./scripts/initialize` copies it from `dmoj/config/local_settings.py`.
 
 ### Steps
 
-1. **Point the domain at nginx.** Add a public hostname `s.example.com` in the Cloudflare Tunnel, pointing to the **same nginx service** as the main domain (`http://<server>:8071`). Do not override the Host header: Django must receive `Host: s.example.com`.
+1. **Point the domain at the server.** Add a DNS record (A/AAAA or CNAME) for `s.example.com` pointing at the server that runs the site. Then add this hostname to the TLS reverse proxy that fronts the site, forwarding to the **same nginx service** as the main domain (`http://<server>:8071`). Preserve the Host header: Django must receive `Host: s.example.com`. For example, with Caddy:
+
+   ```
+   s.example.com {
+       reverse_proxy localhost:8071
+   }
+   ```
+
+   With nginx on the host, add `s.example.com` to the `server_name` of the block that forwards to port 8071 (that block needs `proxy_set_header Host $host;`).
 
 2. **(Optional) Declare it in nginx.** `dmoj/nginx/conf.d/nginx.conf` has a single `server` block (`listen 80`, `server_name luyencode.net;`), so it is the default server and already accepts any Host. Requests for `s.example.com` therefore already reach `site` through `uwsgi_pass site:8000` (with `include uwsgi_params`, so Host is forwarded). To make it explicit, add the domain to `server_name`:
 
@@ -301,7 +309,7 @@ Create a test link (Part 1), for example code `test123` pointing to `https://luy
 curl -sI -H 'Host: s.example.com' http://localhost:8071/test123
 # Expect: HTTP/1.1 302 Found  and  Location: https://luyencode.net/
 
-# 2. Over the Internet (DNS / Tunnel)
+# 2. Over the Internet (DNS + reverse proxy)
 curl -sI https://s.example.com/test123
 # Expect: 302 with the same Location
 
@@ -322,7 +330,7 @@ Finally, open the link's detail page: the link box should show `https://s.exampl
 |---|---|
 | `400 Bad Request` on the short domain | The domain is not in `ALLOWED_HOSTS`, or `site` has not been restarted. Look for `DisallowedHost` in `docker compose logs site`. |
 | The short domain shows the main site's home page or 404 | The middleware is not running: `MIDDLEWARE += ('urlshortener.middleware.URLShortenerMiddleware',)` is missing; or `URLSHORTENER_DOMAIN` differs from the real Host (has a scheme, a port, a typo, different case). |
-| `curl -H 'Host: ...'` against `localhost:8071` works, but not over the Internet | Check that the tunnel/DNS public hostname points to nginx and does not override the Host header. |
+| `curl -H 'Host: ...'` against `localhost:8071` works, but not over the Internet | Check that the DNS record points at the server, the reverse proxy has this hostname, forwards to nginx, and preserves the Host header. |
 | The link shown in the management pages is still `/code` | `URLSHORTENER_DOMAIN` was not loaded: check you edited the right file, `dmoj/repo/dmoj/local_settings.py`, and restarted. |
 | `/code/` (trailing `/`) returns 404 | By design; use `/code`. |
 | Configuration lost after re-running `./scripts/initialize` | Copy the configuration into `dmoj/config/local_settings.py` (step 4). |
@@ -335,4 +343,4 @@ See [Operations](/en/operate/operations) for more operational commands.
 
 - [Permission system](/en/admin/permissions): the other permissions in LCOJ and how to organize groups.
 - [Operations](/en/operate/operations): restarting services, reading logs, checking status.
-- [Installation](/en/operate/installation): reinstall, or set up a staging environment to test the short domain before applying it in production.
+- [Installation](/en/operate/installation): reinstall, or set up a staging environment to test the short domain before applying it to your live site.

@@ -60,7 +60,7 @@ flowchart TD
 You can also pick open organizations in the organizations box on your profile edit page `/edit/profile/`.
 
 ::: info Organization limit
-Each user can be in at most `DMOJ_USER_MAX_ORGANIZATION_COUNT` **open** organizations (LCOJ: **3**). Closed organizations do not count toward this limit.
+Each user can be in at most `DMOJ_USER_MAX_ORGANIZATION_COUNT` **open** organizations (**3** on luyencode.net). Closed organizations do not count toward this limit.
 :::
 
 ### Requesting to join a closed organization
@@ -104,7 +104,7 @@ The **Administrators** box (and the two credit boxes) on the site form is only s
 :::
 
 ::: info Limits and the "Org Admin" group
-- Users who already administer `VNOJ_ORGANIZATION_ADMIN_LIMIT` organizations (LCOJ: **3**) cannot create more on the site. The `spam_organization` permission is meant to lift this limit but currently only works for superusers (see [Permissions](/en/admin/permissions)).
+- Users who already administer `VNOJ_ORGANIZATION_ADMIN_LIMIT` organizations (**3** on luyencode.net) cannot create more on the site. The `spam_organization` permission lifts this limit, but currently only for superusers (see [Permissions](/en/admin/permissions)).
 - Whenever the organization form is saved **on the site**, every admin is added to the Django group named by `GROUP_PERMISSION_FOR_ORG_ADMIN` (default `Org Admin`). Operators must create this group beforehand and give it the permissions organization admins need, such as `create_organization_problem`, `create_private_contest`, `edit_organization_post`. If the group does not exist, saving the form fails. Admins added **in the Django admin** are **not** added to the group; add them by hand.
 :::
 
@@ -192,7 +192,7 @@ An organization's **Points** (the **Points** column on `/organizations/`) come f
 org points = VNOJ_ORG_PP_SCALE × (pp[0] + 0.95 × pp[1] + 0.95² × pp[2] + … + 0.95⁹⁹ × pp[99])
 ```
 
-where `pp[i]` is the performance points of the member ranked `i` (starting at 0). The constants are `VNOJ_ORG_PP_STEP = 0.95`, `VNOJ_ORG_PP_ENTRIES = 100`, `VNOJ_ORG_PP_SCALE = 1` (LCOJ uses the defaults). Points update when members join or leave; the admin has a **Recalculate scores** action.
+where `pp[i]` is the performance points of the member ranked `i` (starting at 0). The constants are `VNOJ_ORG_PP_STEP = 0.95`, `VNOJ_ORG_PP_ENTRIES = 100`, `VNOJ_ORG_PP_SCALE = 1` (luyencode.net uses the defaults). Points update when members join or leave; the admin has a **Recalculate scores** action.
 
 ## Storage, quotas and credit {#storage-quotas-and-credit}
 
@@ -208,14 +208,14 @@ Admins click **Organization cost** (`/organization/<slug>/usage`) to see:
 
 **Credit:** every submission to an organization-private problem, or inside an organization-private contest, consumes credit equal to its total judging time. The monthly free credit is used first, then paid credit. The cost chart computes `(seconds used − VNOJ_MONTHLY_FREE_CREDIT) / 3600 × VNOJ_PRICE_PER_HOUR` thousand VND.
 
-| Setting | Default | LCOJ | Meaning |
+| Setting | Default | luyencode.net | Meaning |
 |---|---|---|---|
-| `VNOJ_ENABLE_ORGANIZATION_CREDIT_LIMITATION` | `False` | `False` | When on, blocks submissions once the organization is out of credit. LCOJ does **not** block; credit is tracked only. |
+| `VNOJ_ENABLE_ORGANIZATION_CREDIT_LIMITATION` | `False` | `False` | When on, blocks submissions once the organization is out of credit. luyencode.net does **not** block; credit is tracked only. |
 | `VNOJ_MONTHLY_FREE_CREDIT` | `10800` (3 hours) | 3 hours | Free credit per month (seconds). |
 | `VNOJ_PRICE_PER_HOUR` | `50` | `50` | Price per judging hour above the free amount (thousand VND), used only for the chart. |
 | `VNOJ_ORGANIZATION_DEFAULT_MAX_PROBLEMS` | `1000` | `1000` | Default problem limit. |
 | `VNOJ_ORGANIZATION_DEFAULT_MAX_STORAGE` | 5 GB | 5 GB | Default test data storage limit. |
-| `VNOJ_QUOTA_ENFORCEMENT_ENABLED` | `False` | `False` | When on, blocks creating problems/uploading tests over quota. LCOJ only **warns**. |
+| `VNOJ_QUOTA_ENFORCEMENT_ENABLED` | `False` | `False` | When on, blocks creating problems/uploading tests over quota. luyencode.net only **warns**. |
 | `VNOJ_QUOTA_WARNING_THRESHOLD` | `0.8` | `0.8` | Warn from 80% of the quota. |
 | `VNOJ_QUOTA_WARNING_SUFFIX` | `''` | `''` | HTML appended to quota warnings (for example a link to a guide). |
 | `VNOJ_QUOTA_PACKAGE_PROBLEMS`, `VNOJ_QUOTA_PACKAGE_STORAGE` | `1000`, 5 GB | default | Problems and storage added by each quota package. |
@@ -226,7 +226,7 @@ Closing the month's figures and refilling free credit on the 1st of each month i
 
 ## Organization subdomains
 
-LCOJ ships an `OrganizationSubdomainMiddleware` for opening organizations on subdomains (like `<slug>.example.com`), but it is **not** in LCOJ's `MIDDLEWARE`, so the feature is **inactive** on luyencode.net. To enable it, an operator must add the middleware, set up DNS/proxy for the subdomains, and list non-organization subdomains in `VNOJ_IGNORED_ORGANIZATION_SUBDOMAINS` (default `['oj', 'www', 'localhost']`). For luyencode.net the first host label is `luyencode`, so `luyencode` (and `dev`) must be added to that list, or every page returns 404.
+LCOJ ships an `OrganizationSubdomainMiddleware` for opening organizations on subdomains (like `<slug>.example.com`), but it is **not** enabled in the default `MIDDLEWARE`, so the feature is **inactive** on luyencode.net. To enable it, an operator must add the middleware, set up DNS/proxy for the subdomains, and list non-organization subdomains in `VNOJ_IGNORED_ORGANIZATION_SUBDOMAINS` (default `['oj', 'www', 'localhost']`). For luyencode.net the first host label is `luyencode`, so `luyencode` (and `dev`) must be added to that list, or every page returns 404.
 
 ## Verify
 

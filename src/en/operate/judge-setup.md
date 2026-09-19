@@ -34,7 +34,7 @@ flowchart LR
     problems -.->|mounted at /problems| j2
 ```
 
-Key points (from `dmoj/docker-compose.yml` and `dmoj/config/local_settings.py`):
+Key points:
 
 - `bridged` publishes port `9999` on the host (`ports: 9999:9999`). Judges run with `--network host`, so they just connect to `localhost:9999`.
 - The `dmoj/problems` directory is mounted into `site` and `bridged` at `/problems` (`DMOJ_PROBLEM_DATA_ROOT = '/problems/'`). Judges mount **the same directory** at `/problems`. When you upload test data on the site, the judges see it right away.
@@ -42,13 +42,13 @@ Key points (from `dmoj/docker-compose.yml` and `dmoj/config/local_settings.py`):
 
 ## Choosing a Docker image
 
-LCOJ uses **`vnoj/judge-tier3`**, the judge image from the upstream [VNOJ](https://github.com/VNOI-Admin/judge-server) project. Images come in "tiers" by how many languages they include:
+This guide uses **`vnoj/judge-tier3`**, the judge image from the upstream [VNOJ](https://github.com/VNOI-Admin/judge-server) project. Images come in "tiers" by how many languages they include:
 
 | Image | Contents |
 |---|---|
 | `vnoj/judge-tier1` | Core languages: C/C++ (GCC), Python 2/3, Java, Pascal |
 | `vnoj/judge-tier2` | Tier 1 plus a selection of other common languages |
-| `vnoj/judge-tier3` | The most complete set, covering nearly every runtime the judge supports. **LCOJ uses this one** |
+| `vnoj/judge-tier3` | The most complete set, covering nearly every runtime the judge supports. **Recommended**; the commands below use it |
 
 The exact contents of each tier come from the base images `vnoj/runtimes-tier1/2/3` (see the `Dockerfile`s under `judge-server/.docker/`). The languages **actually available** on your site are whatever your judges report. See [Supported languages](/en/reference/languages).
 
@@ -70,7 +70,7 @@ Each judge needs a record on the site with a **name** and an **authentication ke
 
 ### Option A: Admin panel
 
-1. Sign in as a superuser and open `https://luyencode.net/admin/judge/judge/` (use your own domain).
+1. Sign in as a superuser and open `https://<your-domain>/admin/judge/judge/`.
 2. Click **Add judge**.
 3. Fill in **Name**, for example `judge1`. Use a hostname-style name: letters, digits, and hyphens, no spaces.
 4. In the **Authentication key** field, click **Regenerate** to have the browser create a random key, then copy it.
@@ -144,7 +144,7 @@ docker run \
 | `-d`, `--restart=always` | Run in the background and restart automatically after a reboot or crash |
 | `vnoj/judge-tier3` | The judge image |
 
-Everything after the image name goes to the judge. The `run` keyword starts the `dmoj` command (the image's `entry` script also accepts `cli` and `test`). The `dmoj` arguments, from `dmoj/judgeenv.py`:
+Everything after the image name goes to the judge. The `run` keyword starts the `dmoj` command (the image's `entry` script also accepts `cli` and `test`). The `dmoj` arguments:
 
 | Argument | Meaning |
 |---|---|
@@ -162,11 +162,11 @@ Judges don't have to run on the site server. On a separate machine:
 
 1. Replace `localhost` with the IP address or hostname of the site server.
 2. Give the judge machine its own copy of the problem data at `/problems` (for example, sync `dmoj/problems` with `rsync` or use network storage), since judges read test data from their own disk.
-3. On the firewall, open port `9999` only to your judge machines' IP addresses.
+3. On the firewall, open port `9999` only to your judge machines' IP addresses. Docker-published ports aren't filtered by `ufw`; see [Installation: firewall](/en/operate/installation#firewall).
 :::
 
 ::: warning Port 9998
-`docker-compose.yml` also publishes port `9998` on the host. That port is for `site` to send commands to `bridged` and **never** needs outside access. Block `9998` (and `9999` if you have no remote judges) on the server firewall.
+`docker-compose.yml` also publishes port `9998` on the host. That port is for `site` to send commands to `bridged` and **never** needs outside access. Bind `9998` (and `9999` if you have no remote judges) to `127.0.0.1`; see [Installation: bind to localhost](/en/operate/installation#bind-localhost). Judges running on the same host with `--network=host` can still reach `localhost:9999`.
 :::
 
 ## Running multiple judges

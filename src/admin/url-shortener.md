@@ -17,7 +17,7 @@ Trang này gồm ba phần, cho ba nhóm người đọc:
 ::: warning Link rút gọn chỉ hoạt động khi đã cấu hình tên miền riêng
 Việc chuyển hướng `/<mã-ngắn>` **chỉ** được xử lý trên tên miền rút gọn riêng (Phần 3). Trên tên miền chính (ví dụ `luyencode.net`) không có route nào cho `/<mã-ngắn>`, nên `https://luyencode.net/hsg2026` sẽ trả về lỗi 404.
 
-Cấu hình mặc định của LCOJ (`dmoj/config/local_settings.py`) **chưa** đặt `URLSHORTENER_DOMAIN` và **chưa** thêm `URLShortenerMiddleware` vào `MIDDLEWARE`. Khi đó bạn vẫn tạo và quản lý link được, nhưng link sao chép ra chỉ là đường dẫn tương đối `/<mã-ngắn>` và không dùng được. Hãy nhờ người vận hành làm Phần 3 trước.
+Cấu hình mặc định của lcoj-docker (`dmoj/config/local_settings.py`) **chưa** đặt `URLSHORTENER_DOMAIN` và **chưa** thêm `URLShortenerMiddleware` vào `MIDDLEWARE`. Khi đó bạn vẫn tạo và quản lý link được, nhưng link sao chép ra chỉ là đường dẫn tương đối `/<mã-ngắn>` và không dùng được. Hãy nhờ người vận hành làm Phần 3 trước.
 :::
 
 ## Cách hoạt động
@@ -25,12 +25,12 @@ Cấu hình mặc định của LCOJ (`dmoj/config/local_settings.py`) **chưa**
 ```mermaid
 sequenceDiagram
     participant V as Người truy cập
-    participant CF as DNS / Tunnel
+    participant P as Reverse proxy TLS
     participant N as nginx
     participant S as site (Django)
     participant DB as MariaDB
-    V->>CF: GET s.example.com/hsg2026
-    CF->>N: Host s.example.com
+    V->>P: GET s.example.com/hsg2026
+    P->>N: Host s.example.com
     N->>S: uwsgi_pass site:8000
     S->>S: Middleware so khớp Host
     S->>DB: Tìm mã hsg2026
@@ -220,7 +220,7 @@ Bạn cũng có thể kiểm tra trong Django shell:
 
 ## 3. Dùng tên miền riêng
 
-⏱ ~15 phút · 👤 Người vận hành server · 🔑 quyền truy cập server, `dmoj/repo/dmoj/local_settings.py` và cấu hình DNS / Cloudflare Tunnel
+⏱ ~15 phút · 👤 Người vận hành server · 🔑 quyền truy cập server, `dmoj/repo/dmoj/local_settings.py` cấu hình DNS và reverse proxy TLS (Caddy / nginx trên máy chủ)
 
 Phần này cấu hình một tên miền riêng, ví dụ `s.example.com`, để `https://s.example.com/<mã-ngắn>` chuyển hướng tới URL gốc. Trong các ví dụ dưới đây, hãy thay `s.example.com` bằng tên miền thật của bạn.
 
@@ -249,13 +249,21 @@ Hệ quả:
 ### Trước khi bắt đầu
 
 - LCOJ đã chạy ổn định trên tên miền chính (xem [Cài đặt website](/operate/installation)).
-- Bạn quản lý được DNS của tên miền rút gọn, và Cloudflare Tunnel (nếu dùng, như bản production).
-- Trong `docker-compose.yml`, nginx được publish ra host ở cổng `${NGINX_PORT:-8071}` (mặc định `8071`). Tunnel của tên miền chính đang trỏ tới cổng này.
+- Bạn quản lý được DNS của tên miền rút gọn và reverse proxy TLS (Caddy hoặc nginx cài trên máy chủ) đứng trước site.
+- Trong `docker-compose.yml`, nginx được publish ra host ở cổng `${NGINX_PORT:-8071}` (mặc định `8071`). Reverse proxy của tên miền chính đang chuyển tiếp tới cổng này.
 - Bạn biết file cấu hình thật là `dmoj/repo/dmoj/local_settings.py` (được git bỏ qua). Script `./scripts/initialize` copy nó từ `dmoj/config/local_settings.py`.
 
 ### Các bước
 
-1. **Trỏ tên miền về nginx.** Thêm một public hostname `s.example.com` trong Cloudflare Tunnel, trỏ tới **cùng dịch vụ nginx** với tên miền chính (`http://<máy-chủ>:8071`). Không ghi đè Host header: Django cần nhận đúng `Host: s.example.com`.
+1. **Trỏ tên miền về máy chủ.** Tạo bản ghi DNS (A/AAAA hoặc CNAME) cho `s.example.com` trỏ tới máy chủ đang chạy site. Sau đó thêm hostname này vào reverse proxy TLS đứng trước site, chuyển tiếp tới **cùng dịch vụ nginx** với tên miền chính (`http://<máy-chủ>:8071`). Giữ nguyên Host header: Django cần nhận đúng `Host: s.example.com`. Ví dụ với Caddy:
+
+   ```
+   s.example.com {
+       reverse_proxy localhost:8071
+   }
+   ```
+
+   Với nginx trên máy chủ, thêm `s.example.com` vào `server_name` của khối đang chuyển tiếp tới cổng 8071 (khối này cần có `proxy_set_header Host $host;`).
 
 2. **(Tuỳ chọn) Khai báo trong nginx.** `dmoj/nginx/conf.d/nginx.conf` chỉ có một khối `server` (`listen 80`, `server_name luyencode.net;`) nên nó là server mặc định và đã nhận mọi Host. Nhờ vậy request tới `s.example.com` đã tới `site` qua `uwsgi_pass site:8000` (có `include uwsgi_params`, nên Host được chuyển tiếp). Muốn khai báo tường minh, thêm tên miền vào `server_name`:
 
@@ -301,7 +309,7 @@ Tạo một link thử (Phần 1), ví dụ mã `test123` trỏ tới `https://l
 curl -sI -H 'Host: s.example.com' http://localhost:8071/test123
 # Mong đợi: HTTP/1.1 302 Found  và  Location: https://luyencode.net/
 
-# 2. Qua Internet (DNS / Tunnel)
+# 2. Qua Internet (DNS + reverse proxy)
 curl -sI https://s.example.com/test123
 # Mong đợi: 302 và Location như trên
 
@@ -322,7 +330,7 @@ Cuối cùng, mở trang chi tiết của link: hộp link phải hiển thị `
 |---|---|
 | `400 Bad Request` trên tên miền rút gọn | Chưa thêm tên miền vào `ALLOWED_HOSTS`, hoặc chưa restart `site`. Xem `docker compose logs site` có dòng `DisallowedHost`. |
 | Tên miền rút gọn hiện trang chủ hoặc 404 của site chính | Middleware chưa chạy: thiếu `MIDDLEWARE += ('urlshortener.middleware.URLShortenerMiddleware',)`; hoặc giá trị `URLSHORTENER_DOMAIN` khác Host thật (có scheme, có cổng, sai chính tả, hoa/thường). |
-| `curl -H 'Host: ...'` lên `localhost:8071` chạy, nhưng qua Internet thì không | Kiểm tra public hostname của tunnel/DNS trỏ đúng tới nginx và không ghi đè Host header. |
+| `curl -H 'Host: ...'` lên `localhost:8071` chạy, nhưng qua Internet thì không | Kiểm tra bản ghi DNS trỏ đúng máy chủ, reverse proxy đã có hostname này, chuyển tiếp tới nginx và giữ nguyên Host header. |
 | Link hiển thị trong trang quản lý vẫn là `/mã` | `URLSHORTENER_DOMAIN` chưa được nạp: kiểm tra đã sửa đúng file `dmoj/repo/dmoj/local_settings.py` và đã restart. |
 | `/mã/` (có `/` cuối) bị 404 | Đúng như thiết kế; dùng `/mã`. |
 | Cấu hình mất sau khi chạy lại `./scripts/initialize` | Chép cấu hình vào `dmoj/config/local_settings.py` (bước 4). |
@@ -335,4 +343,4 @@ Xem thêm lệnh vận hành tại [Vận hành hệ thống](/operate/operation
 
 - [Hệ thống phân quyền](/admin/permissions): các quyền khác trong LCOJ và cách tổ chức nhóm.
 - [Vận hành hệ thống](/operate/operations): restart service, xem log, kiểm tra trạng thái.
-- [Cài đặt website](/operate/installation): cài đặt lại hoặc dựng môi trường thử nghiệm để kiểm tra tên miền rút gọn trước khi áp dụng cho production.
+- [Cài đặt website](/operate/installation): cài đặt lại hoặc dựng môi trường thử nghiệm để kiểm tra tên miền rút gọn trước khi áp dụng cho site thật.

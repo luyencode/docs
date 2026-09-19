@@ -133,7 +133,7 @@ Trong admin tiếng Việt, cả `registration_start` và `registration_end` đ�
 :::
 
 ::: warning Giới hạn thời lượng
-Trên trang tạo/sửa ở site, kỳ thi không được kéo dài quá `VNOJ_CONTEST_DURATION_LIMIT` ngày (LCOJ: **14 ngày**) trừ khi bạn có `long_contest_duration`. Giới hạn này không áp dụng trong admin. Lưu ý: sau khi kỳ thi kết thúc, thí sinh vẫn luyện được bài, nên không cần đặt thời lượng dài.
+Trên trang tạo/sửa ở site, kỳ thi không được kéo dài quá `VNOJ_CONTEST_DURATION_LIMIT` ngày (trên luyencode.net: **14 ngày**) trừ khi bạn có `long_contest_duration`. Giới hạn này không áp dụng trong admin. Lưu ý: sau khi kỳ thi kết thúc, thí sinh vẫn luyện được bài, nên không cần đặt thời lượng dài.
 :::
 
 ## Hiển thị và quyền truy cập {#hien-thi-va-quyen-truy-cap}
@@ -228,8 +228,8 @@ Tab **Nhân bản** trên trang kỳ thi (cần `clone_contest` và quyền sử
 
 Với kỳ thi của tổ chức, mã mới cũng phải theo [quy tắc tiền tố](#cach-2-ky-thi-rieng-cua-to-chuc).
 
-::: danger Lỗi đã biết
-Trong mã nguồn hiện tại, trang `/contest/<key>/clone` gọi thuộc tính không tồn tại (`contest.organizations`) nên sẽ báo lỗi máy chủ (500). Cho đến khi lỗi được sửa, hãy tạo kỳ thi mới và thêm bài thủ công.
+::: warning Nhân bản trên site hiện chưa dùng được
+Tab **Nhân bản** (`/contest/<key>/clone`) hiện báo lỗi máy chủ. Trong thời gian này, hãy tạo kỳ thi mới và thêm bài thủ công.
 :::
 
 ## Trong khi thi: thông báo và làm rõ {#trong-khi-thi-thong-bao-va-lam-ro}
@@ -263,7 +263,7 @@ Khi `use_clarifications` bật, bình luận trên trang kỳ thi bị khóa tro
 
 Kỳ thi **xem lại được** khi đồng thời: khách chưa đăng nhập vào được (công khai, không riêng tư), đã kết thúc, `frozen_last_minutes = 0`, bảng xếp hạng đang hiển thị, và định dạng không phải `ioi16`. Khi đó trang bảng xếp hạng có thanh trượt thời gian (⏱) để xem bảng tại mọi thời điểm, nút **End** để về cuối, và (với `icpc`/`vnoj`) ô **Freeze min** để thử số phút đóng băng. Thí sinh ảo trong kỳ thi xem lại được thấy bảng tại đúng thời điểm của mình (nút **Live**).
 
-- Dữ liệu replay được sinh ở lần xem đầu tiên và lưu thành `MEDIA_ROOT/contest_replay/<key>_v<phiên bản>.json`, trình duyệt lưu tạm vĩnh viễn. LCOJ không đặt `DMOJ_CONTEST_REPLAY_INTERNAL`, nên file do Django phục vụ trực tiếp.
+- Dữ liệu replay được sinh ở lần xem đầu tiên và lưu thành `MEDIA_ROOT/contest_replay/<key>_v<phiên bản>.json`, trình duyệt lưu tạm vĩnh viễn. Trên luyencode.net, `DMOJ_CONTEST_REPLAY_INTERNAL` không được đặt, nên file do Django phục vụ trực tiếp.
 - Nếu bạn chấm lại hoặc sửa kết quả sau khi replay đã được sinh, mở kỳ thi trong admin và bấm **Invalidate Replay** (cần `change_contest`) để tăng phiên bản và sinh lại.
 - **Thí sinh bóng ma** (ghost): người vận hành có thể ghép thí sinh của một kỳ thi khác (ví dụ kỳ thi gốc của một bản mirror) vào replay bằng lệnh [`merge_replay_data`](/reference/management-commands#merge-replay-data). Khi đó bảng xếp hạng có thêm ô **Show ghost participations**.
 
@@ -289,7 +289,7 @@ Nút **Rate all ratable contests** ở trang danh sách kỳ thi trong admin xó
 
 ### Kiểm tra đạo code bằng MOSS
 
-1. Trên trang kỳ thi, mở tab **MOSS** (`/contest/<key>/moss`). Tab chỉ hiện khi bạn sửa được kỳ thi, có `moss_contest` và máy chủ có `MOSS_API_KEY` (LCOJ đọc từ biến môi trường).
+1. Trên trang kỳ thi, mở tab **MOSS** (`/contest/<key>/moss`). Tab hiện khi bạn sửa được kỳ thi và có `moss_contest`. Chức năng MOSS cần khóa `MOSS_API_KEY` hợp lệ do người vận hành cấu hình; nếu chưa có, tab vẫn hiện nhưng chạy MOSS sẽ lỗi.
 2. Bấm **MOSS kỳ thi**. LCOJ chạy nền và hiện trang tiến độ.
 3. Kết quả là bảng theo bài × ngôn ngữ (C, C++, Java, Python, Pascal), mỗi ô có liên kết tới báo cáo MOSS. Với mỗi thí sinh, LCOJ gửi bài nộp có điểm cao nhất; ô chỉ có kết quả khi có ít nhất 2 bài nộp.
 4. **Delete MOSS results** xóa kết quả cũ; chạy lại sẽ thay kết quả cũ.
@@ -302,7 +302,7 @@ Người vận hành cũng có thể chạy lệnh [`runmoss`](/reference/manage
 - Thí sinh bị loại: điểm thành `-9999` (xếp cuối), bị đẩy khỏi kỳ thi nếu đang thi và bị thêm vào **các người dùng bị cấm** của kỳ thi. Nếu kỳ thi đã có rating, rating được tính lại ngay.
 - **Tự động khóa tài khoản**: khi `VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS` bật, người bị loại ở từ `VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING` kỳ thi **không** riêng tổ chức (bắt đầu từ `VNOJ_BAN_COUNT_FROM_DATE`) sẽ bị khóa tài khoản. Bỏ loại cho đến dưới ngưỡng sẽ mở khóa (nếu lý do khóa đúng là thông điệp này).
 
-| Cài đặt | Mặc định | LCOJ |
+| Cài đặt | Mặc định | luyencode.net |
 |---|---|---|
 | `VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS` | `False` | `False`: **không** tự khóa |
 | `VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING` | `3` | `3` |
@@ -321,13 +321,13 @@ Tác giả kỳ thi tải được toàn bộ mã nguồn bài nộp thành file
 
 Các cài đặt này do người vận hành đặt trong `local_settings.py` (xem [Biến môi trường và cấu hình](/operate/environment)):
 
-| Cài đặt | LCOJ | Tác dụng |
+| Cài đặt | luyencode.net | Tác dụng |
 |---|---|---|
 | `VNOJ_CONTEST_DURATION_LIMIT` | `14` | Thời lượng tối đa (ngày) trên form site, trừ khi có `long_contest_duration`. |
 | `MAX_CONTEST_PROBLEMS_COUNT` | `None` | Số bài tối đa trong một kỳ thi (trên form site); `None` = không giới hạn. |
 | `VNOJ_OFFICIAL_CONTEST_MODE` | `False` | Chế độ thi chính thức toàn trang: ẩn bình luận (trừ superuser), chặn tạo/sửa blog, chặn sửa phần giới thiệu và họ tên, không cho thí sinh tự hủy bài nộp, bỏ hộp xác nhận khi tham gia, và ghi IP mỗi lần nộp bài. Chỉ bật cho máy chủ riêng dùng cho một kỳ thi chính thức. |
 | `DMOJ_CONTEST_DATA_DOWNLOAD` | `True` | Cho phép tải dữ liệu kỳ thi. |
-| `MOSS_API_KEY` | từ biến môi trường | Bật tab MOSS. |
+| `MOSS_API_KEY` | từ biến môi trường | Khóa MOSS; cần hợp lệ để chạy MOSS. |
 
 ## Kiểm tra kết quả
 
@@ -345,9 +345,10 @@ Các cài đặt này do người vận hành đặt trong `local_settings.py` (
 | **Mã kỳ thi phải bắt đầu bằng `…`** | Kỳ thi của tổ chức có mã sai tiền tố. Đổi mã theo tiền tố được báo. |
 | **Thời gian diễn ra contest không được kéo dài quá 14 ngày** | Rút ngắn kỳ thi, sửa trong admin, hoặc xin quyền `long_contest_duration`. |
 | **Các bài tập phải có thứ tự khác nhau.** | Hai bài có cùng **thứ tự**. Đặt mỗi bài một số khác nhau. |
-| Tab **Nhân bản** báo lỗi 500 | Lỗi đã biết, xem [Nhân bản kỳ thi](#nhan-ban-ky-thi). |
+| Tab **Nhân bản** báo lỗi máy chủ | Nhân bản trên site hiện chưa dùng được; tạo kỳ thi mới và thêm bài thủ công, xem [Nhân bản kỳ thi](#nhan-ban-ky-thi). |
 | Không thấy nút **Rate** | Cần `contest_rating`, kỳ thi phải bật `is_rated` và đã kết thúc. |
-| Không thấy tab **MOSS** | Thiếu `moss_contest`, không sửa được kỳ thi, hoặc máy chủ chưa có `MOSS_API_KEY`. |
+| Không thấy tab **MOSS** | Thiếu `moss_contest`, hoặc không sửa được kỳ thi. |
+| Chạy MOSS bị lỗi | Máy chủ chưa có `MOSS_API_KEY` hợp lệ. Nhờ người vận hành cấu hình khóa. |
 | Bảng xếp hạng vẫn đóng băng sau khi thi | Hành vi đúng. Đặt `frozen_last_minutes = 0` trong admin. |
 | Đổi điểm/định dạng trên site nhưng bảng không đổi | Trang site không tự tính lại. Dùng **Rescore** trong admin hoặc lưu kỳ thi trong admin. |
 | Replay hiện kết quả cũ sau khi chấm lại | Bấm **Invalidate Replay** trong admin. |

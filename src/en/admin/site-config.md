@@ -81,8 +81,8 @@ The content is inserted **unfiltered** into every site page (except the `/admin/
 :::
 
 ::: warning Uploaded favicon and logo
-- **Site favicon** saves a value, but the templates always use the static `icons/favicon-*.png` files, so **uploading a favicon changes nothing**. To change the favicon, an operator replaces the files in lcoj-site's `resources/icons/` and reruns `./scripts/copy_static`.
-- The bundled `dmoj/nginx/conf.d/nginx.conf` has **no** `location /static-upload`; that path falls into `location /static` (served from `/assets/`), so a freshly uploaded logo may return 404. If that happens, an operator adds `location /static-upload { root /media/; }` to nginx and runs `docker compose restart nginx`.
+- The site's favicon always comes from the static `icons/favicon-*.png` files; **Site favicon** saves a value, but **uploading a favicon changes nothing**. To change the favicon, replace the files in lcoj-site's `resources/icons/` and reruns `./scripts/copy_static`.
+- The bundled `dmoj/nginx/conf.d/nginx.conf` has **no** `location /static-upload`; that path falls into `location /static` (served from `/assets/`), so a freshly uploaded logo may return 404. If that happens, add `location /static-upload { root /media/; }` to nginx and runs `docker compose restart nginx`.
 :::
 
 ### How values are stored and applied
@@ -126,7 +126,7 @@ The menu is read from the database on every request, so changes show up as soon 
 The command creates an item with `key=blog`, label `Blog`, path `/blog/`, regex `^/blog/`, placed at the end of the menu (highest order + 10). If an item with `key=blog` already exists, it just prints `Blog navigation item already exists`.
 
 ::: warning Check the link after running it
-lcoj-site's URL list has no `/blog/` route; the blog list pages are `/blogs/` and `/posts/`. After running the command, click the Blog item. If you get a 404, change the item's `path` (and `regex`) in the admin, or add a redirect from `/blog/` to `/blogs/` at `/admin/redirects/redirect/` (**Redirects**).
+The site has no `/blog/` page; the blog list pages are `/blogs/` and `/posts/`. After running the command, click the Blog item. If you get a 404, change the item's `path` (and `regex`) in the admin, or add a redirect from `/blog/` to `/blogs/` at `/admin/redirects/redirect/` (**Redirects**).
 :::
 
 ## Static pages (flatpages)
@@ -153,7 +153,7 @@ Things to know:
 - Users allowed to edit static pages see an **[Edit]** link next to the page title.
 - Static page content allows raw, unfiltered HTML, so you can use `<h2 id="...">` to create anchors.
 - The About page is in the menu (item `about`) and in the sitemap. These docs and many other pages link to `https://luyencode.net/about/#lien-he`; when editing the About page, **keep** an element with `id="lien-he"`, e.g. `<h2 id="lien-he">Liên hệ</h2>`.
-- For a **Terms** page, create a `/terms/` flatpage. The `TERMS_OF_SERVICE_URL` setting (currently `None`) is only used on the password sign-up form, which is hidden because LCOJ only allows OAuth sign-up.
+- For a **Terms** page, create a `/terms/` flatpage. The `TERMS_OF_SERVICE_URL` setting (default `None`) is only used on the password sign-up form, which is hidden when the site only allows OAuth sign-up (`OAUTH_ONLY = True`).
 
 ## Blog posts and home page announcements
 
@@ -197,8 +197,8 @@ Comments have a score from votes. Comments with score ≤ `DMOJ_COMMENT_VOTE_HID
 
 The `/admin/judge/comment/` list can be searched by author username, page and body, and filtered by **hidden**.
 
-::: warning The bulk admin actions are broken
-The **Hide comments** / **Unhide comments** actions update the database first, then access an attribute that does not exist on a queryset (`queryset.author`), so the page shows a server error. The comments are usually updated anyway; reload the list to check. These actions also do not hide replies. Prefer the trash icon.
+::: warning The bulk admin actions show a server error
+The **Hide comments** / **Unhide comments** actions currently end with a server error page. The comments are usually updated anyway; reload the list to check. These actions also do not hide replies. Prefer the trash icon.
 :::
 
 ### The `moderate_comments` script
@@ -222,7 +222,7 @@ To take away one person's ability to comment: see [Managing users](/en/admin/use
 
 ## Newsletter
 
-The code supports [django-newsletter](https://pypi.org/project/django-newsletter/) (the `/newsletter/` route and a subscribe checkbox on the profile edit page, driven by `DMOJ_NEWSLETTER_ID_ON_REGISTER`), but **LCOJ does not install the package** and does not add `newsletter` to `INSTALLED_APPS`. So `/newsletter/` does not exist and `DMOJ_NEWSLETTER_ID_ON_REGISTER` (default `None`) has no effect.
+LCOJ includes hooks for [django-newsletter](https://pypi.org/project/django-newsletter/) (the `/newsletter/` route and a subscribe checkbox on the profile edit page, driven by `DMOJ_NEWSLETTER_ID_ON_REGISTER`), but the default configuration **does not install the package** and does not add `newsletter` to `INSTALLED_APPS`. So `/newsletter/` does not exist and `DMOJ_NEWSLETTER_ID_ON_REGISTER` (default `None`) has no effect.
 
 ## Status and statistics pages
 
@@ -249,7 +249,7 @@ Judge setup: see [Setting up judges](/en/operate/judge-setup).
 The blog feed filters on "visible" and "publish time passed" but does **not** exclude organization posts, so the summary (or the content, if there is no summary) of a visible private-organization post can appear in the feed. For sensitive organization content, uncheck **public visibility**.
 :::
 
-Absolute links in the sitemap use the Site's domain (`/admin/sites/site/`, **Domain name**), which should be `luyencode.net`. If links show the wrong domain, fix that Site record.
+Absolute links in the sitemap use the Site's domain (`/admin/sites/site/`, **Domain name**), which should be the site's real domain (`luyencode.net` on luyencode.net). If links show the wrong domain, fix that Site record.
 
 ## Troubleshooting
 
@@ -265,7 +265,7 @@ Absolute links in the sitemap use the Site's domain (`/admin/sites/site/`, **Dom
 | New flatpage returns 404 | No Site selected, URL missing a leading/trailing `/`, or URL clashes with an existing route | Check **Sites** and the URL |
 | `/about/#lien-he` does not scroll to the Contact section | The `id="lien-he"` element was lost while editing | Add back `<h2 id="lien-he">Liên hệ</h2>` |
 | Blog post not on the home page | **global post** unchecked, **public visibility** unchecked, future publish time, or an organization is set | Check the four conditions above |
-| Server error when using **Hide comments** in the admin | Bug in the action code | Reload the list to check; use the trash icon |
+| Server error when using **Hide comments** in the admin | The action errors after it has already updated | Reload the list to check; use the trash icon |
 
 ## Next steps
 
@@ -274,3 +274,4 @@ Absolute links in the sitemap use the Site's domain (`/admin/sites/site/`, **Dom
 - [URL shortener](/en/admin/url-shortener): short links for announcements and posters.
 - [Helper scripts](/en/operate/scripts): `copy_static`, `moderate_comments` and other scripts.
 - [Operating LCOJ](/en/operate/operations): restarting services, reading logs.
+- [Settings reference](/en/reference/settings): settings mentioned on this page, such as `DMOJ_COMMENT_VOTE_HIDE_THRESHOLD` and `VNOJ_BLOG_MIN_PROBLEM_COUNT`.

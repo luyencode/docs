@@ -115,7 +115,7 @@ When to use it:
 ```
 
 ::: tip
-If the browser still shows the old look, clear the browser cache (and the Cloudflare cache, if any), since nginx sets `expires max` on `/static`.
+If the browser still shows the old look, clear the browser cache (and your CDN's cache, if the site sits behind one), since nginx sets `expires max` on `/static`.
 :::
 
 ## `manage.py`
@@ -183,7 +183,7 @@ The normal mode changes the database immediately, with no confirmation. Always r
 Things to note:
 
 - The script suppresses `mariadb` errors (`2>/dev/null`). If the output is empty or the count is blank, check that the `db` container is running and that `mysql.env` is correct.
-- Values are read with `grep ... | cut -d= -f2`, so a password containing `=` gets truncated.
+- Values are read with `grep ... | cut -d= -f2`, so a password containing `=` gets truncated. If you plan to use this script, avoid `=` in `MYSQL_PASSWORD`.
 - To run it from cron, add `COMPOSE_EXEC_FLAGS=-T`, for example:
 
   ```sh

@@ -57,7 +57,7 @@ Tên hiển thị như "Java 19" chỉ là nhãn lưu trong cơ sở dữ liệu
 
 ## Toàn bộ executor của judge
 
-Danh sách dưới đây lấy từ thư mục [`dmoj/executors/`](https://github.com/luyencode/judge-server/tree/master/dmoj/executors) của judge. Một executor chỉ hoạt động khi image judge có cài runtime tương ứng.
+Judge có sẵn các executor dưới đây, mỗi executor là một module trong thư mục [`dmoj/executors/`](https://github.com/luyencode/judge-server/tree/master/dmoj/executors) của judge. Một executor chỉ hoạt động khi image judge có cài runtime tương ứng.
 
 | Nhóm | Key (tên ngôn ngữ) |
 |---|---|

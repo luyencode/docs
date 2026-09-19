@@ -34,7 +34,7 @@ flowchart LR
     problems -.->|mount /problems| j2
 ```
 
-Những điểm cần nhớ (lấy từ `dmoj/docker-compose.yml` và `dmoj/config/local_settings.py`):
+Những điểm cần nhớ:
 
 - `bridged` mở cổng `9999` ra máy chủ (`ports: 9999:9999`). Judge chạy với `--network host` nên chỉ cần kết nối tới `localhost:9999`.
 - Thư mục `dmoj/problems` được mount vào `site` và `bridged` tại `/problems` (`DMOJ_PROBLEM_DATA_ROOT = '/problems/'`). Judge cũng mount **đúng thư mục này** vào `/problems`. Nhờ vậy, khi bạn tải test lên website, judge thấy ngay dữ liệu mới.
@@ -42,13 +42,13 @@ Những điểm cần nhớ (lấy từ `dmoj/docker-compose.yml` và `dmoj/conf
 
 ## Chọn Docker image
 
-LCOJ dùng image **`vnoj/judge-tier3`**, là image judge của dự án upstream [VNOJ](https://github.com/VNOI-Admin/judge-server). Các image được chia theo "tier" (mức độ đầy đủ ngôn ngữ):
+Hướng dẫn này dùng image **`vnoj/judge-tier3`**, là image judge của dự án upstream [VNOJ](https://github.com/VNOI-Admin/judge-server). Các image được chia theo "tier" (mức độ đầy đủ ngôn ngữ):
 
 | Image | Nội dung |
 |---|---|
 | `vnoj/judge-tier1` | Bộ ngôn ngữ cơ bản: C/C++ (GCC), Python 2/3, Java, Pascal |
 | `vnoj/judge-tier2` | Tier 1 cộng thêm một số ngôn ngữ phổ biến khác |
-| `vnoj/judge-tier3` | Đầy đủ nhất, gần như mọi runtime mà judge hỗ trợ. **LCOJ dùng image này** |
+| `vnoj/judge-tier3` | Đầy đủ nhất, gần như mọi runtime mà judge hỗ trợ. **Khuyến nghị**, các lệnh bên dưới dùng image này |
 
 Nội dung chính xác của từng tier được định nghĩa trong image nền `vnoj/runtimes-tier1/2/3` (xem các `Dockerfile` trong `judge-server/.docker/`). Danh sách ngôn ngữ **thực tế** trên site của bạn là những gì judge báo lên, xem [Ngôn ngữ được hỗ trợ](/reference/languages).
 
@@ -70,7 +70,7 @@ Mỗi judge cần một bản ghi trên website gồm **tên** và **khóa xác 
 
 ### Cách A: Qua trang quản trị
 
-1. Đăng nhập bằng tài khoản superuser, mở `https://luyencode.net/admin/judge/judge/` (thay tên miền bằng site của bạn).
+1. Đăng nhập bằng tài khoản superuser, mở `https://<tên-miền>/admin/judge/judge/`.
 2. Bấm **Add judge** (Thêm judge).
 3. Điền **Name**, ví dụ `judge1`. Nên đặt kiểu hostname: chữ, số, dấu gạch ngang, không dấu cách.
 4. Ở ô **Authentication key**, bấm **Regenerate** để trình duyệt tạo một khóa ngẫu nhiên, rồi sao chép khóa này lại.
@@ -144,7 +144,7 @@ Tham số của `docker run`:
 | `-d`, `--restart=always` | Chạy nền và tự khởi động lại khi máy chủ reboot hoặc judge bị lỗi |
 | `vnoj/judge-tier3` | Image judge |
 
-Phần sau tên image là tham số của judge. Từ khóa `run` chạy lệnh `dmoj` (script `entry` của image cũng nhận `cli` và `test`). Tham số của `dmoj` lấy từ `dmoj/judgeenv.py`:
+Phần sau tên image là tham số của judge. Từ khóa `run` chạy lệnh `dmoj` (script `entry` của image cũng nhận `cli` và `test`). Các tham số của `dmoj`:
 
 | Tham số | Ý nghĩa |
 |---|---|
@@ -162,11 +162,11 @@ Judge không nhất thiết phải chạy trên máy chủ website. Khi chạy �
 
 1. Thay `localhost` bằng IP hoặc tên miền của máy chủ website.
 2. Máy judge cần có bản sao dữ liệu bài ở `/problems` (ví dụ đồng bộ `dmoj/problems` bằng `rsync` hoặc dùng ổ mạng), vì judge đọc test từ ổ đĩa của chính nó.
-3. Chỉ mở cổng `9999` trên firewall cho IP của các máy judge.
+3. Chỉ mở cổng `9999` trên firewall cho IP của các máy judge. Cổng do Docker publish không chịu tác động của `ufw`, xem [Cài đặt: tường lửa](/operate/installation#firewall).
 :::
 
 ::: warning Cổng 9998
-`docker-compose.yml` cũng mở cổng `9998` ra máy chủ. Cổng này dành cho `site` gửi lệnh tới `bridged` và **không cần** truy cập từ bên ngoài. Hãy chặn `9998` (và `9999` nếu không có judge ở máy khác) trên firewall của máy chủ.
+`docker-compose.yml` cũng mở cổng `9998` ra máy chủ. Cổng này dành cho `site` gửi lệnh tới `bridged` và **không cần** truy cập từ bên ngoài. Hãy bind `9998` (và `9999` nếu không có judge ở máy khác) vào `127.0.0.1`, xem [Cài đặt: chỉ mở cổng cho localhost](/operate/installation#bind-localhost). Judge chạy với `--network=host` trên cùng máy vẫn kết nối được `localhost:9999`.
 :::
 
 ## Chạy nhiều judge

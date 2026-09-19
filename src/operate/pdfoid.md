@@ -41,7 +41,7 @@ sequenceDiagram
 
 Một số điểm cần biết:
 
-- HTML gửi sang Pdfoid là template `problem/raw.html`. Template này tải MathJax **qua URL đầy đủ của site** (ví dụ `https://luyencode.net/static/...`), nên container Pdfoid **phải truy cập được website của bạn**.
+- HTML gửi sang Pdfoid là template `problem/raw.html`. Template này tải MathJax **qua URL đầy đủ của site** (ví dụ `https://lcoj.example.com/static/...`), nên container Pdfoid **phải truy cập được website của bạn**.
 - Nếu đặt `DMOJ_PDF_PROBLEM_CACHE`, file PDF được lưu với tên `<MÃ>.<ngôn ngữ>.pdf` và **tự bị xóa khi bài được lưu lại**. Lần xem sau sẽ render lại.
 - Việc render diễn ra ngay trong request của uWSGI (không qua Celery).
 
@@ -61,7 +61,7 @@ Pdfoid không có trong `docker-compose.yml`. Bạn chạy nó thành một cont
 
 Pdfoid không có trên PyPI, cài trực tiếp từ [github.com/DMOJ/pdfoid](https://github.com/DMOJ/pdfoid). Nó cần Chromium, ChromeDriver và exiftool, đọc đường dẫn từ biến `CHROME_PATH`, `CHROMEDRIVER_PATH`, `EXIFTOOL_PATH`.
 
-Tạo `dmoj/addons/pdfoid/Dockerfile` (mẫu, chưa được kiểm thử trên LCOJ):
+Tạo `dmoj/addons/pdfoid/Dockerfile` (mẫu tham khảo, hãy thử trên máy dev trước khi dùng thật):
 
 ```dockerfile
 FROM python:3.11-slim
@@ -154,12 +154,12 @@ Không có cache, mỗi lượt xem PDF đều khởi động một Chromium m�
 
 ## Kiểm tra kết quả
 
-1. Mở một bài bất kỳ, ví dụ `https://luyencode.net/problem/APLUSB`.
+1. Mở một bài bất kỳ, ví dụ `https://lcoj.example.com/problem/APLUSB`.
 2. Nút **Xem dạng PDF** giờ trỏ tới `/problem/APLUSB/pdf`.
 3. Bấm vào, sau vài giây trình duyệt hiển thị file PDF.
 4. Nếu đã bật cache: thư mục cache có file `APLUSB.<ngôn ngữ>.pdf`, và lần mở thứ hai trả về gần như ngay lập tức.
 
-## Các setting có thật
+## Các setting của Pdfoid
 
 | Setting | Mặc định (`dmoj/settings.py`) | Ý nghĩa |
 |---|---|---|
@@ -167,16 +167,16 @@ Không có cache, mỗi lượt xem PDF đều khởi động một Chromium m�
 | `DMOJ_PDF_PROBLEM_CACHE` | `None` | Thư mục cache PDF (tùy chọn) |
 | `DMOJ_PDF_PROBLEM_INTERNAL` | `None` | Đường dẫn nội bộ nginx trỏ tới thư mục cache (tùy chọn) |
 
-::: warning Các setting không tồn tại
-Tài liệu cũ có nhắc `DMOJ_PDF_PROBLEM_TIMEOUT`, `DMOJ_PDF_PROBLEM_EXTRA_CSS`, `DMOJ_PDF_PROBLEM_HEADER`, `DMOJ_PDF_PROBLEM_FOOTER`, `DMOJ_PDF_PROBLEM_CACHE_TIME`, `DMOJ_PDF_PROBLEM_COMPRESS`, `DMOJ_PDF_PDFOID_URLS`. LCOJ **không đọc** các setting này. Thời gian chờ MathJax (15 giây) được viết cứng trong `judge/utils/pdfoid.py`.
+::: warning Chỉ ba setting trên có tác dụng
+Một số hướng dẫn DMOJ khác nhắc tới `DMOJ_PDF_PROBLEM_TIMEOUT`, `DMOJ_PDF_PROBLEM_EXTRA_CSS`, `DMOJ_PDF_PROBLEM_HEADER`, `DMOJ_PDF_PROBLEM_FOOTER`, `DMOJ_PDF_PROBLEM_CACHE_TIME`, `DMOJ_PDF_PROBLEM_COMPRESS`, `DMOJ_PDF_PDFOID_URLS`. LCOJ **không đọc** các setting này, đặt chúng không có tác dụng gì. Thời gian chờ MathJax cố định 15 giây; muốn đổi phải sửa `judge/utils/pdfoid.py` trong `dmoj/repo`.
 :::
 
 ## Sử dụng
 
 | Cách | Ví dụ |
 |---|---|
-| Theo ngôn ngữ giao diện hiện tại | `https://luyencode.net/problem/APLUSB/pdf` |
-| Chỉ định ngôn ngữ (`vi` hoặc `en`) | `https://luyencode.net/problem/APLUSB/pdf/vi` |
+| Theo ngôn ngữ giao diện hiện tại | `https://lcoj.example.com/problem/APLUSB/pdf` |
+| Chỉ định ngôn ngữ (`vi` hoặc `en`) | `https://lcoj.example.com/problem/APLUSB/pdf/vi` |
 | Lệnh quản trị, ghi ra `APLUSB.pdf` trong `dmoj/repo/` | `./scripts/manage.py render_pdf APLUSB -l vi` |
 
 ::: tip
@@ -189,7 +189,7 @@ Trang PDF kiểm tra quyền xem bài giống trang đề: ai không có quyền
 |---|---|---|
 | `/problem/<mã>/pdf` trả 404 | `DMOJ_PDF_PDFOID_URL` chưa đặt, hoặc chưa restart `site` | Kiểm tra settings, chạy `docker compose restart site` |
 | Lỗi 500, log `site` có `ConnectionError` | Site không gọi được Pdfoid | `docker compose ps pdfoid`; kiểm tra service ở network `site` và nghe `0.0.0.0` |
-| Log có `PDF rendering timed out` | Chromium không tải được MathJax từ URL site trong 15 giây | Kiểm tra container Pdfoid truy cập được website (DNS, internet, Cloudflare) |
+| Log có `PDF rendering timed out` | Chromium không tải được MathJax từ URL site trong 15 giây | Kiểm tra container Pdfoid truy cập được website (DNS, kết nối Internet, tường lửa) |
 | Log Pdfoid báo Chromium không khởi động (sandbox) | Hạn chế của Docker với sandbox Chromium | Chạy bằng user thường (như Dockerfile trên); nếu vẫn lỗi, xem tài liệu Chromium về sandbox trong container |
 | Chữ tiếng Việt lỗi font | Thiếu font trong image | Cài thêm font (`fonts-dejavu`, `fonts-noto`) rồi build lại |
 | Sửa đề mà PDF cũ vẫn còn | File cache chỉ bị xóa khi bài được lưu | Lưu lại bài, hoặc xóa file `<MÃ>.<ngôn ngữ>.pdf` trong thư mục cache |

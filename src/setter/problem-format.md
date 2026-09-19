@@ -255,7 +255,7 @@ Một số [ví dụ bài tập](/setter/examples) được viết theo cách n�
 | `custom_judge`, `interactive`, `signature_grader`, `output_only`, `communication` | không có | Chọn grader khác grader chuẩn. Xem [Grader](/setter/graders). |
 
 ::: info
-Tất cả các key trên đều do judge đọc ([judge-server](https://github.com/luyencode/judge-server), bản fork từ judge của DMOJ/VNOJ). Nếu viết sai tên key, judge sẽ âm thầm bỏ qua nó.
+Judge bỏ qua mọi key mà nó không nhận ra mà không báo lỗi, nên nếu viết sai tên key, thiết lập đó sẽ không có tác dụng. Hãy kiểm tra kỹ chính tả.
 :::
 
 ## Tiếp theo

@@ -159,6 +159,5 @@ For every verdict in detail, see [Status codes](/en/reference/status-codes). For
 
 ## Next steps
 
-- [Taking part in contests](/en/learn/contests): submitting during a contest, reading the ranking and virtual participation.
 - [Taking part in contests](/en/learn/contests): submitting, pretests and the scoreboard during a contest.
 - [FAQ](/en/start/faq): quick answers to other common questions.

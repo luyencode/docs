@@ -85,7 +85,7 @@ Back up the database first, then update both repositories (lcoj-docker and the `
 :::
 
 ::: details Is HTTPS required?
-Not for a local trial: `http://localhost:8071/` is enough. For real users you should have it. nginx inside Docker only serves HTTP, so put a TLS layer in front, such as Cloudflare Tunnel (what luyencode.net uses) or a reverse proxy like Caddy. See [HTTPS](/en/operate/installation#https).
+Not for a local trial: `http://localhost:8071/` is enough. For real users you should have it. nginx inside Docker only serves HTTP, so put a TLS reverse proxy in front of it on your server, such as Caddy or nginx with certbot. See [HTTPS](/en/operate/installation#https).
 :::
 
 ::: details Can I rebrand LCOJ with my school's name and logo?

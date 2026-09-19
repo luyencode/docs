@@ -57,7 +57,7 @@ Display names such as "Java 19" are just labels stored in the database. The actu
 
 ## All judge executors
 
-This list comes from the judge's [`dmoj/executors/`](https://github.com/luyencode/judge-server/tree/master/dmoj/executors) directory. An executor only works when the judge image has the matching runtime installed.
+The judge ships the executors below, one module each in its [`dmoj/executors/`](https://github.com/luyencode/judge-server/tree/master/dmoj/executors) directory. An executor only works when the judge image has the matching runtime installed.
 
 | Group | Key (language) |
 |---|---|

@@ -65,7 +65,7 @@ For every model, Django creates four permissions automatically: `add_<model>`, `
 
 ## Custom permissions
 
-The tables below were checked against `Meta.permissions` in the source code (`judge/models/`, `quiz/models.py`) and against every place the code checks each permission.
+Permissions are grouped by the object they apply to. The **Label** column is the name shown in the admin.
 
 ### Problems (`judge` · Problem)
 
@@ -111,7 +111,7 @@ The tables below were checked against `Meta.permissions` in the source code (`ju
 | `edit_own_contest` | Edit own contests | Edit contests where you are an author or curator; required to open the contest change page in the admin. |
 | `edit_all_contest` | Edit all contests | View and edit every contest. |
 | `clone_contest` | Clone contest | Clone a contest you can edit. |
-| `moss_contest` | MOSS contest | Run MOSS (plagiarism detection) on a contest. The MOSS button only appears when `MOSS_API_KEY` is set. |
+| `moss_contest` | MOSS contest | Run MOSS (plagiarism detection) on a contest. The MOSS tab always appears for users with this permission, but it only works once a valid `MOSS_API_KEY` is set; without a key, running MOSS fails. |
 | `contest_rating` | Rate contests | Make a contest rated (the `is_rated`, `rate_all`, `rate_exclude` fields) and run rating recalculation in the admin. |
 | `contest_access_code` | Contest access codes | Set a contest's access code (`access_code`). |
 | `create_private_contest` | Create private contests | Make a contest private or organization-private (the `is_private`, `private_contestants`, `is_organization_private`, `organization` fields); create contests inside an organization you administer. |
@@ -127,18 +127,18 @@ For choosing a contest format and its configuration, see [Contest formats](/en/o
 |---|---|---|
 | `organization_admin` | Administer organizations | In the admin: edit an organization's admin list, `is_open`, `slots`, and judging credit (`paid_credit`, monthly free credit limit). |
 | `edit_all_organization` | Edit all organizations | Edit every organization without being one of its admins; join closed or unlisted organizations from the profile form. |
-| `change_open_organization` | Change is_open field | Declared, but currently **not** checked anywhere in the code; the `is_open` field in the admin is controlled by `organization_admin`. |
-| `spam_organization` | Create organization without limit | Intended to allow creating organizations beyond `VNOJ_ORGANIZATION_ADMIN_LIMIT` (default: admin of 3 organizations). See the warning below. |
+| `change_open_organization` | Change is_open field | Has no effect on its own: the `is_open` field in the admin is controlled by `organization_admin`, so grant that permission instead. |
+| `spam_organization` | Create organization without limit | Create organizations beyond `VNOJ_ORGANIZATION_ADMIN_LIMIT` (default: admin of 3 organizations). See the note below. |
 
-::: warning `spam_organization` currently has no effect for regular users
-The code checks `has_perm('spam_organization')` without the `judge.` prefix, so in Django this check only passes for superusers. Granting it to a regular user does not let them go past the organization limit.
+::: warning `spam_organization` only works for superusers
+Currently only superusers can go past the organization limit. Granting this permission to a regular user does not lift the limit for them.
 :::
 
 ### Users (`judge` · Profile)
 
 | Codename | Label | What it allows |
 |---|---|---|
-| `test_site` | Shows in-progress development stuff | The "Enable experimental features" flag. Every user can turn it on or off on their own profile edit page; no feature in the code is currently gated behind it. |
+| `test_site` | Shows in-progress development stuff | The "Enable experimental features" flag. Every user can turn it on or off on their own profile edit page; no feature currently uses this flag. |
 | `totp` | Edit TOTP settings | View and edit a user's TOTP key and scratch codes (two-factor authentication) in the admin. |
 | `can_upload_image` | Can upload image directly to server via martor | Upload images to the server from the Markdown editor. Staff users are always allowed. |
 | `high_problem_timelimit` | Can set high problem timelimit | Set a problem time limit above `VNOJ_PROBLEM_TIMELIMIT_LIMIT` (default 5 seconds). |
@@ -209,3 +209,4 @@ These are starting points; adjust them to your needs. Remember to turn on **Staf
 - [Managing users](/en/admin/users): find accounts, ban accounts, enable staff.
 - [Site configuration](/en/admin/site-config): site-wide settings.
 - [Organizations](/en/organize/organizations): per-organization admin rights.
+- [Settings reference](/en/reference/settings): limits such as `DMOJ_SUBMISSION_LIMIT`, `VNOJ_ORGANIZATION_ADMIN_LIMIT`, and `MOSS_API_KEY`.

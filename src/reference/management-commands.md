@@ -4,7 +4,7 @@
 >
 > 👤 Người vận hành · 🔑 SSH vào máy chủ và quyền chạy `docker compose` trong thư mục `dmoj/`
 
-LCOJ có sẵn một bộ lệnh quản trị (Django management command) cho các việc như tạo người dùng và máy chấm, nhập bài, xuất dữ liệu kỳ thi, sinh lời giải... Trang này liệt kê **toàn bộ** lệnh tùy biến trong `judge/management/commands/` của lcoj-site, kèm đúng các tham số mà từng lệnh nhận.
+LCOJ có sẵn một bộ lệnh quản trị (Django management command) cho các việc như tạo người dùng và máy chấm, nhập bài, xuất dữ liệu kỳ thi, sinh lời giải... Trang này liệt kê **toàn bộ** các lệnh riêng đó, kèm đúng các tham số mà từng lệnh nhận.
 
 ## Khi nào cần trang này
 
@@ -210,7 +210,7 @@ Chạy bộ cân bằng tải cho máy chấm với file cấu hình YAML.
 
 | Tùy chọn | Mô tả |
 |---|---|
-| `-c`, `--config` | File YAML chứa cấu hình bộ cân bằng tải (thực tế là bắt buộc) |
+| `-c`, `--config` | File YAML chứa cấu hình bộ cân bằng tải (bắt buộc) |
 
 ## Bài tập
 
@@ -304,7 +304,7 @@ Xuất đề bài ra file `<code>.pdf` trong thư mục làm việc (`dmoj/repo/
 | Tham số / tùy chọn | Mô tả |
 |---|---|
 | `code` | Mã bài |
-| `-l`, `--language` | Ngôn ngữ đề; dùng bản dịch nếu có. Mặc định: `LANGUAGE_CODE` (`vi` trên LCOJ) |
+| `-l`, `--language` | Ngôn ngữ đề; dùng bản dịch nếu có. Mặc định: `LANGUAGE_CODE` (`vi` trong cấu hình mặc định của lcoj-docker) |
 
 Cần Pdfoid (`DMOJ_PDF_PDFOID_URL`). Xem [Pdfoid](/operate/pdfoid).
 
@@ -498,7 +498,7 @@ Chạy MOSS trên các bài nộp Accepted của kỳ thi (thí sinh chính th�
 ./scripts/manage.py runmoss <contest>
 ```
 
-`contest` là **mã** kỳ thi. Cần `MOSS_API_KEY` (trên LCOJ được đọc từ biến môi trường). Người tổ chức kỳ thi cũng có thể chạy MOSS từ trang `/moss` của kỳ thi.
+`contest` là **mã** kỳ thi. Cần `MOSS_API_KEY` (trong lcoj-docker, đặt qua biến môi trường `MOSS_API_KEY`). Người tổ chức kỳ thi cũng có thể chạy MOSS từ trang `/moss` của kỳ thi.
 
 ### merge_replay_data
 
@@ -648,3 +648,4 @@ Xem tham số của một lệnh:
 - [Cài đặt máy chấm](/operate/judge-setup): dùng `addjudge` khi thêm máy chấm.
 - [Quản lý người dùng](/admin/users): làm việc với tài khoản qua giao diện web.
 - [API](/reference/api): dùng token tạo bởi `generate_api_token`.
+- [Tham khảo cấu hình](/reference/settings): các thiết lập nhắc tới ở trang này, như `BRIDGED_JUDGE_ADDRESS`, `MOSS_API_KEY`, `VNOJ_MONTHLY_FREE_CREDIT`.

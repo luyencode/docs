@@ -46,6 +46,7 @@ const groups: Group[] = [
       ['/setter/graders', 'Grader', 'Graders'],
       ['/setter/generators', 'Generator', 'Generators'],
       ['/setter/examples', 'Ví dụ bài tập', 'Problem examples'],
+      ['/setter/editorials', 'Lời giải (editorial)', 'Editorials'],
       ['/setter/quiz-authoring', 'Tạo bài trắc nghiệm', 'Creating quizzes'],
     ],
   },
@@ -97,12 +98,16 @@ const groups: Group[] = [
       ['/reference/languages', 'Ngôn ngữ được hỗ trợ', 'Supported languages'],
       ['/reference/management-commands', 'Management commands', 'Management commands'],
       ['/reference/api', 'API', 'API'],
+      ['/reference/settings', 'Tham khảo cấu hình', 'Settings reference'],
     ],
   },
   {
     vi: 'Giới thiệu',
     en: 'About',
-    items: [['/about/license', 'Giấy phép', 'License']],
+    items: [
+      ['/about/contributing', 'Đóng góp cho tài liệu', 'Contributing to the docs'],
+      ['/about/license', 'Giấy phép', 'License'],
+    ],
   },
 ]
 

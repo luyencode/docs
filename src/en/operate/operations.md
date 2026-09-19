@@ -138,7 +138,7 @@ Back up four things:
 | Database | `db` container | Dump it with `mariadb-dump` while running; don't copy the raw `database/` directory |
 | Test data | `problems/` | Usually the largest part |
 | Uploaded files | `media/` | Images, PDFs, attachments |
-| Configuration | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/` | Contains secrets, so store it securely |
+| Configuration | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/`, plus `.env` and `docker-compose.override.yml` if you created them | Contains secrets, so store it securely. The host reverse proxy config (`/etc/caddy/Caddyfile` or `/etc/nginx/sites-available/`) lives outside `dmoj/`; back it up separately |
 
 The overall backup and restore flow:
 
@@ -272,6 +272,8 @@ The `-T` flag on `docker compose exec` is required under cron, which has no term
    docker compose up -d
    ```
 
+7. Point your DNS record at the new server's IP and reinstall the HTTPS reverse proxy on the host; see [Installation: HTTPS on a VPS](/en/operate/installation#https).
+
 ## Maintenance page {#maintenance}
 
 nginx is configured with `error_page 502 504 /502.html`, so when `site` is down, users see that page instead of a bare error. The simplest "maintenance mode" is therefore:
@@ -327,7 +329,7 @@ Every so often, restore a backup onto a test machine. A backup that has never be
 | CSS missing, static files 404 | `./scripts/copy_static && docker compose restart nginx` |
 | Database connection errors | `docker compose ps db`, `docker compose logs db`, check `environment/mysql.env` |
 | Celery tasks stuck | `docker compose logs -f celery`, then `docker compose restart celery` |
-| Judging results don't update live | `docker compose ps wsevent`, check `EVENT_DAEMON_POST` |
+| Judging results don't update live | `docker compose ps wsevent`, check `EVENT_DAEMON_POST`. If the site runs over HTTPS, check `SECURE_PROXY_SSL_HEADER` ([Installation](/en/operate/installation#django-https)) |
 | A container keeps restarting | `docker compose logs --tail=100 <service>` |
 | Disk full | `docker image prune`, `docker builder prune`, check the size of `problems/` and `backups/` |
 

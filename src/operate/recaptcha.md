@@ -22,7 +22,7 @@ reCAPTCHA thêm ô "I'm not a robot" vào **form đăng ký bằng tên đăng n
 
 ## LCOJ tích hợp reCAPTCHA thế nào
 
-Code nằm ở `judge/utils/recaptcha.py` và `judge/views/register.py` trong `dmoj/repo`:
+LCOJ quyết định có hiện captcha hay không theo các bước sau:
 
 1. LCOJ thử import `snowpenguin.django.recaptcha2`. Module này thuộc gói PyPI **`django-recaptcha2`**.
 2. Nếu import được **và** settings có thuộc tính `RECAPTCHA_PRIVATE_KEY`, form đăng ký có thêm trường `captcha` (widget reCAPTCHA **v2 checkbox**).
@@ -37,25 +37,25 @@ flowchart LR
 ```
 
 ::: warning Không nhầm hai gói
-- Code LCOJ dùng **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), chỉ hỗ trợ reCAPTCHA v2.
-- Gói **`django-recaptcha`** (module `django_recaptcha`, có reCAPTCHA v3) **không** được code LCOJ dùng. Cài gói này không làm hiện captcha.
+- LCOJ dùng **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), chỉ hỗ trợ reCAPTCHA v2.
+- Gói **`django-recaptcha`** (module `django_recaptcha`, có reCAPTCHA v3) **không** được LCOJ dùng. Cài gói này không làm hiện captcha.
 :::
 
 ::: details Ghi chú về `OAUTH_ONLY`
-`OAUTH_ONLY` chỉ được dùng trong template `registration/registration_form.html` để ẩn các ô nhập liệu. View `/accounts/register/` không tự kiểm tra `OAUTH_ONLY`.
+`OAUTH_ONLY` hiện chỉ ẩn các ô nhập liệu trên trang đăng ký; địa chỉ `/accounts/register/` vẫn nhận form đăng ký gửi thẳng tới. Nếu lo bot gửi form trực tiếp, hãy bật reCAPTCHA theo trang này.
 :::
 
 ## Trước khi bắt đầu
 
-- [ ] Bạn đã quyết định tắt `OAUTH_ONLY` để mở lại đăng ký bằng mật khẩu (xem [OAuth](/start/glossary)).
+- [ ] Bạn định tắt `OAUTH_ONLY` để mở lại đăng ký bằng mật khẩu (xem [OAuth](/start/glossary)).
 - [ ] Có quyền SSH vào máy chủ và chạy `docker compose` trong thư mục `dmoj/`.
 - [ ] Có tài khoản Google để tạo key reCAPTCHA.
-- [ ] Có máy dev để thử trước (gói `django-recaptcha2` chưa được kiểm thử với Django 4.2).
+- [ ] Có máy dev để thử trước (gói `django-recaptcha2` chỉ công bố hỗ trợ tới Django 2.1).
 
 ## Bật reCAPTCHA (chỉ khi đã tắt `OAUTH_ONLY`)
 
-::: warning Chưa được kiểm thử trên LCOJ
-`django-recaptcha2` (bản mới nhất 1.4.1) chỉ công bố hỗ trợ tới Django 2.1, còn LCOJ chạy Django 4.2. Hãy thử trên máy dev trước khi bật trên production.
+::: warning Thử trên máy dev trước
+`django-recaptcha2` (bản mới nhất 1.4.1) chỉ công bố hỗ trợ tới Django 2.1, còn LCOJ chạy Django 4.2. Hãy thử trên máy dev trước khi bật trên máy chủ thật.
 :::
 
 ### Bước 1: Lấy key từ Google
@@ -64,7 +64,7 @@ flowchart LR
 2. Tạo site mới:
    - **Label**: `LCOJ`
    - **Loại**: reCAPTCHA **v2**, chọn _"I'm not a robot" Checkbox_
-   - **Domains**: `luyencode.net` (thêm domain dev nếu cần)
+   - **Domains**: tên miền của bạn, ví dụ `lcoj.example.com` (thêm domain dev nếu cần)
 3. Lưu lại **Site key** (công khai) và **Secret key** (bí mật).
 
 ### Bước 2: Cài gói Python
@@ -119,7 +119,7 @@ docker compose up -d site celery
 
 ## Kiểm tra kết quả
 
-1. Mở `https://luyencode.net/accounts/register/` trong cửa sổ ẩn danh.
+1. Mở `https://lcoj.example.com/accounts/register/` trong cửa sổ ẩn danh.
 2. Cuối form có ô "I'm not a robot".
 3. Thử đăng ký một tài khoản test.
 

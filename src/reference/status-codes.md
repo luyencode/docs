@@ -10,7 +10,7 @@
 - Bạn muốn hiểu vì sao cả bài bị chấm `TLE` dù chỉ một test chạy chậm.
 - Bạn đang viết công cụ đọc dữ liệu bài nộp (ví dụ qua [API](/reference/api)) và cần danh sách mã đầy đủ.
 
-Mỗi bài nộp trên LCOJ có hai thông tin: **trạng thái xử lý** (bài đang ở bước nào) và **kết quả** (verdict, bài đúng hay sai và sai kiểu gì). Trang này liệt kê đầy đủ các mã, đúng như định nghĩa trong mã nguồn website (`judge/models/submission.py`) và judge.
+Mỗi bài nộp trên LCOJ có hai thông tin: **trạng thái xử lý** (bài đang ở bước nào) và **kết quả** (verdict, bài đúng hay sai và sai kiểu gì). Trang này liệt kê đầy đủ các mã.
 
 Cách nộp bài và đọc trang kết quả xem tại [Nộp bài và chấm bài](/learn/submissions).
 

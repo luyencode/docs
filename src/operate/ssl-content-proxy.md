@@ -5,7 +5,7 @@
 > ⏱ ~45 phút · 👤 Người vận hành · 🔑 SSH + quyền chạy docker trên máy chủ, quyền sửa `dmoj/environment/` và `nginx.conf`
 
 ::: info Bạn có cần trang này không?
-Khi đề bài, blog hay bình luận nhúng ảnh từ website khác (nhất là ảnh `http://`), trình duyệt có thể chặn hoặc cảnh báo "mixed content" vì LCOJ chạy HTTPS. Ngoài ra, website chứa ảnh sẽ thấy IP của người xem.
+Khi đề bài, blog hay bình luận nhúng ảnh từ website khác (nhất là ảnh `http://`), trình duyệt có thể chặn hoặc cảnh báo "mixed content" vì site của bạn chạy HTTPS. Ngoài ra, website chứa ảnh sẽ thấy IP của người xem.
 
 [Camo](https://github.com/atmos/camo) là proxy ảnh: LCOJ viết lại link ảnh ngoài để trình duyệt tải ảnh qua máy chủ Camo của bạn, bằng HTTPS.
 
@@ -25,14 +25,14 @@ Khi đề bài, blog hay bình luận nhúng ảnh từ website khác (nhất l�
 
 ```mermaid
 flowchart LR
-  A["Markdown có ảnh<br/>http://example.com/a.png"] --> B["site viết lại src thành<br/>https://luyencode.net/camo/HMAC/HEX-URL"]
+  A["Markdown có ảnh<br/>http://example.com/a.png"] --> B["site viết lại src thành<br/>https://lcoj.example.com/camo/HMAC/HEX-URL"]
   B --> C["Trình duyệt"]
   C -->|HTTPS| D["nginx /camo/"]
   D --> E["camo:8081"]
   E -->|HTTP/HTTPS| F["example.com"]
 ```
 
-- Khi render Markdown, LCOJ (file `judge/utils/camo.py`) viết lại thuộc tính `src` và `data-src` của thẻ `<img>`, và `data` của thẻ `<object>`.
+- Khi render Markdown, LCOJ viết lại thuộc tính `src` và `data-src` của thẻ `<img>`, và `data` của thẻ `<object>`.
 - URL mới có dạng `<DMOJ_CAMO_URL>/<chữ ký HMAC-SHA1>/<URL gốc mã hóa hex>`. Camo kiểm tra chữ ký bằng `CAMO_KEY`, nên người ngoài không thể dùng Camo của bạn để proxy link tùy ý.
 - **Không** viết lại: đường dẫn tương đối (ví dụ `/martor/a.png`), URL bắt đầu bằng `DMOJ_CAMO_URL`, và URL bắt đầu bằng một tiền tố trong `DMOJ_CAMO_EXCLUDE`.
 - Tất cả kiểu Markdown của LCOJ (đề bài, blog, bình luận, hồ sơ...) đều bật `use_camo`, nên chỉ cần cấu hình là áp dụng ở mọi nơi.
@@ -107,10 +107,10 @@ Dấu `/` cuối `proxy_pass` giúp bỏ tiền tố `/camo` trước khi gửi 
 Thêm vào `dmoj/config/local_settings.py`, rồi chép sang `dmoj/repo/dmoj/local_settings.py` (file site thực sự đọc; xem [Biến môi trường và cấu hình](/operate/environment)):
 
 ```python
-DMOJ_CAMO_URL = 'https://luyencode.net/camo'
+DMOJ_CAMO_URL = 'https://lcoj.example.com/camo'
 DMOJ_CAMO_KEY = os.environ.get('DMOJ_CAMO_KEY')
 # Tiền tố URL không cần proxy. PHẢI là tuple (không dùng list).
-DMOJ_CAMO_EXCLUDE = ('https://luyencode.net/', 'http://luyencode.net/')
+DMOJ_CAMO_EXCLUDE = ('https://lcoj.example.com/', 'http://lcoj.example.com/')
 # URL dạng //host/... sẽ được coi là https://
 DMOJ_CAMO_HTTPS = True
 ```
@@ -139,9 +139,9 @@ docker compose restart nginx         # nạp location /camo/ nếu nginx không 
    ./scripts/manage.py camo http://example.com/image.png
    ```
 
-   Lệnh in ra URL dạng `https://luyencode.net/camo/<hmac>/<hex>`. Nếu báo `Camo not available` thì `DMOJ_CAMO_URL` hoặc `DMOJ_CAMO_KEY` chưa có giá trị.
+   Lệnh in ra URL dạng `https://lcoj.example.com/camo/<hmac>/<hex>`. Nếu báo `Camo not available` thì `DMOJ_CAMO_URL` hoặc `DMOJ_CAMO_KEY` chưa có giá trị.
 2. Mở URL đó trong trình duyệt, ảnh phải hiện ra.
-3. Tạo một bình luận thử có ảnh ngoài, xem mã nguồn trang: `src` phải bắt đầu bằng `https://luyencode.net/camo/`.
+3. Tạo một bình luận thử có ảnh ngoài, xem mã nguồn trang: `src` phải bắt đầu bằng `https://lcoj.example.com/camo/`.
 
 ::: tip Trang cũ chưa đổi link?
 HTML của đề bài và một số trang được cache tới 1 ngày. Lưu lại bài hoặc chờ cache hết hạn.
@@ -184,7 +184,7 @@ Camo **không có cache riêng**. `CAMO_HEADER_VIA` và `CAMO_TIMING_ALLOW_ORIGI
   }
   ```
 
-- **Cache** bằng `proxy_cache` của nginx hoặc quy tắc cache của Cloudflare cho đường dẫn `/camo/`.
+- **Cache** bằng `proxy_cache` của nginx (trong container hoặc reverse proxy trên host) cho đường dẫn `/camo/`.
 
 ## Sự cố thường gặp
 

@@ -31,7 +31,7 @@ flowchart LR
 | Superuser | Mọi quyền, không cần cấp từng quyền | `/admin/auth/user/` hoặc `adduser --superuser` |
 
 ::: info Đăng ký chỉ qua OAuth
-LCOJ đặt `OAUTH_ONLY = True` trong `dmoj/config/local_settings.py`: form đăng ký bằng mật khẩu bị ẩn, người dùng mới tự tạo tài khoản bằng Google/Facebook/GitHub. Tuy vậy **form đăng nhập bằng tên đăng nhập + mật khẩu vẫn hoạt động**, nên tài khoản bạn tạo bằng lệnh (có mật khẩu) vẫn đăng nhập bình thường. Đây là cách phát tài khoản cho lớp học hoặc kỳ thi tại chỗ.
+Cấu hình mặc định của lcoj-docker đặt `OAUTH_ONLY = True` trong `dmoj/config/local_settings.py`: form đăng ký bằng mật khẩu bị ẩn, người dùng mới tự tạo tài khoản bằng Google/Facebook/GitHub. Tuy vậy **form đăng nhập bằng tên đăng nhập + mật khẩu vẫn hoạt động**, nên tài khoản bạn tạo bằng lệnh (có mật khẩu) vẫn đăng nhập bình thường. Đây là cách phát tài khoản cho lớp học hoặc kỳ thi tại chỗ.
 :::
 
 ## Tìm và xem một người dùng
@@ -151,7 +151,7 @@ Quyền nào cho phép làm gì, và các nhóm vai trò gợi ý: xem [Hệ th�
 
 ### Bắt buộc 2FA với staff
 
-`DMOJ_REQUIRE_STAFF_2FA` (mặc định `True` trong `dmoj/settings.py`, LCOJ không đổi) **không ép** staff phải bật 2FA. Nó chỉ ngăn staff **tắt** phương thức 2FA cuối cùng: nút **Tắt** trên trang sửa hồ sơ bị vô hiệu, và xoá khoá WebAuthn cuối cùng bị từ chối với thông báo `Staff may not disable 2FA`.
+`DMOJ_REQUIRE_STAFF_2FA` (mặc định `True`) **không ép** staff phải bật 2FA. Nó chỉ ngăn staff **tắt** phương thức 2FA cuối cùng: nút **Tắt** trên trang sửa hồ sơ bị vô hiệu, và xoá khoá WebAuthn cuối cùng bị từ chối với thông báo `Staff may not disable 2FA`.
 
 Vì vậy quy trình nên là: yêu cầu người đó bật 2FA (TOTP hoặc WebAuthn) trong trang sửa hồ sơ **trước**, rồi mới tích staff.
 
@@ -195,7 +195,7 @@ Chỉ điền **Ban reason** trong `/admin/judge/profile/` thì tài khoản **c
 
 ### Tự động cấm khi gian lận trong kỳ thi
 
-Có sẵn cơ chế tự cấm sau nhiều lần bị loại khỏi kỳ thi, nhưng **LCOJ đang tắt** (`VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS = False`). Khi bật:
+Có sẵn cơ chế tự cấm sau nhiều lần bị loại khỏi kỳ thi, nhưng **tắt theo mặc định** (`VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS = False`). Khi bật:
 
 | Setting | Mặc định | Ý nghĩa |
 |---|---|---|
@@ -240,13 +240,13 @@ Hành vi trong LCOJ:
 Nộp bài, bình luận, vote, tham gia kỳ thi, đổi cài đặt… khi đang mạo danh đều được ghi cho **người bị mạo danh**, kể cả khi họ đang trong một kỳ thi. Chỉ xem, đừng thao tác. Luôn bấm **Ngừng mạo danh** khi xong.
 :::
 
-::: warning Ai được mạo danh và nhật ký: cấu hình thực tế khác với ý định
-`dmoj/settings.py` khai báo `IMPERSONATE_REQUIRE_SUPERUSER = True` và `IMPERSONATE_DISABLE_LOGGING = True`, nhưng django-impersonate bản 1.9.x chỉ đọc cấu hình từ dict `IMPERSONATE = {...}`, nên hai dòng trên **không có tác dụng**. Hệ quả:
+::: warning Ai được mạo danh và xem nhật ký ở đâu
+Với cấu hình mặc định:
 
 - Tab **Mạo danh** chỉ hiện cho superuser, nhưng **mọi staff** đều có thể mạo danh (người dùng không phải superuser) bằng cách vào thẳng `/impersonate/<id>/`.
-- Nhật ký **đang được ghi**: xem tại `/admin/impersonate/impersonationlog/` (ai mạo danh ai, bắt đầu/kết thúc lúc nào).
+- Mọi lần mạo danh đều được ghi nhật ký: xem tại `/admin/impersonate/impersonationlog/` (ai mạo danh ai, bắt đầu/kết thúc lúc nào).
 
-Nếu muốn chỉ superuser được mạo danh, người vận hành thêm vào `dmoj/config/local_settings.py`:
+Để chỉ superuser được mạo danh, thêm vào `dmoj/config/local_settings.py`:
 
 ```python
 IMPERSONATE = {
@@ -263,12 +263,12 @@ LCOJ có sẵn cơ chế tự đăng nhập theo địa chỉ IP, dành cho phò
 
 - Trường **IP-based authentication** (`ip_auth`) trong hồ sơ: mỗi IP chỉ gán cho một người.
 - Backend `judge.ip_auth.IPBasedAuthBackend` đã có trong `AUTHENTICATION_BACKENDS`.
-- **Nhưng** `judge.middleware.IPBasedAuthMiddleware` **không** có trong `MIDDLEWARE`, nên điền `ip_auth` hiện không có tác dụng gì.
+- Middleware `judge.middleware.IPBasedAuthMiddleware` **không** bật sẵn trong `MIDDLEWARE`; khi chưa bật, điền `ip_auth` không có tác dụng gì.
 
 Khi middleware được bật, với mỗi request nó đọc IP từ `request.META[IP_BASED_AUTHENTICATION_HEADER]` (mặc định `REMOTE_ADDR`); nếu IP khớp `ip_auth` của một hồ sơ đang hoạt động thì đăng nhập **thay bằng** tài khoản đó, kể cả khi trình duyệt đang đăng nhập tài khoản khác.
 
 ::: warning Cần thiết kế cẩn thận trước khi bật
-Trong LCOJ, request đi qua Cloudflare Tunnel và nginx, nên `REMOTE_ADDR` là IP của proxy chứ không phải IP máy thí sinh. Muốn dùng, người vận hành phải đổi `IP_BASED_AUTHENTICATION_HEADER` sang header chứa IP thật và thêm middleware sau `AuthenticationMiddleware`. Chỉ nên bật trên một instance riêng cho phòng thi.
+Site chạy sau reverse proxy (nginx trong lcoj-docker), nên `REMOTE_ADDR` là IP của proxy chứ không phải IP máy thí sinh. Muốn dùng, bạn cần đổi `IP_BASED_AUTHENTICATION_HEADER` sang header chứa IP thật và thêm middleware sau `AuthenticationMiddleware`. Chỉ nên bật trên một instance riêng cho phòng thi.
 :::
 
 ## Chuyển dữ liệu giữa hai tài khoản

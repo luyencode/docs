@@ -4,7 +4,7 @@
 >
 > 👤 Operators · 🔑 SSH access to the server and permission to run `docker compose` in the `dmoj/` directory
 
-LCOJ ships a set of Django management commands for administrative work: creating users and judges, importing problems, exporting contest data, generating editorials, and more. This page lists **every** custom command in `judge/management/commands/` of lcoj-site, with the exact arguments each one accepts.
+LCOJ ships a set of Django management commands for administrative work: creating users and judges, importing problems, exporting contest data, generating editorials, and more. This page lists **every** one of these custom commands, with the exact arguments each one accepts.
 
 ## When you need this page
 
@@ -210,7 +210,7 @@ Run the judge load balancer with a YAML configuration file.
 
 | Option | Description |
 |---|---|
-| `-c`, `--config` | YAML file containing the balancer configuration (required in practice) |
+| `-c`, `--config` | YAML file containing the balancer configuration (required) |
 
 ## Problems
 
@@ -304,7 +304,7 @@ Render a problem statement to `<code>.pdf` in the working directory (`dmoj/repo/
 | Argument / option | Description |
 |---|---|
 | `code` | Problem code |
-| `-l`, `--language` | Statement language; uses the translation if one exists. Default: `LANGUAGE_CODE` (`vi` on LCOJ) |
+| `-l`, `--language` | Statement language; uses the translation if one exists. Default: `LANGUAGE_CODE` (`vi` in the default lcoj-docker config) |
 
 Requires Pdfoid (`DMOJ_PDF_PDFOID_URL`). See [Pdfoid](/en/operate/pdfoid).
 
@@ -498,7 +498,7 @@ Run MOSS on the Accepted submissions of a contest (live and spectating participa
 ./scripts/manage.py runmoss <contest>
 ```
 
-`contest` is the contest **key**. Requires `MOSS_API_KEY` (read from the environment on LCOJ). Contest organizers can also run MOSS from the contest's `/moss` page.
+`contest` is the contest **key**. Requires `MOSS_API_KEY` (in lcoj-docker, set through the `MOSS_API_KEY` environment variable). Contest organizers can also run MOSS from the contest's `/moss` page.
 
 ### merge_replay_data
 
@@ -648,3 +648,4 @@ Show the arguments of one command:
 - [Judge setup](/en/operate/judge-setup): uses `addjudge` when adding a judge.
 - [Managing users](/en/admin/users): working with accounts through the web interface.
 - [API](/en/reference/api): uses the token created by `generate_api_token`.
+- [Settings reference](/en/reference/settings): settings mentioned on this page, such as `BRIDGED_JUDGE_ADDRESS`, `MOSS_API_KEY`, and `VNOJ_MONTHLY_FREE_CREDIT`.

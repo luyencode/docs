@@ -81,8 +81,8 @@ Nội dung được chèn **không lọc** vào mọi trang của site (trừ tr
 :::
 
 ::: warning Favicon và logo tải lên
-- Ô **Site favicon** lưu được giá trị nhưng template hiện dùng cố định các file `icons/favicon-*.png` trong thư mục static, nên **tải favicon lên không đổi gì**. Muốn đổi favicon, người vận hành thay file trong `resources/icons/` của lcoj-site rồi chạy lại `./scripts/copy_static`.
-- `dmoj/nginx/conf.d/nginx.conf` đi kèm **không có** `location /static-upload`; đường dẫn này rơi vào `location /static` (tìm trong `/assets/`) nên ảnh logo vừa tải lên có thể trả 404. Nếu gặp, người vận hành thêm `location /static-upload { root /media/; }` vào nginx rồi `docker compose restart nginx`.
+- Favicon của site luôn lấy từ các file `icons/favicon-*.png` trong thư mục static; ô **Site favicon** lưu được giá trị nhưng **tải favicon lên không đổi gì**. Muốn đổi favicon, thay file trong `resources/icons/` của lcoj-site rồi chạy lại `./scripts/copy_static`.
+- `dmoj/nginx/conf.d/nginx.conf` đi kèm **không có** `location /static-upload`; đường dẫn này rơi vào `location /static` (tìm trong `/assets/`) nên ảnh logo vừa tải lên có thể trả 404. Nếu gặp, thêm `location /static-upload { root /media/; }` vào nginx rồi `docker compose restart nginx`.
 :::
 
 ### Cách giá trị được lưu và áp dụng
@@ -126,7 +126,7 @@ Menu được đọc từ cơ sở dữ liệu ở mỗi request, lưu xong là 
 Lệnh tạo mục `key=blog`, nhãn `Blog`, đường dẫn `/blog/`, regex `^/blog/`, đặt cuối menu (thứ tự lớn nhất + 10). Nếu đã có mục `key=blog` thì lệnh chỉ báo `Blog navigation item already exists`.
 
 ::: warning Kiểm tra đường dẫn sau khi chạy
-Danh sách URL của lcoj-site không có route `/blog/`; các trang danh sách blog là `/blogs/` và `/posts/`. Sau khi chạy lệnh, bấm thử mục Blog. Nếu gặp 404, sửa `path` (và `regex`) của mục này trong admin, hoặc tạo một chuyển hướng `/blog/` → `/blogs/` tại `/admin/redirects/redirect/` (**Chuyển hướng**).
+Site không có trang `/blog/`; các trang danh sách blog là `/blogs/` và `/posts/`. Sau khi chạy lệnh, bấm thử mục Blog. Nếu gặp 404, sửa `path` (và `regex`) của mục này trong admin, hoặc tạo một chuyển hướng `/blog/` → `/blogs/` tại `/admin/redirects/redirect/` (**Chuyển hướng**).
 :::
 
 ## Trang tĩnh (flatpage)
@@ -153,7 +153,7 @@ Những điều cần biết:
 - Người có quyền sửa trang tĩnh thấy liên kết **[Chỉnh sửa]** cạnh tiêu đề trang.
 - Nội dung trang tĩnh cho phép HTML thô (không lọc), nên có thể dùng `<h2 id="...">` để tạo mỏ neo.
 - Trang Thông tin có sẵn trong menu (mục `about`) và trong sitemap. Tài liệu này và nhiều trang khác trỏ tới `https://luyencode.net/about/#lien-he`; khi sửa trang Thông tin, **giữ lại** phần tử có `id="lien-he"`, ví dụ `<h2 id="lien-he">Liên hệ</h2>`.
-- Muốn có trang **Điều khoản**: tạo flatpage `/terms/`. Setting `TERMS_OF_SERVICE_URL` (hiện là `None`) chỉ dùng trên form đăng ký bằng mật khẩu, vốn đang ẩn vì LCOJ chỉ cho đăng ký qua OAuth.
+- Muốn có trang **Điều khoản**: tạo flatpage `/terms/`. Setting `TERMS_OF_SERVICE_URL` (mặc định `None`) chỉ dùng trên form đăng ký bằng mật khẩu, vốn bị ẩn khi site chỉ cho đăng ký qua OAuth (`OAUTH_ONLY = True`).
 
 ## Bài blog và thông báo trên trang chủ
 
@@ -197,8 +197,8 @@ Bình luận có điểm từ vote. Bình luận có điểm ≤ `DMOJ_COMMENT_V
 
 Danh sách `/admin/judge/comment/` tìm được theo tên người viết, trang và nội dung, lọc theo **ẩn**.
 
-::: warning Hành động hàng loạt trong admin đang lỗi
-Hai hành động **Ẩn bình luận** / **Bỏ ẩn bình luận** cập nhật cơ sở dữ liệu trước, rồi gọi một thuộc tính không tồn tại trên queryset (`queryset.author`) nên trang sẽ báo lỗi server. Các bình luận thường đã được cập nhật dù thấy lỗi; tải lại danh sách để kiểm tra. Hành động này cũng không ẩn các trả lời. Ưu tiên dùng biểu tượng thùng rác.
+::: warning Hành động hàng loạt trong admin báo lỗi server
+Hai hành động **Ẩn bình luận** / **Bỏ ẩn bình luận** hiện báo lỗi server sau khi chạy. Các bình luận thường đã được cập nhật dù thấy lỗi; tải lại danh sách để kiểm tra. Hành động này cũng không ẩn các trả lời. Ưu tiên dùng biểu tượng thùng rác.
 :::
 
 ### Script `moderate_comments`
@@ -222,7 +222,7 @@ Muốn tắt quyền bình luận của một người: xem [Quản lý người
 
 ## Bản tin (newsletter)
 
-Code có hỗ trợ [django-newsletter](https://pypi.org/project/django-newsletter/) (route `/newsletter/` và ô đăng ký trong trang sửa hồ sơ, dùng `DMOJ_NEWSLETTER_ID_ON_REGISTER`), nhưng **LCOJ không cài gói này** và không thêm `newsletter` vào `INSTALLED_APPS`. Vì vậy `/newsletter/` không tồn tại và `DMOJ_NEWSLETTER_ID_ON_REGISTER` (mặc định `None`) không có tác dụng.
+LCOJ có sẵn chỗ tích hợp [django-newsletter](https://pypi.org/project/django-newsletter/) (route `/newsletter/` và ô đăng ký trong trang sửa hồ sơ, dùng `DMOJ_NEWSLETTER_ID_ON_REGISTER`), nhưng cấu hình mặc định **không cài gói này** và không thêm `newsletter` vào `INSTALLED_APPS`. Vì vậy `/newsletter/` không tồn tại và `DMOJ_NEWSLETTER_ID_ON_REGISTER` (mặc định `None`) không có tác dụng.
 
 ## Trang trạng thái và thống kê
 
@@ -249,7 +249,7 @@ Thiết lập máy chấm: xem [Cài đặt judge](/operate/judge-setup).
 Feed blog lọc theo "đang hiện" và "đã tới thời gian đăng" nhưng **không** loại bài thuộc tổ chức, nên tóm tắt (hoặc nội dung, nếu không có tóm tắt) của bài tổ chức riêng tư đang hiện cũng có thể xuất hiện trong feed. Với nội dung nhạy cảm của tổ chức, hãy bỏ tích **hiển thị công khai**.
 :::
 
-Link tuyệt đối trong sitemap dùng tên miền của Site (`/admin/sites/site/`, **Tên miền**), bản ghi này cần là `luyencode.net`. Nếu link sai tên miền, sửa bản ghi Site đó.
+Link tuyệt đối trong sitemap dùng tên miền của Site (`/admin/sites/site/`, **Tên miền**), bản ghi này cần là tên miền thật của site (trên luyencode.net là `luyencode.net`). Nếu link sai tên miền, sửa bản ghi Site đó.
 
 ## Sự cố thường gặp
 
@@ -265,7 +265,7 @@ Link tuyệt đối trong sitemap dùng tên miền của Site (`/admin/sites/si
 | Flatpage mới báo 404 | Chưa chọn Site, URL thiếu `/` đầu/cuối, hoặc URL trùng một route có sẵn | Kiểm tra mục **các trang web** và URL |
 | Link `/about/#lien-he` không cuộn tới mục Liên hệ | Mất phần tử `id="lien-he"` khi sửa trang | Thêm lại `<h2 id="lien-he">Liên hệ</h2>` |
 | Bài blog không hiện trên trang chủ | Thiếu **bài đăng chung**, chưa tích **hiển thị công khai**, thời gian đăng ở tương lai, hoặc có chọn tổ chức | Kiểm tra bốn điều kiện ở trên |
-| Admin báo lỗi server khi dùng **Ẩn bình luận** | Lỗi trong code hành động | Tải lại danh sách để kiểm tra; dùng biểu tượng thùng rác |
+| Admin báo lỗi server khi dùng **Ẩn bình luận** | Hành động báo lỗi sau khi đã cập nhật | Tải lại danh sách để kiểm tra; dùng biểu tượng thùng rác |
 
 ## Tiếp theo
 
@@ -274,3 +274,4 @@ Link tuyệt đối trong sitemap dùng tên miền của Site (`/admin/sites/si
 - [Rút gọn liên kết](/admin/url-shortener): tạo link ngắn cho thông báo, poster.
 - [Các script hỗ trợ](/operate/scripts): `copy_static`, `moderate_comments` và các script khác.
 - [Vận hành LCOJ](/operate/operations): khởi động lại service, xem log.
+- [Tham khảo cấu hình](/reference/settings): các setting nhắc tới ở trang này, như `DMOJ_COMMENT_VOTE_HIDE_THRESHOLD`, `VNOJ_BLOG_MIN_PROBLEM_COUNT`.

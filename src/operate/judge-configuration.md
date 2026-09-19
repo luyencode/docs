@@ -101,7 +101,7 @@ Nếu cài judge trực tiếp (không dùng Docker), chạy `dmoj-autoconf` đ�
 
 ### Các khóa tùy chọn khác
 
-Các khóa sau đều có giá trị mặc định trong `dmoj/judgeenv.py` của judge. Chỉ thêm vào khi thật sự cần.
+Các khóa sau đều có giá trị mặc định. Chỉ thêm vào khi thật sự cần.
 
 | Khóa | Mặc định | Ý nghĩa |
 |---|---|---|

@@ -8,7 +8,7 @@
 This page explains **how LCOJ renders math** in problem statements, blog posts, and comments, and **why you don't need to install Mathoid**.
 
 - LCOJ renders formulas **out of the box** with MathJax running in the browser. No extra service is required.
-- Mathoid is DMOJ's server-side formula renderer. In the current LCOJ codebase it is **not used when rendering Markdown**, and enabling it can actually make formulas **stop rendering** (see [below](#mathoid-in-lcoj-today)).
+- Mathoid is DMOJ's server-side formula renderer. LCOJ currently **doesn't use it when rendering Markdown**, and enabling it can actually make formulas **stop rendering** (see [below](#mathoid-in-lcoj-today)).
 
 If you are a problem setter, you only need the [Formula syntax](#formula-syntax) section.
 :::
@@ -94,20 +94,18 @@ LCOJ's MathJax config loads the `color` package, so you can write `~\color{red}{
 
 Mathoid ([upstream source](https://gitlab.wikimedia.org/repos/mediawiki/services/mathoid), formerly `github.com/wikimedia/mathoid`) is a Wikimedia Node.js service that renders TeX to SVG/MathML. DMOJ used it for server-side math rendering.
 
-In the LCOJ codebase (`dmoj/repo`):
+LCOJ currently doesn't use Mathoid when rendering Markdown. Setting `MATHOID_URL` only affects two things:
 
-- `judge/utils/mathoid.py` (the `MathoidMathParser` class) still exists, but **nothing calls it** when Markdown is rendered.
-- `MATHOID_URL` only affects two things:
-  1. It shows the **Math engine** option on the edit-profile page.
-  2. When a user's engine is `auto` (the default) and the browser supports MathML, the engine becomes `mml`. The page then **does not load MathJax** (`REQUIRE_JAX` is `False`), and the server doesn't render the formula either. Result: formulas show up as raw `~...~`.
+1. It shows the **Math engine** option on the edit-profile page.
+2. When a user's engine is `auto` (the default) and the browser supports MathML, the engine becomes `mml`. The page then **does not load MathJax**, and the server doesn't render the formula either. Result: formulas show up as raw `~...~`.
 
-::: danger Do not enable Mathoid in production
-With the current code, setting `MATHOID_URL` does **not** improve formulas and can make them disappear for many browsers. Keep the default configuration.
+::: danger Do not enable Mathoid
+For now, setting `MATHOID_URL` does **not** improve formulas and can make them disappear for many browsers. Keep the default configuration.
 :::
 
 ### If you are re-implementing this feature (optional, for developers)
 
-Only do this on a development machine, after wiring `MathoidMathParser` into the Markdown renderer.
+Only do this on a development machine, after wiring the `MathoidMathParser` class (in `judge/utils/mathoid.py` in `dmoj/repo`) into the Markdown renderer.
 
 1. Build a Mathoid image yourself from the upstream source following its README. Mathoid listens on port **10044** according to its `config.dev.yaml`. LCOJ does not ship this image.
 2. Add the service to `dmoj/docker-compose.override.yml` (Compose merges this file with `docker-compose.yml` automatically when run from `dmoj/`) and attach it to the `site` network so the `site` container can reach it:

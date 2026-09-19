@@ -13,7 +13,7 @@ Trước khi cập nhật, hãy [sao lưu cơ sở dữ liệu](/operate/operati
 - [ ] Đã [sao lưu cơ sở dữ liệu](/operate/operations#backup) (và tốt nhất cả `problems/`, `media/`).
 - [ ] Chọn giờ ít người dùng, không có kỳ thi đang diễn ra.
 - [ ] Có SSH vào máy chủ, chạy được `docker compose` và `git` trong `lcoj-docker/dmoj/`.
-- [ ] Biết bản cài của bạn theo nhánh nào của lcoj-site (luyencode.net dùng `prod/luyencode`).
+- [ ] Biết bản cài của bạn theo nhánh nào của lcoj-site (các ví dụ trong trang này dùng nhánh `prod/luyencode`).
 - [ ] Hiểu *migration* là gì (thay đổi cấu trúc cơ sở dữ liệu do Django tạo). Xem [Thuật ngữ](/start/glossary).
 
 Tổng quan quy trình:
@@ -47,8 +47,8 @@ Bản cài gồm hai repo Git lồng nhau:
 Repo ngoài không lưu nhánh của submodule, nó chỉ ghim `dmoj/repo` vào **một commit cụ thể**. Vì vậy:
 
 - `git submodule update` checkout đúng commit được ghim, nên `dmoj/repo` rơi vào trạng thái **detached HEAD** (không nằm trên nhánh nào). `git pull` bên trong sẽ báo lỗi cho đến khi bạn checkout một nhánh.
-- `.gitmodules` không khai báo `branch`, nên `git submodule update --remote` sẽ lấy nhánh mặc định của lcoj-site (`master`), **không phải** nhánh production.
-- luyencode.net chạy nhánh **`prod/luyencode`** của lcoj-site.
+- `.gitmodules` không khai báo `branch`, nên `git submodule update --remote` sẽ lấy nhánh mặc định của lcoj-site (`master`), **không phải** nhánh `prod/luyencode`.
+- Các lệnh trong trang này theo nhánh **`prod/luyencode`** của lcoj-site. Nếu bạn theo nhánh khác, hãy thay tên nhánh cho phù hợp.
 
 Kiểm tra trạng thái hiện tại:
 
@@ -56,7 +56,7 @@ Kiểm tra trạng thái hiện tại:
 git -C repo status | head -1   # "On branch prod/luyencode" hoặc "HEAD detached at ..."
 ```
 
-Nếu đang detached HEAD và muốn theo nhánh production:
+Nếu đang detached HEAD và muốn theo nhánh `prod/luyencode`:
 
 ```sh
 git -C repo fetch origin
@@ -84,7 +84,7 @@ Chạy mọi lệnh trong `lcoj-docker/dmoj/`.
 
    ::: code-group
 
-   ```sh [Theo nhánh production (luyencode.net)]
+   ```sh [Theo nhánh prod/luyencode]
    git -C repo fetch origin
    git -C repo checkout prod/luyencode
    git -C repo pull --ff-only origin prod/luyencode

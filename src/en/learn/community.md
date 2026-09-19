@@ -134,7 +134,7 @@ Contribution points recognize how you help the community. They are calculated as
 |---|---|
 | Each up / down vote on your comments (non-hidden comments) | +1 / −1 |
 | Each up / down vote on your public posts (not organization posts) | +1 / −1 |
-| Each ticket marked **good** | **+5** on LCOJ (`VNOJ_CP_TICKET = 5`; the upstream default is 10) |
+| Each ticket marked **good** | **+5** (`VNOJ_CP_TICKET = 5`) |
 | Each time you unlock the editorial of a problem you **haven't solved** | −1 |
 
 Where to see them:

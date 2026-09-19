@@ -4,7 +4,7 @@
 >
 > ⏱ ~60 phút (trong đó build image mất 10–20 phút) · 👤 Người vận hành · 🔑 SSH vào máy chủ Linux có quyền `sudo`
 
-Trang này hướng dẫn cài LCOJ từ đầu bằng [lcoj-docker](https://github.com/luyencode/lcoj-docker), đúng cách luyencode.net đang chạy. Cả hệ thống (web, cơ sở dữ liệu, cache, judge bridge, WebSocket) nằm trong Docker Compose, bạn không cần cài Python hay MariaDB lên máy chủ.
+Trang này hướng dẫn cài LCOJ từ đầu bằng [lcoj-docker](https://github.com/luyencode/lcoj-docker) trên một VPS có IP public. Cả hệ thống (web, cơ sở dữ liệu, cache, judge bridge, WebSocket) nằm trong Docker Compose, bạn không cần cài Python hay MariaDB lên máy chủ.
 
 ::: info Máy chấm (judge) cài riêng
 Docker Compose ở đây **không** có máy chấm. Nó chỉ chạy `bridged` để các máy chấm kết nối vào. Sau khi site chạy ổn, xem [Cài đặt Judge](/operate/judge-setup).
@@ -14,7 +14,7 @@ Docker Compose ở đây **không** có máy chấm. Nó chỉ chạy `bridged` 
 
 - [ ] Một máy chủ Linux 64-bit đạt cấu hình tối thiểu ở bảng dưới, bạn SSH vào được và có quyền `sudo`
 - [ ] Máy chủ ra được Internet (để tải Docker image, gói Python/Node.js và mã nguồn từ GitHub)
-- [ ] Một tên miền trỏ về máy chủ, nếu muốn chạy public (thử trên máy cá nhân thì dùng `localhost`)
+- [ ] Một tên miền (ví dụ `lcoj.example.com`) mà bạn tạo được bản ghi DNS A/AAAA trỏ về IP public của VPS, nếu muốn chạy public với HTTPS. Chưa có tên miền thì vẫn thử được qua IP, xem [Chạy thử khi chưa có tên miền](#no-domain)
 - [ ] Một tài khoản Google để tạo OAuth client (xem [Bước 4.4](#google-oauth)), vì người dùng mới chỉ đăng ký được bằng Google
 - [ ] Biết sơ qua các khái niệm container, image, volume; nếu chưa, xem [Thuật ngữ](/start/glossary)
 
@@ -31,7 +31,8 @@ Hình dưới đây cho thấy các service sẽ được dựng. Chi tiết v�
 
 ```mermaid
 flowchart LR
-  U[Trình duyệt] -->|HTTP, cổng NGINX_PORT| N[nginx]
+  U[Trình duyệt] -->|HTTPS :443| P[Reverse proxy trên host<br/>Caddy / nginx]
+  P -->|HTTP 127.0.0.1:NGINX_PORT| N[nginx]
   N -->|uwsgi :8000| S[site]
   N -->|/event/, /channels/| W[wsevent]
   S --> DB[(db - MariaDB)]
@@ -136,12 +137,12 @@ MariaDB chỉ tạo database và user theo các biến này **ở lần khởi �
 
 ### 4.3. Site
 
-Ví dụ tối thiểu cho file `environment/site.env` của một bản cài chạy tại `luyencode.net`:
+Ví dụ tối thiểu cho file `environment/site.env` của một bản cài chạy tại `lcoj.example.com` (thay bằng tên miền của bạn):
 
 ```env
-HOST=luyencode.net
-SITE_FULL_URL=https://luyencode.net/
-MEDIA_URL=https://luyencode.net/
+HOST=lcoj.example.com
+SITE_FULL_URL=https://lcoj.example.com/
+MEDIA_URL=https://lcoj.example.com/
 
 DEBUG=0
 SECRET_KEY=<chuỗi ngẫu nhiên dài>
@@ -160,7 +161,8 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=<client secret>
 Vài điểm hay nhầm:
 
 - `DEBUG` chỉ bật khi giá trị đúng bằng `1`. Viết `True` cũng bị coi là tắt. Máy chủ thật luôn để `0`.
-- `HOST` là tên miền trần (không có `https://`), được dùng làm `ALLOWED_HOSTS`. Chạy thử trên máy cá nhân thì để `localhost` và hai URL là `http://localhost:8071/`.
+- `HOST` là tên miền trần (không có `https://`, không có cổng), được dùng làm `ALLOWED_HOSTS` và để tạo địa chỉ WebSocket. Chạy thử trên máy cá nhân thì để `localhost` và hai URL là `http://localhost:8071/`.
+- `SITE_FULL_URL` và `MEDIA_URL` dùng `https://` khi site chạy sau reverse proxy HTTPS (xem [HTTPS trên VPS](#https)).
 - `SITE_NAME`, `SITE_LONG_NAME`, `SITE_ADMIN_EMAIL` **không** phải biến môi trường. Chúng được ghi thẳng trong `local_settings.py`.
 - Các biến Redis, Celery, WebSocket, bridge ở trên đã khớp với tên service trong `docker-compose.yml`, giữ nguyên nếu bạn không đổi gì.
 
@@ -178,27 +180,27 @@ Cổng nginx được publish là `${NGINX_PORT:-8071}` trong `docker-compose.ym
 
 ### 4.4. Đăng nhập Google (OAuth) {#google-oauth}
 
-`local_settings.py` của LCOJ đặt `OAUTH_ONLY = True`. Khi đó trang đăng ký ẩn form tạo tài khoản bằng mật khẩu, người dùng mới chỉ đăng ký được qua Google. Form **đăng nhập** bằng username/mật khẩu vẫn còn, nên tài khoản quản trị tạo bằng lệnh vẫn đăng nhập bình thường.
+File `local_settings.py` đi kèm đặt `OAUTH_ONLY = True`. Khi đó trang đăng ký ẩn form tạo tài khoản bằng mật khẩu, người dùng mới chỉ đăng ký được qua Google. Form **đăng nhập** bằng username/mật khẩu vẫn còn, nên tài khoản quản trị tạo bằng lệnh vẫn đăng nhập bình thường.
 
 Cách lấy khóa:
 
 1. Vào [Google Cloud Console](https://console.cloud.google.com/apis/credentials), tạo **OAuth client ID** loại *Web application*.
-2. Thêm **Authorized redirect URI**: `https://luyencode.net/complete/google-oauth2/` (thay bằng tên miền của bạn).
+2. Thêm **Authorized redirect URI**: `https://lcoj.example.com/complete/google-oauth2/` (thay bằng tên miền của bạn).
 3. Chép *Client ID* và *Client secret* vào `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` và `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` trong `site.env`.
 
 ### 4.5. Nginx
 
-Trong `nginx/conf.d/nginx.conf`, sửa `server_name` thành tên miền của bạn:
+Trong `nginx/conf.d/nginx.conf`, sửa `server_name` (mặc định là `luyencode.net`) thành tên miền của bạn:
 
 ```nginx
 server {
     listen       80;
-    server_name  luyencode.net;  # đổi thành tên miền của bạn
+    server_name  lcoj.example.com;  # tên miền của bạn
     # ... giữ nguyên phần còn lại
 }
 ```
 
-Nginx trong container chỉ nghe HTTP ở cổng 80. HTTPS được xử lý ở lớp phía trước, xem [HTTPS](#https).
+Nginx trong container chỉ nghe HTTP ở cổng 80. HTTPS do một reverse proxy trên host đảm nhận, xem [HTTPS trên VPS](#https).
 
 ## Bước 5: Build image
 
@@ -277,7 +279,7 @@ Các container `lcoj_site`, `lcoj_celery`, `lcoj_bridged`, `lcoj_wsevent`, `lcoj
    curl -I http://localhost:8071/
    ```
 
-3. Mở `http://<ip-máy-chủ>:8071/` trên trình duyệt để thấy trang chủ LCOJ. Nếu đã nạp `demo`, vào **Admin → Sites** để sửa tên miền mặc định (`localhost:8081`) thành tên miền thật.
+3. Mở `http://<ip-máy-chủ>:8071/` trên trình duyệt để thấy trang chủ LCOJ (nếu `HOST` đang là tên miền, xem [Chạy thử khi chưa có tên miền](#no-domain) để truy cập bằng IP). Nếu đã nạp `demo`, vào **Admin → Sites** để sửa tên miền mặc định (`localhost:8081`) thành tên miền thật.
 4. Đăng nhập tại `/accounts/login/` bằng tài khoản vừa tạo ở Bước 6 và mở được trang `/admin/`.
 5. Trang chủ chưa có máy chấm là bình thường: bài nộp chỉ được chấm sau khi bạn [kết nối judge](/operate/judge-setup).
 
@@ -294,26 +296,249 @@ Các container `lcoj_site`, `lcoj_celery`, `lcoj_bridged`, `lcoj_wsevent`, `lcoj
 | celery | `lcoj_celery` | — | Không |
 
 ::: warning Tường lửa
-Chỉ cho máy chấm truy cập cổng 9999. Cổng 9998 không cần mở ra Internet. Lưu ý: cổng Docker publish **bỏ qua luật `ufw`**, nên hãy chặn bằng tường lửa của nhà cung cấp cloud hoặc chain `DOCKER-USER` của iptables.
+Chỉ cho máy chấm truy cập cổng 9999. Cổng 9998 và cổng nginx (`8071`) không cần mở ra Internet. Lưu ý: cổng Docker publish **bỏ qua luật `ufw`**. Cách giới hạn các cổng này xem [Bước H2](#bind-localhost) và [Bước H6](#firewall).
 :::
 
-## HTTPS
+## HTTPS trên VPS {#https}
 
-Nginx trong Docker chỉ phục vụ HTTP. Để có HTTPS, đặt một lớp TLS phía trước cổng `NGINX_PORT`.
+Nginx trong Docker chỉ phục vụ HTTP: cổng 80 trong container, được publish ra máy chủ ở `${NGINX_PORT:-8071}`. Để chạy public với HTTPS, hãy đặt một **reverse proxy có TLS chạy trực tiếp trên VPS**. Proxy nhận HTTPS ở cổng 80/443, tự lấy chứng chỉ Let's Encrypt và chuyển tiếp tới `127.0.0.1:8071`:
 
-### Cách luyencode.net đang làm: Cloudflare Tunnel
+```mermaid
+flowchart LR
+  U[Trình duyệt] -->|"HTTPS :443"| P["Caddy hoặc nginx<br/>(trên host)"]
+  P -->|"HTTP 127.0.0.1:8071"| N["nginx<br/>(container)"]
+  N --> S[site / wsevent / ...]
+```
 
-luyencode.net dùng [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/). `cloudflared` chạy trên máy chủ, kết nối ra Cloudflare và chuyển request về nginx. Máy chủ không cần mở cổng 80/443 và không cần tự quản lý chứng chỉ.
+Các bước dưới đây dùng tên miền ví dụ `lcoj.example.com` và cổng mặc định `8071`. Hãy thay bằng giá trị của bạn.
 
-1. Cài `cloudflared` và tạo tunnel theo tài liệu của Cloudflare.
-2. Thêm *Public hostname* `luyencode.net` trỏ tới service `http://localhost:8071` (đúng cổng `NGINX_PORT`).
-3. Trong `site.env`, đặt `SITE_FULL_URL` và `MEDIA_URL` dùng `https://`, rồi chạy `docker compose up -d` để các container nhận biến mới.
+::: warning Không chạy certbot vào nginx trong container
+Cấu hình của nginx trong container nằm trong Docker và không có cổng 443. Chứng chỉ phải do proxy trên host quản lý.
+:::
 
-WebSocket (`/event/`) chạy qua Cloudflare Tunnel mà không cần cấu hình thêm.
+### Bước H1: Trỏ tên miền về VPS
 
-### Cách khác: reverse proxy có TLS
+Tại nhà cung cấp DNS, tạo bản ghi **A** trỏ `lcoj.example.com` về IPv4 public của VPS (và bản ghi **AAAA** nếu VPS có IPv6). Kiểm tra:
 
-Bạn có thể dùng bất kỳ reverse proxy nào trên máy chủ (Caddy, Nginx trên host với certbot…) để nhận HTTPS ở cổng 443 và chuyển tới `http://127.0.0.1:8071`. Nhớ chuyển tiếp header `Upgrade`/`Connection` để WebSocket ở `/event/` hoạt động. Đừng chạy `certbot --nginx` nhắm vào nginx trong container, vì cấu hình của nó nằm trong Docker và không có cổng 443.
+```sh
+dig +short lcoj.example.com
+```
+
+Kết quả phải là IP của VPS. Let's Encrypt chỉ cấp chứng chỉ khi tên miền đã trỏ đúng và cổng 80 của VPS truy cập được từ Internet.
+
+### Bước H2: Chỉ mở cổng nginx cho localhost {#bind-localhost}
+
+Mặc định Compose publish nginx trên mọi địa chỉ của máy chủ, nên ai cũng vào được `http://<IP-VPS>:8071` mà không qua HTTPS. Tạo file `dmoj/docker-compose.override.yml` (Compose tự đọc file này cùng `docker-compose.yml`):
+
+```yaml
+services:
+  nginx:
+    ports: !override
+      - "127.0.0.1:${NGINX_PORT:-8071}:80"
+  bridged:
+    ports: !override
+      - "127.0.0.1:9998:9998"
+      - "9999:9999"
+```
+
+- `!override` thay hẳn danh sách `ports` gốc thay vì cộng thêm vào. Tag này cần Docker Compose **v2.24.4** trở lên (`docker compose version`).
+- Cổng 9998 chỉ dùng giữa `site` và `bridged`, nên bind vào `127.0.0.1` là đủ.
+- Nếu mọi máy chấm chạy trên chính VPS này (`--network=host`, kết nối `localhost:9999`), đổi dòng cuối thành `"127.0.0.1:9999:9999"`. Nếu có máy chấm ở máy khác, giữ `"9999:9999"` và giới hạn IP ở [Bước H6](#firewall).
+
+Áp dụng và kiểm tra:
+
+```sh
+docker compose up -d nginx bridged
+docker compose ps nginx bridged
+```
+
+Cột `PORTS` của nginx phải hiện `127.0.0.1:8071->80/tcp`.
+
+### Bước H3: Cài reverse proxy có TLS
+
+Chọn **một** trong hai cách. Cả hai đều cần cổng 80 và 443 của VPS còn trống, nên đừng đặt `NGINX_PORT` là 80 hay 443.
+
+#### Cách A: Caddy (đơn giản nhất)
+
+Caddy tự lấy và gia hạn chứng chỉ, tự chuyển hướng HTTP sang HTTPS, chuyển tiếp WebSocket và tự đặt các header `X-Forwarded-For`, `X-Forwarded-Proto`.
+
+1. Cài Caddy trên Ubuntu/Debian (theo [tài liệu chính thức](https://caddyserver.com/docs/install#debian-ubuntu-raspbian)):
+
+   ```sh
+   sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+   sudo apt update
+   sudo apt install caddy
+   ```
+
+2. Thay toàn bộ nội dung `/etc/caddy/Caddyfile` bằng:
+
+   ```txt
+   lcoj.example.com {
+       reverse_proxy 127.0.0.1:8071
+   }
+   ```
+
+   Chỉ một dòng `reverse_proxy` là đủ cho cả trang web lẫn WebSocket ở `/event/`.
+
+3. Nạp lại cấu hình và xem log lấy chứng chỉ:
+
+   ```sh
+   sudo systemctl reload caddy
+   sudo journalctl -u caddy -f
+   ```
+
+#### Cách B: nginx trên host + certbot
+
+1. Cài nginx và certbot:
+
+   ```sh
+   sudo apt install -y nginx certbot python3-certbot-nginx
+   ```
+
+2. Tạo file `/etc/nginx/sites-available/lcoj`:
+
+   ```nginx
+   server {
+       listen 80;
+       listen [::]:80;
+       server_name lcoj.example.com;
+
+       client_max_body_size 64M;
+
+       location / {
+           proxy_pass http://127.0.0.1:8071;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_read_timeout 600;
+       }
+
+       # WebSocket cập nhật trực tiếp
+       location /event/ {
+           proxy_pass http://127.0.0.1:8071;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection "upgrade";
+           proxy_set_header Host $host;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_read_timeout 86400;
+       }
+   }
+   ```
+
+   `client_max_body_size 64M` và `proxy_read_timeout 600` khớp với giới hạn của nginx trong container, để tải file test lớn và request chạy lâu không bị proxy cắt ngang.
+
+3. Bật site và nạp lại nginx:
+
+   ```sh
+   sudo ln -s /etc/nginx/sites-available/lcoj /etc/nginx/sites-enabled/lcoj
+   sudo rm -f /etc/nginx/sites-enabled/default
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+4. Lấy chứng chỉ. certbot tự thêm `listen 443 ssl` và chuyển hướng HTTP sang HTTPS vào file trên:
+
+   ```sh
+   sudo certbot --nginx -d lcoj.example.com
+   sudo certbot renew --dry-run   # kiểm tra gia hạn tự động
+   ```
+
+### Bước H4: Chuyển `site.env` sang https
+
+Trong `environment/site.env`:
+
+```env
+HOST=lcoj.example.com
+SITE_FULL_URL=https://lcoj.example.com/
+MEDIA_URL=https://lcoj.example.com/
+```
+
+`HOST` không có `https://` và không có cổng. Chạy `docker compose up -d` (không phải `restart`) để các container nhận giá trị mới.
+
+Địa chỉ WebSocket không cần khai báo riêng: `local_settings.py` tạo `EVENT_DAEMON_GET = 'ws://<HOST>/event/'` và `EVENT_DAEMON_GET_SSL = 'wss://<HOST>/event/'` từ `HOST`. Site dùng địa chỉ `wss://` khi nhận ra request là HTTPS, điều này cần `SECURE_PROXY_SSL_HEADER` ở bước tiếp theo.
+
+### Bước H5: Cấu hình Django cho HTTPS {#django-https}
+
+Mở `repo/dmoj/local_settings.py` (bản đang chạy) và thêm vào cuối file:
+
+```python
+# Chạy sau reverse proxy HTTPS
+CSRF_TRUSTED_ORIGINS = ['https://lcoj.example.com']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+```
+
+Rồi khởi động lại site:
+
+```sh
+docker compose restart site
+```
+
+- **`CSRF_TRUSTED_ORIGINS` là bắt buộc.** Django kiểm tra header `Origin` của mọi form gửi đi. Nếu không khai báo, form gửi từ `https://lcoj.example.com` bị từ chối. Trang xử lý lỗi CSRF của LCOJ chỉ chuyển hướng về chính trang đó mà không báo gì, nên triệu chứng là **bấm Nộp bài, Lưu, Đăng nhập mà trang chỉ tải lại, không có gì thay đổi**. Nếu phục vụ thêm tên miền khác (ví dụ `www`), thêm cả tên miền đó vào danh sách này và vào `ALLOWED_HOSTS`.
+- **`SECURE_PROXY_SSL_HEADER` nên bật.** Nó cho Django biết request gốc là HTTPS dựa vào header `X-Forwarded-Proto`. Không có nó, trang HTTPS sẽ kết nối WebSocket bằng `ws://`, trình duyệt chặn (mixed content) và kết quả chấm không tự cập nhật. Chỉ bật khi cổng nginx của container **không** truy cập được từ bên ngoài ([Bước H2](#bind-localhost)) và proxy luôn đặt header này. Caddy đặt sẵn; cấu hình nginx ở Cách B có `X-Forwarded-Proto $scheme`. Nếu không, người ngoài có thể giả header để Django tưởng request là HTTPS.
+
+::: tip Giữ thay đổi khi chạy lại `initialize`
+`./scripts/initialize` chép đè `config/local_settings.py` lên `repo/dmoj/local_settings.py`. Hãy thêm hai dòng trên vào cả `config/local_settings.py` để không bị mất.
+:::
+
+### Bước H6: Tường lửa {#firewall}
+
+| Cổng | Mở ra Internet? | Ghi chú |
+|---|---|---|
+| 22 | Có | SSH |
+| 80, 443 | Có | Reverse proxy. Cổng 80 cần cho việc lấy/gia hạn chứng chỉ và chuyển hướng sang HTTPS |
+| `8071` (`NGINX_PORT`) | Không | Chỉ `127.0.0.1` ([Bước H2](#bind-localhost)) |
+| 9998 | Không | Chỉ dùng giữa `site` và `bridged` |
+| 9999 | Chỉ khi có máy chấm ở máy khác | Chỉ cho IP của các máy chấm |
+| 3306, 6379 | — | `db` và `redis` không được publish ra máy chủ |
+
+Với `ufw`:
+
+```sh
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+```
+
+::: warning ufw không chặn được cổng do Docker publish
+Docker tự thêm luật iptables cho các cổng trong `ports:`, nên `ufw` không có tác dụng với `8071`, `9998`, `9999`. Hãy bind chúng vào `127.0.0.1` ([Bước H2](#bind-localhost)). Để giới hạn cổng 9999 theo IP máy chấm, dùng tường lửa của nhà cung cấp VPS (cách dễ nhất), hoặc chain `DOCKER-USER` của iptables:
+
+```sh
+# eth0 là card mạng public; <IP-máy-chấm> là IP được phép
+sudo iptables -I DOCKER-USER -i eth0 -p tcp -m conntrack --ctorigdstport 9999 --ctdir ORIGINAL ! -s <IP-máy-chấm> -j DROP
+```
+
+Luật iptables này mất khi khởi động lại máy; dùng gói `iptables-persistent` để lưu lại.
+:::
+
+### Kiểm tra HTTPS
+
+1. `curl -I https://lcoj.example.com/` trả `200`, còn `curl -I http://lcoj.example.com/` trả chuyển hướng (`301`/`308`) sang `https://`.
+2. Từ một máy khác, `curl -m 5 http://<IP-VPS>:8071/` phải thất bại (timeout hoặc bị từ chối).
+3. Đăng nhập, sửa và lưu hồ sơ của bạn: thay đổi phải được lưu.
+4. Mở một trang bài nộp, bật DevTools → **Network** → lọc **WS**: kết nối `wss://lcoj.example.com/event/` có trạng thái `101`.
+
+### Chạy thử khi chưa có tên miền {#no-domain}
+
+Khi chưa có tên miền, bạn có thể thử site qua IP bằng HTTP (không mã hóa, chỉ nên dùng để thử). Làm **trước** Bước H2, vì cổng `8071` cần mở ra ngoài. Trong `environment/site.env`:
+
+```env
+HOST=<IP-VPS>
+SITE_FULL_URL=http://<IP-VPS>:8071/
+MEDIA_URL=http://<IP-VPS>:8071/
+```
+
+Chạy `docker compose up -d`, rồi mở `http://<IP-VPS>:8071/`. Ở chế độ này:
+
+- Form hoạt động mà không cần `CSRF_TRUSTED_ORIGINS`, vì trình duyệt gửi `Origin: http://...` khớp với request HTTP. Đừng bật `SECURE_PROXY_SSL_HEADER`.
+- Địa chỉ WebSocket tạo từ `HOST` không có cổng (`ws://<IP-VPS>/event/`). Để cập nhật trực tiếp chạy được, thêm `EVENT_DAEMON_GET = 'ws://<IP-VPS>:8071/event/'` vào cuối `repo/dmoj/local_settings.py` rồi `docker compose restart site`. Xóa dòng này khi chuyển sang tên miền.
+- Nhà cung cấp VPS có thể chặn cổng `8071` bằng tường lửa của họ; nếu vậy, mở tạm cổng này.
+
+Khi đã có tên miền, làm lần lượt Bước H1 đến H6.
 
 ## Tinh chỉnh hiệu năng
 
@@ -325,6 +550,8 @@ Bạn có thể dùng bất kỳ reverse proxy nào trên máy chủ (Caddy, Ngi
 - [ ] `DEBUG=0`, `SECRET_KEY` ngẫu nhiên, mật khẩu MariaDB mạnh
 - [ ] Đã đổi mật khẩu hoặc xóa tài khoản `admin` của fixture `demo`
 - [ ] HTTPS hoạt động, `SITE_FULL_URL`/`MEDIA_URL` dùng `https://`
+- [ ] Đã thêm `CSRF_TRUSTED_ORIGINS` (và `SECURE_PROXY_SSL_HEADER`) vào `local_settings.py`
+- [ ] Cổng nginx của Docker chỉ bind vào `127.0.0.1`
 - [ ] Đăng nhập Google hoạt động
 - [ ] Tường lửa chỉ mở cổng cần thiết
 - [ ] Đã thiết lập [sao lưu định kỳ](/operate/operations#backup)
@@ -339,6 +566,10 @@ Bạn có thể dùng bất kỳ reverse proxy nào trên máy chủ (Caddy, Ngi
 | `./scripts/migrate` báo không kết nối được database | MariaDB chưa khởi tạo xong: đợi `ready for connections` trong `docker compose logs -f db` rồi chạy lại |
 | Build `site`/`celery`/`bridged` báo không tìm thấy `lcoj/lcoj-base` | Chạy `docker compose build base` trước (Bước 5) |
 | Trang web hiện nhưng không có CSS | Chạy lại `./scripts/copy_static` |
+| Bấm Nộp bài / Lưu / Đăng nhập không có tác dụng, trang chỉ tải lại | Thiếu hoặc sai `CSRF_TRUSTED_ORIGINS` trong `repo/dmoj/local_settings.py`: phải có đúng `https://<tên-miền>`, rồi `docker compose restart site` ([Bước H5](#django-https)) |
+| Kết quả chấm không tự cập nhật, console trình duyệt báo lỗi `Mixed Content` hoặc `ws://` | Thiếu `SECURE_PROXY_SSL_HEADER` ([Bước H5](#django-https)), hoặc proxy không chuyển tiếp header `Upgrade`/`Connection` cho `/event/` |
+| Caddy/certbot không lấy được chứng chỉ | Tên miền chưa trỏ đúng IP VPS (`dig +short <tên-miền>`), hoặc cổng 80/443 bị tường lửa của nhà cung cấp chặn |
+| Proxy trên host trả 502 | Container nginx không chạy hoặc sai cổng: `curl -I http://127.0.0.1:8071/` trên VPS |
 | Lỗi 502 Bad Gateway | `site` đang khởi động hoặc lỗi khi nạp Django: xem `docker compose logs --tail=100 site` ([chi tiết](/operate/architecture#uwsgi)) |
 | Lỗi 400 Bad Request | `HOST` trong `site.env` không khớp tên miền bạn đang truy cập |
 | Cổng 8071 đã bị dùng | Đổi cổng bằng `NGINX_PORT` trong `dmoj/.env` (xem cảnh báo ở Bước 4.3) |

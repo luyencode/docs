@@ -138,7 +138,7 @@ Cần sao lưu bốn thứ:
 | Cơ sở dữ liệu | container `db` | Dump bằng `mariadb-dump` khi đang chạy, không chép thô thư mục `database/` |
 | Dữ liệu test | `problems/` | Thường là phần lớn nhất |
 | File tải lên | `media/` | Ảnh, PDF, file đính kèm |
-| Cấu hình | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/` | Chứa bí mật, hãy lưu ở nơi an toàn |
+| Cấu hình | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/`, cùng `.env` và `docker-compose.override.yml` nếu bạn có tạo | Chứa bí mật, hãy lưu ở nơi an toàn. Cấu hình reverse proxy trên host (`/etc/caddy/Caddyfile` hoặc `/etc/nginx/sites-available/`) nằm ngoài `dmoj/`, hãy lưu riêng |
 
 Luồng sao lưu và khôi phục tổng quát:
 
@@ -272,6 +272,8 @@ Cờ `-T` trong `docker compose exec` là bắt buộc khi chạy từ cron vì 
    docker compose up -d
    ```
 
+7. Trỏ bản ghi DNS sang IP của máy chủ mới và cài lại reverse proxy HTTPS trên host, xem [Cài đặt: HTTPS trên VPS](/operate/installation#https).
+
 ## Trang bảo trì {#maintenance}
 
 Nginx đã cấu hình `error_page 502 504 /502.html`. Khi `site` bị dừng, người dùng sẽ thấy trang này thay vì lỗi trống. Vì vậy cách bật "chế độ bảo trì" đơn giản nhất là:
@@ -327,7 +329,7 @@ Thỉnh thoảng hãy thử khôi phục bản sao lưu lên một máy thử. B
 | Mất CSS, file tĩnh 404 | `./scripts/copy_static && docker compose restart nginx` |
 | Lỗi kết nối cơ sở dữ liệu | `docker compose ps db`, `docker compose logs db`, kiểm tra `environment/mysql.env` |
 | Tác vụ Celery bị treo | `docker compose logs -f celery`, rồi `docker compose restart celery` |
-| Kết quả chấm không tự cập nhật | `docker compose ps wsevent`, kiểm tra `EVENT_DAEMON_POST` |
+| Kết quả chấm không tự cập nhật | `docker compose ps wsevent`, kiểm tra `EVENT_DAEMON_POST`. Nếu site chạy HTTPS, kiểm tra `SECURE_PROXY_SSL_HEADER` ([Cài đặt](/operate/installation#django-https)) |
 | Container khởi động lại liên tục | `docker compose logs --tail=100 <service>` |
 | Đầy ổ đĩa | `docker image prune`, `docker builder prune`, kiểm tra dung lượng `problems/` và `backups/` |
 

@@ -133,7 +133,7 @@ In the Vietnamese admin, both `registration_start` and `registration_end` are la
 :::
 
 ::: warning Duration limit
-On the site create/edit form, a contest cannot last more than `VNOJ_CONTEST_DURATION_LIMIT` days (LCOJ: **14 days**) unless you have `long_contest_duration`. The admin does not apply this limit. Note that contestants can keep practicing the problems after the contest ends, so a long duration is rarely needed.
+On the site create/edit form, a contest cannot last more than `VNOJ_CONTEST_DURATION_LIMIT` days (**14 days** on luyencode.net) unless you have `long_contest_duration`. The admin does not apply this limit. Note that contestants can keep practicing the problems after the contest ends, so a long duration is rarely needed.
 :::
 
 ## Visibility and access {#visibility-and-access}
@@ -228,8 +228,8 @@ The **Clone** tab on the contest page (requires `clone_contest` and edit access)
 
 For organization contests, the new key must also follow the [prefix rule](#option-2-organization-private-contest).
 
-::: danger Known bug
-In the current code, `/contest/<key>/clone` reads a nonexistent attribute (`contest.organizations`), so the page returns a server error (500). Until it is fixed, create a new contest and add the problems manually.
+::: warning Cloning on the site currently fails
+The **Clone** tab (`/contest/<key>/clone`) currently shows a server error. For now, create a new contest and add the problems manually.
 :::
 
 ## During the contest: announcements and clarifications {#during-the-contest-announcements-and-clarifications}
@@ -263,7 +263,7 @@ With `use_clarifications` on, comments on the contest page are locked during the
 
 A contest is **replayable** when all of these hold: anonymous visitors can open it (public, not private), it has ended, `frozen_last_minutes = 0`, the scoreboard is visible, and the format is not `ioi16`. The ranking page then shows a time slider (⏱) to view the scoreboard at any moment, an **End** button to jump to the end and, for `icpc`/`vnoj`, a **Freeze min** box to try out freeze lengths. A virtual contestant in a replayable contest sees the scoreboard as of their own elapsed time (the **Live** button).
 
-- Replay data is built on first view and stored as `MEDIA_ROOT/contest_replay/<key>_v<version>.json`; browsers cache it forever. LCOJ does not set `DMOJ_CONTEST_REPLAY_INTERNAL`, so Django serves the file directly.
+- Replay data is built on first view and stored as `MEDIA_ROOT/contest_replay/<key>_v<version>.json`; browsers cache it forever. On luyencode.net, `DMOJ_CONTEST_REPLAY_INTERNAL` is not set, so Django serves the file directly.
 - If you rejudge or change results after the replay was built, open the contest in the admin and click **Invalidate Replay** (requires `change_contest`) to bump the version and rebuild it.
 - **Ghost participations**: an operator can merge another contest's contestants (for example the original of a mirror) into the replay with the [`merge_replay_data`](/en/reference/management-commands#merge-replay-data) command. The ranking page then gets a **Show ghost participations** checkbox.
 
@@ -289,7 +289,7 @@ The **Rate all ratable contests** button on the admin contest list deletes **all
 
 ### MOSS plagiarism check
 
-1. On the contest page, open the **MOSS** tab (`/contest/<key>/moss`). It appears only if you can edit the contest, have `moss_contest`, and the server has a `MOSS_API_KEY` (LCOJ reads it from an environment variable).
+1. On the contest page, open the **MOSS** tab (`/contest/<key>/moss`). It appears if you can edit the contest and have `moss_contest`. MOSS needs a valid `MOSS_API_KEY` configured by the operator; without one, the tab still shows but running MOSS fails.
 2. Click **MOSS contest**. LCOJ runs it in the background and shows a progress page.
 3. The result is a problem × language table (C, C++, Java, Python, Pascal), each cell linking to the MOSS report. For each contestant, LCOJ sends their highest-scoring submission; a cell only has a result with at least 2 submissions.
 4. **Delete MOSS results** clears old results; running again replaces them.
@@ -302,7 +302,7 @@ Operators can also run the [`runmoss`](/en/reference/management-commands#runmoss
 - A disqualified contestant's score becomes `-9999` (ranked last), they are removed from the contest if they are in it, and they are added to the contest's **Personae non gratae**. If the contest already has ratings, they are recomputed immediately.
 - **Automatic ban**: when `VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS` is on, a user disqualified in `VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING` or more contests that are **not** organization-private (starting on or after `VNOJ_BAN_COUNT_FROM_DATE`) gets their account banned. Un-disqualifying below the threshold lifts the ban (if the ban reason is exactly this message).
 
-| Setting | Default | LCOJ |
+| Setting | Default | luyencode.net |
 |---|---|---|
 | `VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS` | `False` | `False`: **no** automatic bans |
 | `VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING` | `3` | `3` |
@@ -321,13 +321,13 @@ Contest authors can download every submission's source code as a ZIP file. See [
 
 Operators set these in `local_settings.py` (see [Environment and configuration](/en/operate/environment)):
 
-| Setting | LCOJ | Effect |
+| Setting | luyencode.net | Effect |
 |---|---|---|
 | `VNOJ_CONTEST_DURATION_LIMIT` | `14` | Maximum duration (days) on the site form, unless the user has `long_contest_duration`. |
 | `MAX_CONTEST_PROBLEMS_COUNT` | `None` | Maximum problems per contest (site form); `None` means unlimited. |
 | `VNOJ_OFFICIAL_CONTEST_MODE` | `False` | Site-wide official contest mode: hides comments (except for superusers), blocks creating/editing blog posts, blocks editing the profile "about" and full name, stops contestants from aborting their own submissions, removes the join confirmation dialog, and logs the IP of every submission. Only enable it on a server dedicated to one official contest. |
 | `DMOJ_CONTEST_DATA_DOWNLOAD` | `True` | Allows contest data downloads. |
-| `MOSS_API_KEY` | from environment | Enables the MOSS tab. |
+| `MOSS_API_KEY` | from environment | MOSS key; must be valid for MOSS to run. |
 
 ## Verify
 
@@ -345,9 +345,10 @@ Operators set these in `local_settings.py` (see [Environment and configuration](
 | **Contest id must starts with `…`** | An organization contest has the wrong key prefix. Change the key to use the reported prefix. |
 | **Contest duration cannot be longer than 14 days** | Shorten the contest, edit it in the admin, or ask for `long_contest_duration`. |
 | **Problems must have distinct order.** | Two problems share the same **order**. Give each a different number. |
-| The **Clone** tab returns a 500 error | Known bug, see [Cloning a contest](#cloning-a-contest). |
+| The **Clone** tab shows a server error | Cloning on the site currently fails; create a new contest and add the problems manually, see [Cloning a contest](#cloning-a-contest). |
 | No **Rate** button | Requires `contest_rating`; the contest must have `is_rated` on and must have ended. |
-| No **MOSS** tab | Missing `moss_contest`, no edit access, or the server has no `MOSS_API_KEY`. |
+| No **MOSS** tab | Missing `moss_contest`, or no edit access. |
+| Running MOSS fails | The server has no valid `MOSS_API_KEY`. Ask the operator to configure one. |
 | The scoreboard is still frozen after the contest | Expected. Set `frozen_last_minutes = 0` in the admin. |
 | Points/format changed on the site but the scoreboard did not update | The site form does not rescore. Use **Rescore** in the admin or save the contest in the admin. |
 | Replay shows old results after a rejudge | Click **Invalidate Replay** in the admin. |

@@ -12,7 +12,7 @@
 
 If a term is unfamiliar (container, volume, reverse proxy, judge...), see the [Glossary](/en/start/glossary).
 
-Everything here comes from the [lcoj-docker](https://github.com/luyencode/lcoj-docker) repository: `dmoj/docker-compose.yml`, the `Dockerfile`s in `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf`, and `dmoj/config/`.
+The service configuration lives in the [lcoj-docker](https://github.com/luyencode/lcoj-docker) repository: `dmoj/docker-compose.yml`, the `Dockerfile`s in `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf`, and `dmoj/config/`.
 
 LCOJ is based on [DMOJ](https://github.com/DMOJ/online-judge) and [VNOJ](https://github.com/VNOI-Admin/OJ). The whole website runs under Docker Compose; the judges run separately and connect to the system on port 9999.
 
@@ -20,8 +20,8 @@ LCOJ is based on [DMOJ](https://github.com/DMOJ/online-judge) and [VNOJ](https:/
 
 ```mermaid
 flowchart LR
-    user([User]) -->|HTTPS| cf[Cloudflare Tunnel]
-    cf -->|HTTP :8071| nginx
+    user([User]) -->|HTTPS :443| proxy["Reverse proxy on the host<br/>Caddy / nginx"]
+    proxy -->|"HTTP 127.0.0.1:8071"| nginx
 
     subgraph compose["Docker Compose (dmoj/ directory)"]
         nginx[nginx :80]
@@ -51,14 +51,14 @@ flowchart LR
 
 A request in short:
 
-1. A user opens `https://luyencode.net`. HTTPS terminates at **Cloudflare Tunnel**, which forwards plain HTTP to the nginx port on the host (default `8071`).
+1. A user opens `https://<your-domain>`. HTTPS terminates at a **reverse proxy running on the host** (Caddy or the OS's nginx), which forwards plain HTTP to the Docker nginx port (default `127.0.0.1:8071`).
 2. **nginx** serves static files (`/static`, icons, `robots.txt`, ...) and media files (`/martor`, `/pdf`, `/submission_file`, ...) directly. Everything else goes to **site** over the uwsgi protocol (`site:8000`).
 3. `/event/` (WebSocket) and `/channels/` (long polling) are proxied to **wsevent**, which pushes live updates for submissions and scoreboards.
 4. When someone submits, **site** sends the grading request to **bridged** (port 9998). bridged picks an idle judge (judges connect on port 9999), receives the results, and writes them to **db**.
 5. Heavy or background work (mass rejudges, data exports, ...) is queued in Redis and processed by **celery**.
 
-::: warning HTTPS lives at Cloudflare, not nginx
-In production, nginx only serves HTTP (`listen 80`) internally. Certificates and HTTPS are handled by Cloudflare Tunnel. The tunnel (`cloudflared`) is not part of `docker-compose.yml`; it runs separately on the host and points at the published nginx port.
+::: warning HTTPS lives in the host reverse proxy, not the Docker nginx
+The containerized nginx only serves HTTP (`listen 80`). Certificates and HTTPS are handled by a reverse proxy running directly on the host (Caddy, or nginx + certbot). That proxy is not part of `docker-compose.yml`; you install it separately and point it at the published nginx port. See [Installation: HTTPS on a VPS](/en/operate/installation#https).
 :::
 
 ## Services
@@ -99,7 +99,7 @@ Within a network, services reach each other by service name: `db`, `redis`, `bri
 
 | Port | Service | Published to host? | Used for |
 |---|---|---|---|
-| `${NGINX_PORT:-8071}` → 80 | nginx | Yes | The only web entry point; Cloudflare Tunnel points here |
+| `${NGINX_PORT:-8071}` → 80 | nginx | Yes | The only web entry point; the host's HTTPS reverse proxy points here. Best bound to `127.0.0.1` only |
 | 9999 | bridged | Yes (`9999:9999`) | Judges connect here |
 | 9998 | bridged | Yes (`9998:9998`) | Site sends grading requests |
 | 8000 | site | No | nginx → uWSGI |
@@ -108,7 +108,7 @@ Within a network, services reach each other by service name: `db`, `redis`, `bri
 | 6379 | redis | No (commented out) | Redis |
 
 ::: warning Don't expose 9998/9999 to the internet
-Both bridged ports are published on every host address. Use a firewall so that only your judge machines can reach 9999, and block 9998 from outside.
+Both bridged ports are published on every host address. Use a firewall so that only your judge machines can reach 9999, and block 9998 from outside. Note that Docker-published ports aren't filtered by `ufw`; see [Installation: firewall](/en/operate/installation#firewall).
 :::
 
 `NGINX_PORT` is substituted by Docker Compose when it parses `docker-compose.yml`, so it must be set in your shell or in a `dmoj/.env` file, not in `environment/site.env`. See [Environment variables](/en/operate/environment#nginx-port).

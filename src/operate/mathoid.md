@@ -8,7 +8,7 @@
 Trang này giải thích **cách LCOJ hiển thị công thức toán** trong đề bài, blog, bình luận và **vì sao bạn không cần cài Mathoid**.
 
 - LCOJ hiển thị công thức **ngay khi cài xong**, bằng MathJax chạy trong trình duyệt. Không cần dịch vụ nào thêm.
-- Mathoid là dịch vụ render công thức phía server từ DMOJ. Với mã nguồn LCOJ hiện tại, nó **không được dùng khi render Markdown**. Bật nó lên còn có thể làm công thức **không hiển thị** (xem [bên dưới](#mathoid-trong-lcoj-hien-tai)).
+- Mathoid là dịch vụ render công thức phía server từ DMOJ. LCOJ hiện **không dùng Mathoid khi render Markdown**. Bật nó lên còn có thể làm công thức **không hiển thị** (xem [bên dưới](#mathoid-trong-lcoj-hien-tai)).
 
 Nếu bạn là người ra đề, chỉ cần đọc phần [Cú pháp viết công thức](#cu-phap-viet-cong-thuc).
 :::
@@ -94,20 +94,18 @@ Cấu hình MathJax của LCOJ nạp gói `color`, nên bạn có thể viết `
 
 Mathoid ([mã nguồn upstream](https://gitlab.wikimedia.org/repos/mediawiki/services/mathoid), trước đây ở `github.com/wikimedia/mathoid`) là dịch vụ Node.js của Wikimedia, render TeX thành SVG/MathML. DMOJ từng dùng nó để render công thức phía server.
 
-Trong mã nguồn LCOJ (`dmoj/repo`):
+LCOJ hiện không dùng Mathoid khi render Markdown. Đặt `MATHOID_URL` chỉ ảnh hưởng tới hai việc:
 
-- `judge/utils/mathoid.py` (lớp `MathoidMathParser`) vẫn còn, nhưng **không có chỗ nào gọi tới** khi render Markdown.
-- `MATHOID_URL` chỉ còn ảnh hưởng tới hai việc:
-  1. Hiện lựa chọn **Math engine** trong trang sửa hồ sơ.
-  2. Khi người dùng để engine là `auto` (mặc định) và trình duyệt hỗ trợ MathML, engine chuyển thành `mml`. Lúc đó trang **không nạp MathJax** (`REQUIRE_JAX` là `False`), trong khi server cũng không render công thức. Kết quả: công thức hiện ra dạng thô `~...~`.
+1. Hiện lựa chọn **Math engine** trong trang sửa hồ sơ.
+2. Khi người dùng để engine là `auto` (mặc định) và trình duyệt hỗ trợ MathML, engine chuyển thành `mml`. Lúc đó trang **không nạp MathJax**, trong khi server cũng không render công thức. Kết quả: công thức hiện ra dạng thô `~...~`.
 
-::: danger Không bật Mathoid trên production
-Với mã nguồn hiện tại, đặt `MATHOID_URL` **không** giúp công thức đẹp hơn mà còn có thể làm công thức mất hiển thị với nhiều trình duyệt. Hãy giữ nguyên cấu hình mặc định.
+::: danger Không bật Mathoid
+Hiện tại, đặt `MATHOID_URL` **không** giúp công thức đẹp hơn mà còn có thể làm công thức mất hiển thị với nhiều trình duyệt. Hãy giữ nguyên cấu hình mặc định.
 :::
 
 ### Nếu bạn phát triển lại tính năng này (tùy chọn, dành cho lập trình viên)
 
-Chỉ làm trên máy dev, sau khi đã nối `MathoidMathParser` vào bộ render Markdown.
+Chỉ làm trên máy dev, sau khi đã nối lớp `MathoidMathParser` (trong `judge/utils/mathoid.py` của `dmoj/repo`) vào bộ render Markdown.
 
 1. Tự build image Mathoid từ mã nguồn upstream theo README của họ. Mathoid lắng nghe cổng **10044** theo `config.dev.yaml`. LCOJ không cung cấp sẵn image này.
 2. Thêm service vào `dmoj/docker-compose.override.yml` (Compose tự gộp file này với `docker-compose.yml` khi chạy trong `dmoj/`) và cho nó vào network `site` để container `site` gọi được:

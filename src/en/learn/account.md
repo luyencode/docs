@@ -134,14 +134,14 @@ LCOJ has `DMOJ_REQUIRE_STAFF_2FA` enabled. For a **staff** account that has 2FA 
 :::
 
 ::: info Security keys (WebAuthn) are not enabled on luyencode.net
-The code supports hardware security keys (the **Security keys:** section), but that section only appears when the server sets `WEBAUTHN_RP_ID`. luyencode.net doesn't set it, so authenticator apps and scratch codes are the only options.
+LCOJ supports hardware security keys (the **Security keys:** section), but that section only appears when the server sets `WEBAUTHN_RP_ID`. luyencode.net doesn't set it, so authenticator apps and scratch codes are the only options.
 :::
 
 ## API token
 
 An API token lets your own programs call the LCOJ API on behalf of your account, using the `Authorization: Bearer <token>` header. A token **skips the 2FA step**, so guard it like a password.
 
-On LCOJ, the **Edit profile** page currently has **no button to generate an API token** (that part of the page was removed, although the `/accounts/api/token/generate/` endpoint still exists on the server). If you need a token, contact an administrator. They can create one with the `generate_api_token` management command (see [Management commands](/en/reference/management-commands)). For how to call the API, see [API](/en/reference/api).
+On LCOJ, the **Edit profile** page currently has **no button to generate an API token**. If you need a token, contact an administrator. They can create one with the `generate_api_token` management command (see [Management commands](/en/reference/management-commands)). For how to call the API, see [API](/en/reference/api).
 
 ## Downloading your data
 

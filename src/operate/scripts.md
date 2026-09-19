@@ -115,7 +115,7 @@ Khi nào dùng:
 ```
 
 ::: tip
-Nếu trình duyệt vẫn hiển thị giao diện cũ, hãy xóa cache trình duyệt (và cache Cloudflare nếu có), vì nginx đặt `expires max` cho `/static`.
+Nếu trình duyệt vẫn hiển thị giao diện cũ, hãy xóa cache trình duyệt (và cache của CDN nếu bạn đặt site sau CDN), vì nginx đặt `expires max` cho `/static`.
 :::
 
 ## `manage.py`
@@ -183,7 +183,7 @@ Chế độ thường sửa database ngay, không hỏi xác nhận. Luôn chạ
 Một số lưu ý:
 
 - Script ẩn lỗi của `mariadb` (`2>/dev/null`). Nếu kết quả trống hoặc số lượng rỗng, hãy kiểm tra container `db` có đang chạy và thông tin trong `mysql.env` có đúng không.
-- Script lấy giá trị bằng `grep ... | cut -d= -f2`, nên mật khẩu chứa dấu `=` sẽ bị cắt sai.
+- Script lấy giá trị bằng `grep ... | cut -d= -f2`, nên mật khẩu chứa dấu `=` sẽ bị đọc sai. Nếu định dùng script này, tránh dấu `=` trong `MYSQL_PASSWORD`.
 - Muốn chạy định kỳ bằng cron, thêm `COMPOSE_EXEC_FLAGS=-T`, ví dụ:
 
   ```sh
