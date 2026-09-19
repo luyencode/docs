@@ -1,5 +1,13 @@
 # Ví dụ bài tập
 
+> Bảy bài mẫu hoàn chỉnh, mỗi bài một cách chấm (chuẩn, batch, generator, grader tùy chỉnh, tương tác, chữ ký hàm), kèm `init.yml` thật để chép và chạy thử.
+>
+> ⏱ ~10 phút · 👤 Người ra đề · 🔑 Quyền tạo bài và quyền ghi vào thư mục dữ liệu bài tập
+
+## Khi nào cần trang này
+
+Dùng trang này khi bạn muốn xem một bài chạy được cho đúng loại bài mình định ra, rồi sửa lại thay vì viết `init.yml` từ đầu. Ý nghĩa từng key được giải thích ở [Cấu trúc bài tập](/setter/problem-format).
+
 Repository tài liệu của LCOJ ([luyencode/docs](https://github.com/luyencode/docs)) có sẵn các bài tập mẫu hoàn chỉnh, chạy được, trong thư mục [`problem_examples`](https://github.com/luyencode/docs/tree/master/problem_examples). Mỗi bài minh họa một cách chấm khác nhau, kèm `init.yml` thật và đầy đủ các file cần thiết. Các ví dụ này được chuyển thể từ [bộ ví dụ của DMOJ](https://github.com/DMOJ/docs/tree/master/problem_examples).
 
 ## Danh sách ví dụ
@@ -154,3 +162,9 @@ Xem [Chấm theo chữ ký hàm](/setter/graders#cham-theo-chu-ky-ham) và [Chec
 - [Bộ ví dụ của DMOJ](https://github.com/DMOJ/docs/tree/master/problem_examples), nguồn gốc của các ví dụ này
 - [testlib](https://github.com/VNOI-Admin/testlib), phiên bản được cài trên judge của LCOJ
 - [Codeforces Polygon](https://polygon.codeforces.com/), nơi LCOJ có thể nhập bài từ đó (xem [Quản lý bài tập](/setter/managing-problems))
+
+## Tiếp theo
+
+- [Quản lý bài tập](/setter/managing-problems): tạo bài và tải test trên giao diện web.
+- [Cấu trúc bài tập](/setter/problem-format): tra cứu mọi key trong `init.yml`.
+- [Grader](/setter/graders): chọn cách chấm phù hợp với bài của bạn.

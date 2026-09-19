@@ -1,10 +1,29 @@
 # Grader
 
+> Chọn cách judge chạy chương trình thí sinh: chuẩn (stdin/stdout), tương tác, cài đặt hàm kiểu IOI, chỉ nộp output, grader Python tùy chỉnh hoặc communication.
+>
+> ⏱ ~20 phút · 👤 Người ra đề · 🔑 Quyền sửa bài (`custom_judge`, `communication`: bài phải bật **manually managed**)
+
+## Khi nào cần trang này
+
 **Grader** quyết định cách chạy chương trình của thí sinh ở mỗi test: chương trình đọc gì, trao đổi với ai và kết quả được quyết định ra sao. Hầu hết các bài dùng grader chuẩn, đưa file input vào stdin rồi chuyển stdout cho [checker](/setter/checkers). Bạn chỉ cần grader khác cho bài tương tác, bài cài đặt hàm kiểu IOI, bài chỉ nộp output, hoặc cách chấm thật sự đặc biệt.
 
 ::: tip Checker hay grader?
 Nếu chỉ cần quyết định output có đúng hay không (ví dụ bài có nhiều đáp án đúng), [checker](/setter/checkers) là đủ. Chỉ dùng grader khác khi chương trình cần được chạy theo cách khác.
 :::
+
+```mermaid
+flowchart TD
+  A{Thí sinh nộp code?} -- không --> O[output_only]
+  A -- có --> B{Cần trao đổi với chương trình khi chạy?}
+  B -- không --> C{Thí sinh chỉ cài đặt hàm?}
+  C -- có --> S[signature_grader]
+  C -- không --> D[Grader chuẩn + checker]
+  B -- có --> E{Interactor viết bằng gì?}
+  E -- C++ --> I[interactive]
+  E -- Python --> P[custom_judge]
+  E -- "Manager + nhiều bản chạy" --> M[communication]
+```
 
 ## Các loại grader
 
@@ -57,18 +76,18 @@ sequenceDiagram
   Note over I: Mã thoát quyết định kết quả
 ```
 
-Trong `init.yml`:
+Trong `init.yml` (lấy từ bài mẫu `interactive/seed2native` trong [Ví dụ bài tập](/setter/examples)):
 
 ```yaml
-unbuffered: true
+unbuffered: True
 archive: seed2.zip
-interactive:
-  files: interactor.cpp
-  type: testlib
-  lang: CPP20
+interactive: {files: interactor.cpp, type: testlib}
 test_cases:
-- {in: seed2.1.in, points: 50}
-- {in: seed2.2.in, points: 50}
+- {in: seed2.1.in, points: 20}
+- {in: seed2.2.in, points: 20}
+- {in: seed2.3.in, points: 20}
+- {in: seed2.4.in, points: 20}
+- {in: seed2.5.in, points: 20}
 ```
 
 Trên web, chọn **Interactive** và tải lên interactor `.cpp`; LCOJ tự ghi `files`, `type: testlib` và `lang: CPP20`.
@@ -338,3 +357,20 @@ test_cases:
 | `signature` | không có | Không bắt buộc: `{entry, header, allow_main}` như `signature_grader`, để biên dịch bài nộp cùng một stub. |
 
 Tổng thời gian chạy của mọi bản chạy phải nằm trong giới hạn thời gian.
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách khắc phục |
+|---|---|
+| Bài tương tác bị TLE dù thuật toán đúng | Output chưa được flush. Nhắc thí sinh flush sau mỗi dòng (hoặc đặt `unbuffered: true` khi tự viết `init.yml`), và kiểm tra interactor cũng flush. |
+| Bài tương tác bị WA ngay khi thí sinh ngừng in | Chương trình đóng output sớm nên việc đọc dừng lại; kiểm tra thí sinh in đủ câu trả lời. |
+| Bài nộp C bị lỗi biên dịch với `signature_grader` | File entry được biên dịch bằng ngôn ngữ của bài nộp. Viết entry bằng C nếu cần hỗ trợ bài nộp C. |
+| Thí sinh không thấy output khi dùng `signature_grader` | `output_prefix_length` mặc định là `0` với grader này. |
+| Bài output-only bị WA ở một test | File zip thiếu file có tên đúng như `out` của test đó. |
+| Không có lựa chọn `custom_judge` hay `communication` trên web | Hai grader này không có form trên web. Bật **manually managed** và tự viết `init.yml`. |
+
+## Tiếp theo
+
+- [Checker](/setter/checkers): khi chỉ cần quyết định output đúng hay sai.
+- [Ví dụ bài tập](/setter/examples): bài mẫu cho từng loại grader.
+- [Cấu trúc bài tập](/setter/problem-format): các key khác trong `init.yml`.

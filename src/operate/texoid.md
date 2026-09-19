@@ -1,5 +1,9 @@
 # Sơ đồ TikZ (Texoid)
 
+> LCOJ không render TikZ trong đề bài; cách nên dùng là vẽ hình thành ảnh SVG/PNG rồi chèn vào đề. Phần chạy Texoid chỉ dành cho lập trình viên muốn phát triển lại tính năng này.
+>
+> ⏱ ~10 phút (chèn ảnh) · 👤 Người vận hành, người ra đề · 🔑 Quyền sửa đề bài; SSH + docker trên máy dev nếu thử Texoid
+
 ::: info Bạn có cần trang này không?
 Texoid là dịch vụ của DMOJ, biên dịch tài liệu LaTeX (ví dụ hình vẽ TikZ) thành ảnh SVG/PNG.
 
@@ -48,6 +52,12 @@ SVG giữ nét sắc khi phóng to và thường nhẹ hơn PNG. Nên dùng SVG 
 ## Dành cho lập trình viên: chạy Texoid (tùy chọn)
 
 Chỉ cần phần này nếu bạn định **nối lại** `TexoidRenderer` vào bộ render Markdown. Làm trên máy dev, không làm trên production.
+
+### Trước khi bắt đầu
+
+- [ ] Có máy dev riêng (không phải máy production) chạy stack LCOJ bằng Docker.
+- [ ] Có quyền SSH và chạy `docker compose` trong thư mục `dmoj/`.
+- [ ] Đã sửa code để bộ render Markdown thực sự gọi `TexoidRenderer` (nếu không, các bước dưới không có tác dụng gì với đề bài).
 
 ### Bước 1: Tạo image
 
@@ -102,16 +112,19 @@ docker compose up -d --build texoid
 docker compose restart site
 ```
 
-Kiểm tra từ container `site`:
+## Kiểm tra kết quả
 
-```sh
-docker compose exec site curl -s -H 'Content-Type: application/x-tex' \
-  --data-raw '\documentclass{standalone}\begin{document}$E=mc^2$\end{document}' http://texoid:8888/
-```
+- **Chèn ảnh (cách nên dùng):** mở trang đề bài, hình hiển thị đúng; mở trực tiếp đường dẫn `/martor/...` của ảnh cũng thấy ảnh.
+- **Texoid (máy dev):** gọi thử từ container `site`:
 
-Kết quả đúng là JSON có `"success": true`.
+  ```sh
+  docker compose exec site curl -s -H 'Content-Type: application/x-tex' \
+    --data-raw '\documentclass{standalone}\begin{document}$E=mc^2$\end{document}' http://texoid:8888/
+  ```
 
-## Xử lý sự cố
+  Kết quả đúng là JSON có `"success": true`.
+
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -119,6 +132,12 @@ Kết quả đúng là JSON có `"success": true`.
 | Đã đặt `TEXOID_URL` nhưng không có gì thay đổi | Texoid chưa được nối vào bộ render | Đúng với code hiện tại, không phải lỗi cấu hình |
 | `curl` tới Texoid báo `Connection refused` | Texoid chỉ nghe `localhost` | Thêm `--address=0.0.0.0` |
 | Texoid trả `"success": false` | Lỗi LaTeX hoặc thiếu gói TeX | Đọc trường `error`, cài thêm gói TeX cần thiết |
+
+## Tiếp theo
+
+- [Công thức toán học](/operate/mathoid): cú pháp `~...~` và `$$...$$` cho công thức thông thường.
+- [Định dạng bài tập](/setter/problem-format): các thành phần khác của một bài tập.
+- [Biến môi trường và cấu hình](/operate/environment): nơi khai báo settings nếu bạn thử Texoid.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

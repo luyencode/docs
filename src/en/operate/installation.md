@@ -1,12 +1,22 @@
 # Installing LCOJ with Docker
 
+> Bring up a complete LCOJ instance (web app, database, cache, judge bridge, WebSocket) on a Linux server with Docker Compose, in 7 steps.
+>
+> ⏱ ~60 min (the image build alone takes 10–20 min) · 👤 Operators · 🔑 SSH access to a Linux server with `sudo`
+
 This page walks you through a fresh LCOJ install with [lcoj-docker](https://github.com/luyencode/lcoj-docker), the same setup that runs luyencode.net. Everything (web app, database, cache, judge bridge, WebSocket server) runs under Docker Compose, so you don't need Python or MariaDB on the host.
 
 ::: info Judges are installed separately
 This Compose stack does **not** include a judge. It only runs `bridged`, which judges connect to. Once the site is up, see [Judge Setup](/en/operate/judge-setup).
 :::
 
-## Requirements
+## Before you start
+
+- [ ] A 64-bit Linux server that meets the minimum specs below, which you can SSH into with `sudo`
+- [ ] Outbound Internet access from the server (to pull Docker images, Python/Node.js packages and the source from GitHub)
+- [ ] A domain pointing at the server if you'll run it publicly (use `localhost` for a local test)
+- [ ] A Google account to create an OAuth client (see [Step 4.4](#google-oauth)), since new users can only register with Google
+- [ ] Basic familiarity with containers, images and volumes; if not, see the [Glossary](/en/start/glossary)
 
 | | Minimum | Recommended |
 |---|---|---|
@@ -166,7 +176,7 @@ For the full list of variables (including `MOSS_API_KEY` and `NGINX_PORT`), see 
 `docker-compose.yml` publishes nginx on `${NGINX_PORT:-8071}`. Compose substitutes that variable from your shell or from a `dmoj/.env` file, **not** from `environment/site.env`. To change the port, create `dmoj/.env` containing `NGINX_PORT=8080` (or `export NGINX_PORT=8080` before running commands), then run `docker compose up -d nginx`. If nothing is set, the port is **8071**.
 :::
 
-### 4.4. Google sign-in (OAuth)
+### 4.4. Google sign-in (OAuth) {#google-oauth}
 
 LCOJ's `local_settings.py` sets `OAUTH_ONLY = True`. That hides the password-based sign-up form, so new users can only register with Google. The username/password **login** form is still there, so admin accounts created from the command line can log in normally.
 
@@ -258,13 +268,18 @@ docker compose ps
 
 The `lcoj_site`, `lcoj_celery`, `lcoj_bridged`, `lcoj_wsevent`, `lcoj_mysql`, `lcoj_redis` and `lcoj_nginx` containers should all be **Up**. The `base` service only exists to build the shared image and exits right after starting, which is expected.
 
-Check it:
+## Verify
 
-```sh
-curl -I http://localhost:8071/
-```
+1. Every container is **Up** in `docker compose ps` (except `base`, as noted above).
+2. nginx answers on the server:
 
-Open `http://<server-ip>:8071/` in a browser to see the LCOJ home page. If you loaded `demo`, go to **Admin → Sites** and change the default domain (`localhost:8081`) to your real one.
+   ```sh
+   curl -I http://localhost:8071/
+   ```
+
+3. Open `http://<server-ip>:8071/` in a browser to see the LCOJ home page. If you loaded `demo`, go to **Admin → Sites** and change the default domain (`localhost:8081`) to your real one.
+4. Log in at `/accounts/login/` with the account you created in Step 6 and open `/admin/`.
+5. No judge yet is expected: submissions are only graded once you [connect a judge](/en/operate/judge-setup).
 
 ## Ports
 
@@ -315,13 +330,26 @@ Any reverse proxy on the host (Caddy, host-level Nginx with certbot, etc.) can t
 - [ ] [Scheduled backups](/en/operate/operations#backup) are set up
 - [ ] [At least one judge is connected](/en/operate/judge-setup)
 
-## See also
+## Troubleshooting
 
-- [Environment Variables](/en/operate/environment)
-- [Helper Scripts](/en/operate/scripts)
-- [Day-to-day Operations](/en/operate/operations)
-- [Updating LCOJ](/en/operate/updating)
-- [Judge Setup](/en/operate/judge-setup)
+| Symptom | Fix |
+|---|---|
+| `permission denied` when running `docker` | You haven't logged out and back in after `usermod -aG docker` (Step 1) |
+| `dmoj/repo` is empty, the build complains about missing files | You cloned without `--recursive`: run `git submodule update --init --recursive` |
+| `./scripts/migrate` can't connect to the database | MariaDB is still initializing: wait for `ready for connections` in `docker compose logs -f db`, then retry |
+| Building `site`/`celery`/`bridged` can't find `lcoj/lcoj-base` | Run `docker compose build base` first (Step 5) |
+| The site loads without CSS | Re-run `./scripts/copy_static` |
+| 502 Bad Gateway | `site` is still starting or failed to load Django: check `docker compose logs --tail=100 site` ([details](/en/operate/architecture#uwsgi)) |
+| 400 Bad Request | `HOST` in `site.env` doesn't match the domain you're browsing |
+| Port 8071 is already in use | Change it with `NGINX_PORT` in `dmoj/.env` (see the warning in Step 4.3) |
+| Edits to `site.env` have no effect | Run `docker compose up -d` (not `restart`) to recreate the containers |
+
+## Next steps
+
+- [Judge Setup](/en/operate/judge-setup): connect a judge so submissions get graded.
+- [Site configuration](/en/admin/site-config): set your domain, menu and home page content.
+- [Day-to-day Operations](/en/operate/operations): restarts, logs, backups.
+- Reference: [Environment Variables](/en/operate/environment), [Helper Scripts](/en/operate/scripts), [Updating LCOJ](/en/operate/updating).
 
 ::: tip Need help?
 Open an issue on [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), or reach us via [behitek.com](https://behitek.com) or [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

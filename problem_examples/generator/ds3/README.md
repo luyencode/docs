@@ -1,95 +1,69 @@
-# Generator - Tạo test data tự động
+# Generator: sinh test tự động
 
-Với một số bài tập, test data rất lớn và không khả thi để lưu trữ tất cả file. Judge cho phép dùng generator để tạo dữ liệu tự động khi cần.
+Bài này không lưu sẵn file test nào. Mọi test được sinh khi chấm bằng `generator.cpp`, nên thư mục bài chỉ vài KB dù test lớn nhất có 100 000 phần tử và 500 000 truy vấn.
 
-## Cách hoạt động
+## Các file
 
-Judge sẽ gọi generator khi thấy node `generator` trong `init.yml`. Generator có thể truy cập file input được chỉ định trong `test_cases`.
+| File | Vai trò |
+|---|---|
+| `init.yml` | Cấu hình bài. |
+| `generator.cpp` | Generator C++: in input ra **stdout**, output chuẩn ra **stderr**. |
 
-**Output của generator:**
-- Input data → In ra `stdout`
-- Output data (đáp án) → In ra `stderr`
-
-## File init.yml
+## init.yml
 
 ```yaml
-generator: gen.cpp
+generator: generator.cpp
+points: 5
 test_cases:
-- {generator_args: [10], points: 30}
-- {generator_args: [100], points: 30}
-- {generator_args: [1000], points: 40}
+- generator_args: [1]
+- generator_args: [2]
+# ... tương tự, đến
+- generator_args: [20]
 ```
 
-## Generator (C++)
+(File thật liệt kê đủ 20 test, `generator_args: [1]` đến `generator_args: [20]`.)
+
+- `generator`: file nguồn generator. Judge biên dịch nó một lần rồi chạy lại cho từng test.
+- `generator_args`: tham số cho test đó. Judge chuyển mỗi giá trị thành chuỗi và truyền vào dòng lệnh, **bắt đầu từ `argv[1]`** (`argv[0]` là tên chương trình).
+- `points: 5` ở cấp ngoài cùng được mọi test kế thừa, vì không test nào tự đặt `points`: 20 test × 5 = 100 điểm.
+- Không có `in`, `out` hay `archive`: toàn bộ input lấy từ stdout và output chuẩn lấy từ stderr của generator.
+
+## Generator
+
+Bài toán: dãy `A` gồm `N` số và `M` thao tác. `C a b` gán `A[a] = b`; `M a b`, `G a b`, `Q a b` hỏi trên đoạn `[a, b]` lần lượt min, gcd, và số phần tử bằng gcd của đoạn. Generator vừa sinh input vừa tự giải bằng segment tree để in đáp án.
+
+Hàm `main` đọc số thứ tự test từ `argv[1]` và chọn bộ tham số cho `gen(...)`:
 
 ```cpp
-#include <iostream>
-#include <cstdlib>
-using namespace std;
-
-int main(int argc, char* argv[]) {
-    // argv[1] = "_aux_file"
-    // argv[2] = tham số đầu tiên (10, 100, hoặc 1000)
-    
-    int n = atoi(argv[2]);
-    
-    // In input ra stdout
-    cout << n << endl;
-    for (int i = 0; i < n; i++) {
-        cout << rand() % 100 << " ";
+int main(int argc, char **argv)
+{
+    int T = atoi(argv[1]);
+    switch(T)
+    {
+    case 1:
+        gen(5, 5, 2, 3, 1, 1, 1, 1, 1);
+        break;
+    // ... case 2 đến case 20
     }
-    cout << endl;
-    
-    // Tính output và in ra stderr
-    int sum = 0;
-    for (int i = 0; i < n; i++) {
-        sum += rand() % 100;
-    }
-    cerr << sum << endl;
-    
     return 0;
 }
 ```
 
-## Lợi ích
+Tham số của `gen` là `N, M, unique_base, max_gap, p_c, p_m, p_g, p_q, min_dist` (kích thước, độ đa dạng giá trị, và tỉ lệ các loại thao tác). Trong `gen`:
 
-✅ **Tiết kiệm dung lượng** - Không cần lưu file input/output lớn
+- Input (`N M`, dãy `A`, rồi `M` dòng thao tác) được in ra stdout.
+- Đáp án mỗi truy vấn `M`/`G`/`Q` được in ra stderr, mỗi dòng một số.
+- Bộ sinh ngẫu nhiên được seed từ chính các tham số, nên chạy lại luôn cho ra cùng một test.
 
-✅ **Dễ quản lý** - Thay đổi test chỉ cần sửa generator
+## Chạy thử
 
-✅ **Tạo test ngẫu nhiên** - Dễ dàng tạo nhiều test khác nhau
+Thử generator ở máy trước khi đưa lên judge:
 
-✅ **Linh hoạt** - Có thể tạo test với tham số khác nhau
-
-## Ví dụ thực tế
-
-**Bài toán:** Tính tổng N số nguyên
-
-**Test 1:** N = 10 (nhỏ)
 ```sh
-generator_args: [10]
+g++ -O2 -o gen generator.cpp
+./gen 1 > 1.in 2> 1.out
 ```
 
-**Test 2:** N = 100 (trung bình)
-```sh
-generator_args: [100]
-```
+Sau đó làm theo mục "Chạy thử một ví dụ" trong [README chung](../../README.md), với mã bài `ds3`.
 
-**Test 3:** N = 1,000,000 (lớn)
-```sh
-generator_args: [1000000]
-```
-
-Nếu lưu file, test 3 sẽ chiếm ~10MB. Với generator, chỉ cần vài KB code!
-
-## Lưu ý
-
-- Generator phải compile được và chạy nhanh
-- Nên dùng seed cố định để kết quả ổn định
-- Test kỹ generator trước khi dùng
-- Có thể dùng testlib.h để viết generator chuyên nghiệp
-
-## Xem thêm
-
-- [Generator Documentation](/problem_format/generator.md)
-- [Testlib.h](https://github.com/MikeMirzayanov/testlib)
+Xem thêm: [Generator](../../../src/setter/generators.md).

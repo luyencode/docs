@@ -1,26 +1,15 @@
-# Chấm điểm theo Batch (Batched Grading)
+# Chấm theo batch (Batched Grading)
 
-Ví dụ này mở rộng từ chấm điểm chuẩn: input và output vẫn lưu trong file zip. Tuy nhiên, lần này các test được nhóm thành _batch_ (subtask). Judge sẽ chấm từng batch và chỉ cho điểm nếu chương trình đúng _tất cả_ test case trong batch đó.
+Mở rộng từ chấm chuẩn: input và output vẫn nằm trong file zip, nhưng các test được gom thành _batch_ (subtask). Một batch chỉ được điểm khi **mọi** test trong batch đều đúng.
 
-## Điểm khác biệt
+## Các file
 
-File `init.yml` tương tự Standard Grading, nhưng có điểm khác quan trọng: `batched` chỉ định các test case thuộc cùng một batch và sẽ được tính điểm theo batch.
+| File | Vai trò |
+|---|---|
+| `init.yml` | Cấu hình bài. |
+| `hungry.zip` | 11 cặp test: `hungry.1a`–`1c`, `hungry.2a`–`2d`, `hungry.3a`–`3d` (mỗi test có `.in` và `.out`). |
 
-```yaml
-- batched:
-  - {in: hungry.1a.in, out: hungry.1a.out}
-  - {in: hungry.1b.in, out: hungry.1b.out}
-  - {in: hungry.1c.in, out: hungry.1c.out}
-  points: 5
-```
-
-## Cách hoạt động
-
-1. Judge chạy tất cả test trong batch
-2. Nếu **TẤT CẢ** test đều đúng → Được điểm của batch
-3. Nếu **BẤT KỲ** test nào sai → Không được điểm
-
-## Ví dụ
+## init.yml
 
 ```yaml
 archive: hungry.zip
@@ -33,39 +22,35 @@ test_cases:
 - batched:
   - {in: hungry.2a.in, out: hungry.2a.out}
   - {in: hungry.2b.in, out: hungry.2b.out}
+  - {in: hungry.2c.in, out: hungry.2c.out}
+  - {in: hungry.2d.in, out: hungry.2d.out}
   points: 20
 - batched:
   - {in: hungry.3a.in, out: hungry.3a.out}
   - {in: hungry.3b.in, out: hungry.3b.out}
   - {in: hungry.3c.in, out: hungry.3c.out}
   - {in: hungry.3d.in, out: hungry.3d.out}
-  points: 75
+  points: 25
 ```
+
+- Mỗi phần tử có `batched` là một batch; `points` đặt ở cấp batch, các test bên trong không có `points` riêng.
+- Ba batch: batch 1 (3 test, 5 điểm), batch 2 (4 test, 20 điểm), batch 3 (4 test, 25 điểm). Tổng điểm test là 50.
+- Khi một test trong batch sai, các test còn lại của batch đó bị bỏ qua.
 
 ## Tính điểm
 
-**Batch 1 (5 điểm):**
-- Test 1a: AC
-- Test 1b: AC
-- Test 1c: AC
-- → **Được 5 điểm**
+Ví dụ một bài nộp đúng hết batch 1 và 3, nhưng sai `hungry.2b`:
 
-**Batch 2 (20 điểm):**
-- Test 2a: AC
-- Test 2b: WA
-- → **Được 0 điểm** (vì có test sai)
+| Batch | Kết quả | Điểm |
+|---|---|---|
+| 1 | Đúng cả 3 test | 5 |
+| 2 | Sai `hungry.2b` | 0 |
+| 3 | Đúng cả 4 test | 25 |
 
-**Batch 3 (75 điểm):**
-- Test 3a: AC
-- Test 3b: AC
-- Test 3c: AC
-- Test 3d: AC
-- → **Được 75 điểm**
+Tổng: 30/50 điểm test. Site quy đổi theo số điểm của bài (ví dụ bài 100 điểm thì được 60), và chỉ cho điểm thành phần nếu bài bật **partial**.
 
-**Tổng điểm:** 5 + 0 + 75 = 80/100
+## Chạy thử
 
-## Khi nào dùng Batched?
+Làm theo mục "Chạy thử một ví dụ" trong [README chung](../../README.md), với mã bài `hungry`.
 
-- Bài có subtask với độ khó tăng dần
-- Muốn thí sinh được điểm từng phần
-- Ví dụ: Subtask 1 (N ≤ 100), Subtask 2 (N ≤ 1000), Subtask 3 (N ≤ 10^6)
+Xem thêm: [Batched test cases](../../../src/setter/problem-format.md).

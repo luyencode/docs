@@ -1,5 +1,15 @@
 # Mã trạng thái
 
+> Tra cứu mọi mã trạng thái xử lý (`QU`, `G`, `D`...) và mã kết quả (`AC`, `WA`, `TLE`...) của bài nộp trên LCOJ, cùng ý nghĩa và cách khắc phục.
+>
+> ⏱ ~10 phút đọc · 👤 Mọi người dùng
+
+## Khi nào cần trang này
+
+- Bạn thấy một mã lạ trên trang bài nộp (ví dụ `IR`, `SC`) và muốn biết nó nghĩa là gì.
+- Bạn muốn hiểu vì sao cả bài bị chấm `TLE` dù chỉ một test chạy chậm.
+- Bạn đang viết công cụ đọc dữ liệu bài nộp (ví dụ qua [API](/reference/api)) và cần danh sách mã đầy đủ.
+
 Mỗi bài nộp trên LCOJ có hai thông tin: **trạng thái xử lý** (bài đang ở bước nào) và **kết quả** (verdict, bài đúng hay sai và sai kiểu gì). Trang này liệt kê đầy đủ các mã, đúng như định nghĩa trong mã nguồn website (`judge/models/submission.py`) và judge.
 
 Cách nộp bài và đọc trang kết quả xem tại [Nộp bài và chấm bài](/learn/submissions).
@@ -140,3 +150,10 @@ Test bị **bỏ qua**, không chạy, và hiện dấu `—` trên trang bài n
 ### AB: Aborted
 
 Bài bị hủy trước khi chấm xong, do bạn bấm **Huỷ bỏ** trong lúc bài đang chấm, hoặc do quản trị viên hủy. Bài bị hủy được 0 điểm.
+
+## Tiếp theo
+
+- [Nộp bài và chấm bài](/learn/submissions): cách nộp bài và đọc trang kết quả.
+- [Ngôn ngữ được hỗ trợ](/reference/languages): chọn đúng ngôn ngữ để tránh `CE`.
+- [Checker](/setter/checkers): với người ra đề, cách checker quyết định `AC`, `PAC` hay `WA`.
+- [Thuật ngữ](/start/glossary): giải thích các từ như judge, checker, test.

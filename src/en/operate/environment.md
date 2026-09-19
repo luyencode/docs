@@ -1,6 +1,16 @@
 # Environment variables
 
-This page is for anyone installing or operating LCOJ with Docker. It covers the configuration files in `dmoj/environment/`, what each variable does, its default, and how to apply changes.
+> Reference for the configuration files in `dmoj/environment/` (`site.env`, `mysql.env`, `mysql-admin.env`): what each variable does, its default, which settings can't be changed through the environment, and how to apply edits.
+>
+> ⏱ ~10 min read · 👤 Operators · 🔑 SSH to the server, permission to edit files in `dmoj/` and run `docker compose`
+
+## When you need this page
+
+- **On a fresh install**: to fill in `site.env` and the two MySQL files in [Step 4 of Installation](/en/operate/installation).
+- **When changing the domain, port, Google OAuth keys or database password.**
+- **When a config edit doesn't take effect**: see [Applying changes](#applying-changes).
+
+An environment variable is a `NAME=value` pair that Docker hands to a container when it's created; Django reads them at startup. For other terms, see the [Glossary](/en/start/glossary).
 
 All paths below are relative to the `dmoj/` directory of the [lcoj-docker](https://github.com/luyencode/lcoj-docker) repository.
 
@@ -229,6 +239,13 @@ The first command only produces `A–Z a–z 0–9 - _`, which is safe to paste 
 ::: warning Changing SECRET_KEY
 Changing `SECRET_KEY` on a running site invalidates existing sessions (everyone gets logged out). Keep the key secret: don't commit it to git or paste it into issues or chat.
 :::
+
+## Next steps
+
+- [Installation](/en/operate/installation): if you're installing, continue with Step 5 (build the images).
+- [Helper scripts](/en/operate/scripts): `initialize` copies the `local_settings.py` template into `repo/`.
+- [Day-to-day operations](/en/operate/operations#change-db-password): change the database password safely.
+- [Site configuration](/en/admin/site-config): settings changed in the admin panel, no file edits needed.
 
 ::: tip Need help?
 - Open an issue on [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

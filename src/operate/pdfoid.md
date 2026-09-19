@@ -1,5 +1,9 @@
 # Xuất đề bài ra PDF (Pdfoid)
 
+> Cài Pdfoid (tùy chọn) để server tự tạo file PDF đề bài tại `/problem/<mã>/pdf`. Không cài thì LCOJ vẫn cho người dùng in đề ra PDF bằng trình duyệt.
+>
+> ⏱ ~45 phút · 👤 Người vận hành · 🔑 SSH + quyền chạy docker trên máy chủ
+
 ::: info Bạn có cần trang này không?
 Pdfoid là dịch vụ của DMOJ, dùng Chromium chạy ngầm (headless) để chuyển HTML đề bài thành file PDF trên server.
 
@@ -40,6 +44,14 @@ Một số điểm cần biết:
 - HTML gửi sang Pdfoid là template `problem/raw.html`. Template này tải MathJax **qua URL đầy đủ của site** (ví dụ `https://luyencode.net/static/...`), nên container Pdfoid **phải truy cập được website của bạn**.
 - Nếu đặt `DMOJ_PDF_PROBLEM_CACHE`, file PDF được lưu với tên `<MÃ>.<ngôn ngữ>.pdf` và **tự bị xóa khi bài được lưu lại**. Lần xem sau sẽ render lại.
 - Việc render diễn ra ngay trong request của uWSGI (không qua Celery).
+
+## Trước khi bắt đầu
+
+- [ ] Bạn thực sự cần link PDF do server tạo (nếu không, nút in của trình duyệt là đủ).
+- [ ] Có quyền SSH và chạy `docker compose` trong thư mục `dmoj/`.
+- [ ] Máy chủ còn đủ RAM cho Chromium chạy ngầm, vì mỗi lượt render (khi chưa có cache) khởi động một Chromium mới.
+- [ ] Container Pdfoid sẽ truy cập được website của bạn (để tải MathJax).
+- [ ] Đã biết cách sửa settings: xem [Biến môi trường và cấu hình](/operate/environment).
 
 ## Cài đặt (tùy chọn)
 
@@ -100,12 +112,6 @@ docker compose up -d --build pdfoid
 docker compose restart site
 ```
 
-### Bước 5: Kiểm tra
-
-1. Mở một bài bất kỳ, ví dụ `https://luyencode.net/problem/APLUSB`.
-2. Nút **Xem dạng PDF** giờ trỏ tới `/problem/APLUSB/pdf`.
-3. Bấm vào, sau vài giây trình duyệt hiển thị file PDF.
-
 ## Bật cache PDF (khuyến nghị khi đã dùng Pdfoid)
 
 Không có cache, mỗi lượt xem PDF đều khởi động một Chromium mới. Để cache:
@@ -146,6 +152,13 @@ Không có cache, mỗi lượt xem PDF đều khởi động một Chromium m�
    docker compose up -d site nginx
    ```
 
+## Kiểm tra kết quả
+
+1. Mở một bài bất kỳ, ví dụ `https://luyencode.net/problem/APLUSB`.
+2. Nút **Xem dạng PDF** giờ trỏ tới `/problem/APLUSB/pdf`.
+3. Bấm vào, sau vài giây trình duyệt hiển thị file PDF.
+4. Nếu đã bật cache: thư mục cache có file `APLUSB.<ngôn ngữ>.pdf`, và lần mở thứ hai trả về gần như ngay lập tức.
+
 ## Các setting có thật
 
 | Setting | Mặc định (`dmoj/settings.py`) | Ý nghĩa |
@@ -170,7 +183,7 @@ Tài liệu cũ có nhắc `DMOJ_PDF_PROBLEM_TIMEOUT`, `DMOJ_PDF_PROBLEM_EXTRA_C
 Trang PDF kiểm tra quyền xem bài giống trang đề: ai không có quyền xem bài sẽ nhận lỗi 404.
 :::
 
-## Xử lý sự cố
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|
@@ -182,6 +195,12 @@ Trang PDF kiểm tra quyền xem bài giống trang đề: ai không có quyền
 | Sửa đề mà PDF cũ vẫn còn | File cache chỉ bị xóa khi bài được lưu | Lưu lại bài, hoặc xóa file `<MÃ>.<ngôn ngữ>.pdf` trong thư mục cache |
 
 Xem log: `docker compose logs -f pdfoid` và `docker compose logs -f site` (logger `judge.problem.pdf`).
+
+## Tiếp theo
+
+- [Công thức toán học](/operate/mathoid): MathJax cũng là thứ Pdfoid phải chờ tải xong.
+- [Kiến trúc hệ thống](/operate/architecture): vị trí của `site`, `nginx` và các network trong stack.
+- [Lệnh quản trị](/reference/management-commands): lệnh `render_pdf` và các lệnh khác.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

@@ -1,10 +1,19 @@
 # Operating LCOJ
 
-Day-to-day tasks for a Docker-based LCOJ install: starting and stopping, reading logs, applying config changes, clearing the cache, backing up and restoring.
+> Day-to-day tasks for a Docker-based LCOJ install: starting and stopping, reading logs, applying config changes, clearing the cache, backing up and restoring.
+>
+> ⏱ ~15 min to read; backup/restore time depends on data size · 👤 Operators · 🔑 SSH + permission to run `docker` on the server
 
 ::: tip
 Run every command on this page from `lcoj-docker/dmoj/`. For the list of services and ports, see [Architecture](/en/operate/architecture); for the scripts in `scripts/`, see [Helper Scripts](/en/operate/scripts).
 :::
+
+## Before you start
+
+- [ ] You have [installed LCOJ](/en/operate/installation) and the services are running (`docker compose ps`).
+- [ ] You have SSH access to the server and can run `docker compose` (member of the `docker` group, or via `sudo`).
+- [ ] Your shell is in `lcoj-docker/dmoj/`.
+- [ ] You roughly know what a *service*, *container* and *volume* are. See the [Glossary](/en/start/glossary) if not.
 
 ## Start, stop and restart
 
@@ -130,6 +139,24 @@ Back up four things:
 | Test data | `problems/` | Usually the largest part |
 | Uploaded files | `media/` | Images, PDFs, attachments |
 | Configuration | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/` | Contains secrets, so store it securely |
+
+The overall backup and restore flow:
+
+```mermaid
+flowchart LR
+  subgraph BK["Backup"]
+    A["db (MariaDB)"] -->|mariadb-dump| D["backups/db_*.sql.gz"]
+    B["problems/, media/, config"] -->|tar -czf| E["backups/files_*.tar.gz"]
+  end
+  D --> F["Copy to another machine / external storage"]
+  E --> F
+  subgraph RS["Restore"]
+    F --> G["Stop site, celery, bridged"]
+    G --> H["Load dump into db"]
+    H --> I["Extract files"]
+    I --> J["docker compose up -d + migrate"]
+  end
+```
 
 ### Manual backup
 
@@ -276,6 +303,23 @@ The page lives at `repo/502.html`. After editing it, run `./scripts/copy_static`
    docker compose up -d
    ```
 
+## Verify
+
+After a backup:
+
+- `ls -lh backups/` shows new `db_*.sql.gz` and `files_*.tar.gz` files with a non-zero size.
+- `gunzip -t backups/db_<timestamp>.sql.gz` reports no error (the archive is intact).
+- `tar -tzf backups/files_<timestamp>.tar.gz | head` lists `problems/`, `media/`, `environment/`…
+
+After starting/stopping, changing config or restoring:
+
+- `docker compose ps` shows the services running (`base` being exited is normal).
+- The home page loads with CSS; you can log in; a test submission gets a result that updates live.
+
+::: tip
+Every so often, restore a backup onto a test machine. A backup that has never been test-restored may not actually work.
+:::
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -287,12 +331,12 @@ The page lives at `repo/502.html`. After editing it, run `./scripts/copy_static`
 | A container keeps restarting | `docker compose logs --tail=100 <service>` |
 | Disk full | `docker image prune`, `docker builder prune`, check the size of `problems/` and `backups/` |
 
-## See also
+## Next steps
 
-- [Installation](/en/operate/installation)
-- [Updating LCOJ](/en/operate/updating)
-- [Environment Variables](/en/operate/environment)
-- [Management Commands](/en/reference/management-commands)
+- [Updating LCOJ](/en/operate/updating): pull new code and rebuild images; back up first.
+- [Environment Variables](/en/operate/environment): what each variable in `environment/*.env` means.
+- [Management Commands](/en/reference/management-commands): the `./scripts/manage.py` commands used for administration.
+- [Installation](/en/operate/installation): if you need to rebuild from scratch on a new server.
 
 ::: tip Need help?
 Open an issue on [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), or reach us via [behitek.com](https://behitek.com) or [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

@@ -1,12 +1,22 @@
 # Cài đặt LCOJ với Docker
 
+> Dựng một bản LCOJ hoàn chỉnh (web, cơ sở dữ liệu, cache, judge bridge, WebSocket) trên một máy chủ Linux bằng Docker Compose, qua 7 bước.
+>
+> ⏱ ~60 phút (trong đó build image mất 10–20 phút) · 👤 Người vận hành · 🔑 SSH vào máy chủ Linux có quyền `sudo`
+
 Trang này hướng dẫn cài LCOJ từ đầu bằng [lcoj-docker](https://github.com/luyencode/lcoj-docker), đúng cách luyencode.net đang chạy. Cả hệ thống (web, cơ sở dữ liệu, cache, judge bridge, WebSocket) nằm trong Docker Compose, bạn không cần cài Python hay MariaDB lên máy chủ.
 
 ::: info Máy chấm (judge) cài riêng
 Docker Compose ở đây **không** có máy chấm. Nó chỉ chạy `bridged` để các máy chấm kết nối vào. Sau khi site chạy ổn, xem [Cài đặt Judge](/operate/judge-setup).
 :::
 
-## Yêu cầu
+## Trước khi bắt đầu
+
+- [ ] Một máy chủ Linux 64-bit đạt cấu hình tối thiểu ở bảng dưới, bạn SSH vào được và có quyền `sudo`
+- [ ] Máy chủ ra được Internet (để tải Docker image, gói Python/Node.js và mã nguồn từ GitHub)
+- [ ] Một tên miền trỏ về máy chủ, nếu muốn chạy public (thử trên máy cá nhân thì dùng `localhost`)
+- [ ] Một tài khoản Google để tạo OAuth client (xem [Bước 4.4](#google-oauth)), vì người dùng mới chỉ đăng ký được bằng Google
+- [ ] Biết sơ qua các khái niệm container, image, volume; nếu chưa, xem [Thuật ngữ](/start/glossary)
 
 | | Tối thiểu | Khuyến nghị |
 |---|---|---|
@@ -166,7 +176,7 @@ Danh sách đầy đủ các biến (kể cả `MOSS_API_KEY` và `NGINX_PORT`) 
 Cổng nginx được publish là `${NGINX_PORT:-8071}` trong `docker-compose.yml`. Docker Compose chỉ thay biến này bằng giá trị từ shell hoặc từ file `dmoj/.env`, **không** lấy từ `environment/site.env`. Muốn đổi cổng, tạo file `dmoj/.env` chứa `NGINX_PORT=8080` (hoặc `export NGINX_PORT=8080` trước khi chạy lệnh), rồi chạy `docker compose up -d nginx`. Nếu không đặt gì, cổng là **8071**.
 :::
 
-### 4.4. Đăng nhập Google (OAuth)
+### 4.4. Đăng nhập Google (OAuth) {#google-oauth}
 
 `local_settings.py` của LCOJ đặt `OAUTH_ONLY = True`. Khi đó trang đăng ký ẩn form tạo tài khoản bằng mật khẩu, người dùng mới chỉ đăng ký được qua Google. Form **đăng nhập** bằng username/mật khẩu vẫn còn, nên tài khoản quản trị tạo bằng lệnh vẫn đăng nhập bình thường.
 
@@ -258,13 +268,18 @@ docker compose ps
 
 Các container `lcoj_site`, `lcoj_celery`, `lcoj_bridged`, `lcoj_wsevent`, `lcoj_mysql`, `lcoj_redis`, `lcoj_nginx` phải ở trạng thái **Up**. Service `base` chỉ dùng để build image, nó thoát ngay sau khi khởi động, điều này là bình thường.
 
-Kiểm tra:
+## Kiểm tra kết quả
 
-```sh
-curl -I http://localhost:8071/
-```
+1. Tất cả container ở trạng thái **Up** trong `docker compose ps` (trừ `base`, như đã nói ở trên).
+2. nginx trả lời trên máy chủ:
 
-Mở `http://<ip-máy-chủ>:8071/` trên trình duyệt để thấy trang chủ LCOJ. Nếu đã nạp `demo`, vào **Admin → Sites** để sửa tên miền mặc định (`localhost:8081`) thành tên miền thật.
+   ```sh
+   curl -I http://localhost:8071/
+   ```
+
+3. Mở `http://<ip-máy-chủ>:8071/` trên trình duyệt để thấy trang chủ LCOJ. Nếu đã nạp `demo`, vào **Admin → Sites** để sửa tên miền mặc định (`localhost:8081`) thành tên miền thật.
+4. Đăng nhập tại `/accounts/login/` bằng tài khoản vừa tạo ở Bước 6 và mở được trang `/admin/`.
+5. Trang chủ chưa có máy chấm là bình thường: bài nộp chỉ được chấm sau khi bạn [kết nối judge](/operate/judge-setup).
 
 ## Cổng mạng
 
@@ -315,13 +330,26 @@ Bạn có thể dùng bất kỳ reverse proxy nào trên máy chủ (Caddy, Ngi
 - [ ] Đã thiết lập [sao lưu định kỳ](/operate/operations#backup)
 - [ ] Đã [kết nối ít nhất một máy chấm](/operate/judge-setup)
 
-## Xem thêm
+## Sự cố thường gặp
 
-- [Biến môi trường](/operate/environment)
-- [Script hỗ trợ](/operate/scripts)
-- [Vận hành hằng ngày](/operate/operations)
-- [Cập nhật LCOJ](/operate/updating)
-- [Cài đặt Judge](/operate/judge-setup)
+| Triệu chứng | Cách xử lý |
+|---|---|
+| `permission denied` khi chạy `docker` | Bạn chưa đăng xuất/đăng nhập lại sau `usermod -aG docker` (Bước 1) |
+| Thư mục `dmoj/repo` trống, build báo thiếu file | Quên `--recursive` khi clone: chạy `git submodule update --init --recursive` |
+| `./scripts/migrate` báo không kết nối được database | MariaDB chưa khởi tạo xong: đợi `ready for connections` trong `docker compose logs -f db` rồi chạy lại |
+| Build `site`/`celery`/`bridged` báo không tìm thấy `lcoj/lcoj-base` | Chạy `docker compose build base` trước (Bước 5) |
+| Trang web hiện nhưng không có CSS | Chạy lại `./scripts/copy_static` |
+| Lỗi 502 Bad Gateway | `site` đang khởi động hoặc lỗi khi nạp Django: xem `docker compose logs --tail=100 site` ([chi tiết](/operate/architecture#uwsgi)) |
+| Lỗi 400 Bad Request | `HOST` trong `site.env` không khớp tên miền bạn đang truy cập |
+| Cổng 8071 đã bị dùng | Đổi cổng bằng `NGINX_PORT` trong `dmoj/.env` (xem cảnh báo ở Bước 4.3) |
+| Sửa `site.env` mà không có tác dụng | Chạy `docker compose up -d` (không phải `restart`) để tạo lại container |
+
+## Tiếp theo
+
+- [Cài đặt Judge](/operate/judge-setup): kết nối máy chấm để bài nộp được chấm.
+- [Cấu hình trang web](/admin/site-config): đổi tên miền, menu và nội dung trang chủ.
+- [Vận hành hằng ngày](/operate/operations): khởi động lại, xem log, sao lưu.
+- Tham khảo thêm: [Biến môi trường](/operate/environment), [Script hỗ trợ](/operate/scripts), [Cập nhật LCOJ](/operate/updating).
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), hoặc liên hệ qua [behitek.com](https://behitek.com) và [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

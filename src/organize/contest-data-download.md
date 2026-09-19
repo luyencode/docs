@@ -1,8 +1,18 @@
 # Tải dữ liệu kỳ thi
 
+> Tải về một file ZIP chứa mã nguồn bài nộp của thí sinh sau khi kỳ thi kết thúc.
+>
+> ⏱ ~5 phút · 👤 Người tổ chức kỳ thi, người vận hành · 🔑 `judge.edit_own_contest` (tác giả/curator) hoặc `judge.edit_all_contest`
+
 Sau khi kỳ thi kết thúc, người tổ chức có thể tải về **mã nguồn các bài nộp** của thí sinh dưới dạng một file ZIP, ví dụ để lưu trữ, chấm lại ngoài hệ thống hoặc kiểm tra gian lận.
 
-## Ai được dùng?
+## Trước khi bắt đầu
+
+- [ ] Đã đăng nhập bằng tài khoản có quyền sửa kỳ thi (xem bảng bên dưới).
+- [ ] Kỳ thi đã kết thúc.
+- [ ] Tính năng đã được người vận hành bật (xem [Cấu hình](#cau-hinh-cho-nguoi-van-hanh)).
+
+### Ai được dùng?
 
 Người dùng phải đăng nhập và có quyền sửa kỳ thi, tức là một trong hai:
 
@@ -39,13 +49,18 @@ flowchart LR
 Trong mã nguồn hiện tại, bộ lọc **Lọc theo kết quả** lọc trên bảng bài nộp kỳ thi, vốn không có trường `result`, nên tác vụ có thể bị lỗi khi chọn bộ lọc này. Nếu tác vụ thất bại, hãy để trống bộ lọc kết quả.
 :::
 
+## Kiểm tra kết quả
+
+- File `<mã kỳ thi>-data.zip` tải về mở được và có mỗi thí sinh chính thức một thư mục (xem [Nội dung file ZIP](#noi-dung-file-zip)).
+- Nếu thiếu thí sinh: người tham gia ảo và khán giả không có trong file.
+
 ## Giới hạn tần suất
 
 Mỗi **kỳ thi** (không phải mỗi người dùng) chỉ được chuẩn bị dữ liệu mới một lần trong khoảng `DMOJ_CONTEST_DATA_DOWNLOAD_RATELIMIT` (mặc định 1 ngày). Có thể chuẩn bị lại sớm hơn nếu file ZIP cũ không còn trên đĩa. Trong khi một tác vụ đang chạy thì không thể tạo tác vụ mới.
 
 Trong thời gian chờ, trang vẫn cho tải file đã chuẩn bị trước đó.
 
-## Nội dung file ZIP
+## Nội dung file ZIP {#noi-dung-file-zip}
 
 File chỉ chứa **mã nguồn** bài nộp của thí sinh **chính thức** (không có người tham gia ảo hay khán giả). Không có file CSV, bảng xếp hạng hay thông tin điểm.
 
@@ -69,7 +84,7 @@ File chỉ chứa **mã nguồn** bài nộp của thí sinh **chính thức** (
 | Đuôi file | Đuôi của ngôn ngữ đã chọn (ví dụ `cpp`, `py`, `java`) |
 | Ngôn ngữ nộp file | Với ngôn ngữ chỉ nộp file, LCOJ đưa file gốc thí sinh đã tải lên vào ZIP |
 
-## Cấu hình (cho người vận hành)
+## Cấu hình (cho người vận hành) {#cau-hinh-cho-nguoi-van-hanh}
 
 Các thiết lập nằm trong `dmoj/local_settings.py` của site (với Docker là `dmoj/repo/dmoj/local_settings.py`, được sao chép từ `dmoj/config/local_settings.py` khi chạy `./scripts/initialize`). Các thiết lập này **không** đọc từ biến môi trường, nên đặt trong `environment/site.env` sẽ không có tác dụng.
 
@@ -124,7 +139,7 @@ Ví dụ cron chạy mỗi 4 giờ:
 0 */4 * * * docker compose -f /path/to/lcoj-docker/dmoj/docker-compose.yml exec -T site find /contestdatacache/ -type f -mtime +2 -delete
 ```
 
-## Xử lý sự cố
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân / cách xử lý |
 |---|---|
@@ -139,3 +154,9 @@ Ví dụ cron chạy mỗi 4 giờ:
 - File ZIP chứa mã nguồn của thí sinh. Không chia sẻ công khai nếu chưa có sự đồng ý.
 - File chỉ tải được qua URL của Django (có kiểm tra quyền); location nginx là `internal` nên không truy cập trực tiếp được.
 - Người dùng tự tải dữ liệu cá nhân bằng một tính năng riêng, xem [Tải dữ liệu người dùng](/operate/user-data-download).
+
+## Tiếp theo
+
+- [Thiết lập kỳ thi](/organize/contest-setup): các cài đặt khác của kỳ thi.
+- [Các định dạng kỳ thi](/organize/contest-formats): cách tính điểm và xếp hạng.
+- [Tải dữ liệu người dùng](/operate/user-data-download): tính năng tải dữ liệu cá nhân.

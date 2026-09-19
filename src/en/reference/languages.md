@@ -1,5 +1,15 @@
 # Supported languages
 
+> The languages LCOJ can judge, how to see which ones are actually available on a site, and how administrators add a new one.
+>
+> ⏱ ~5 min read · 👤 Everyone, administrators
+
+## When you need this page
+
+- You want to know whether the site judges your language, or which compiler version it uses.
+- A language doesn't appear in the language picker when submitting.
+- You are an administrator and want to enable more languages on the site.
+
 LCOJ's judge code ([luyencode/judge-server](https://github.com/luyencode/judge-server), based on DMOJ and VNOJ) ships executors for close to 70 languages. However, **the languages you can actually use on a given site are the ones that site's judges report**, not the full list below.
 
 ## Checking available languages
@@ -69,3 +79,10 @@ This list comes from the judge's [`dmoj/executors/`](https://github.com/luyencod
 - The most common competitive programming languages are C++ (prefer `CPP17` or `CPP20`), Python 3 (try `PYPY3` for heavy problems), Java, and Pascal.
 - A problem can set time and memory limits **per language**. The limits that apply are shown on the problem page.
 - Rarely used languages may have undiscovered bugs. If you hit a problem with a language, please [report it to the judge project](https://github.com/luyencode/judge-server/issues).
+
+## Next steps
+
+- [Submitting and judging](/en/learn/submissions): how to pick a language and submit.
+- [Status codes](/en/reference/status-codes): what results such as `CE`, `RTE`, and `IR` mean.
+- [Setting up judges](/en/operate/judge-setup): for operators, running a judge so the site has languages.
+- [Glossary](/en/start/glossary): terms such as judge, executor, and runtime.

@@ -1,5 +1,13 @@
 # Hệ thống phân quyền
 
+> Cách LCOJ kiểm tra quyền, cách cấp quyền qua nhóm hoặc trực tiếp trong trang quản trị, và danh sách đầy đủ các quyền tùy chỉnh.
+>
+> ⏱ ~10 phút (cấp quyền) · 👤 Quản trị viên hệ thống · 🔑 Superuser (hoặc staff có quyền `auth.change_group` / `auth.change_user`)
+
+## Khi nào cần trang này
+
+Dùng trang này khi một người cần làm việc mà tài khoản thường không làm được (ra đề, tổ chức kỳ thi, điều hành bình luận…), hoặc khi ai đó báo "không có quyền" và bạn cần biết thiếu quyền nào. Phần đầu hướng dẫn cấp quyền; phần sau là bảng tra cứu.
+
 LCOJ dùng hệ thống phân quyền của Django: mỗi hành động nhạy cảm (sửa bài, chấm lại, xem kỳ thi riêng tư…) được kiểm tra bằng một **quyền** (permission) có tên dạng `<app>.<codename>`, ví dụ `judge.edit_own_problem`. Trang này liệt kê toàn bộ quyền tùy chỉnh của LCOJ, giải thích mỗi quyền cho phép làm gì và hướng dẫn cấp quyền trong trang quản trị.
 
 ## Cách phân quyền hoạt động
@@ -41,6 +49,11 @@ Hãy tạo nhóm theo vai trò (ví dụ "Người ra đề", "Ban tổ chức k
 2. Nếu người này cần dùng trang quản trị, bật **Staff status** (*Tình trạng nhân viên*).
 3. Trong mục **User permissions** (*Quyền của người sử dụng*), chọn các quyền. Mỗi dòng hiển thị dạng `judge.edit_own_problem | Edit own problems` (app, codename, rồi nhãn).
 4. Lưu.
+
+### Kiểm tra kết quả
+
+- Người được cấp quyền tải lại trang và làm thử thao tác cần quyền (ví dụ mở **Sửa đề bài** trên bài của mình).
+- Nếu vai trò cần trang quản trị, họ vào được `/admin/` và thấy các mục tương ứng.
 
 ::: info Nhãn quyền là tiếng Anh
 Nhãn quyền được lưu trong cơ sở dữ liệu bằng tiếng Anh, và nhiều nhãn chưa có bản dịch tiếng Việt. Hãy tìm quyền theo **codename** (cột đầu tiên trong các bảng dưới đây). Nếu nhãn trong cơ sở dữ liệu bị cũ sau khi cập nhật mã nguồn, chạy `./scripts/manage.py update_permissions` (xem [Lệnh quản lý](/reference/management-commands)).
@@ -180,3 +193,19 @@ Chi tiết: xem [Soạn quiz](/setter/quiz-authoring).
 - `edit_all_problem`, `edit_all_contest`, `view_all_submission` cho phép xem dữ liệu kỳ thi và mã nguồn của mọi người.
 - Định kỳ rà soát quyền của các nhóm và người dùng, gỡ quyền của người không còn tham gia.
 :::
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách khắc phục |
+|---|---|
+| Không vào được `/admin/` dù đã có quyền | Bật **Staff status** cho tài khoản. |
+| Có `edit_all_problem` nhưng vẫn không sửa được bài | Cấp thêm `edit_own_problem`; thiếu quyền này thì `edit_public_problem` và `edit_all_problem` không có tác dụng. |
+| Không tìm thấy quyền trong danh sách | Tìm theo **codename** thay vì nhãn. Nếu nhãn cũ, chạy `./scripts/manage.py update_permissions`. |
+| Cấp `spam_organization` nhưng người dùng vẫn bị giới hạn số tổ chức | Quyền này hiện chỉ có tác dụng với superuser (xem cảnh báo ở mục Tổ chức). |
+| Chấm lại hàng loạt bị giới hạn 10 bài | Cấp thêm `rejudge_submission_lot`. |
+
+## Tiếp theo
+
+- [Quản lý người dùng](/admin/users): tìm tài khoản, khóa tài khoản, bật staff.
+- [Cấu hình site](/admin/site-config): các thiết lập toàn site.
+- [Tổ chức](/organize/organizations): quyền quản trị viên của từng tổ chức.

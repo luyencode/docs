@@ -1,5 +1,13 @@
 # Contest Formats
 
+> A comparison of LCOJ's 7 contest formats (scoring, tie-breaking, penalties, scoreboard freeze) and how to configure each one.
+>
+> ⏱ ~15 min read · 👤 Contest organisers · 🔑 Permission to edit the contest in the admin
+
+## When you need this page
+
+Use this page when you create a contest and have to pick its scoring rules, or when contestants ask why the scoreboard is ordered the way it is. If you have never created a contest, start with [Contest setup](/en/organize/contest-setup).
+
 A contest format decides **how points are calculated** and **how ties are broken** on the scoreboard. LCOJ ships 7 formats, inherited from DMOJ and VNOJ.
 
 ## Which format should I pick?
@@ -270,3 +278,20 @@ flowchart LR
 - The scoreboard **stays frozen after the contest ends**. To reveal the results, set `frozen_last_minutes` back to `0` and save; LCOJ recalculates the scoreboard.
 - While frozen, the contest's full submission list is hidden from users who cannot edit the contest.
 - Only contests with `frozen_last_minutes = 0` can be replayed.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Saving the contest fails with `unknown config key` | `format_config` contains a key the selected format does not know. Use only that format's options. |
+| `format_config` is rejected although the keys are right | Value types must match the defaults: integers as `5` (not `5.0`), booleans as `true`/`false`. |
+| The config cannot be saved with `default` | `default` only accepts an empty config (`null` or `{}`). |
+| The contest has ended but the scoreboard is still frozen | Set `frozen_last_minutes = 0` and save to reveal the real scoreboard. |
+| There is no scoreboard replay | Replay is only available when `frozen_last_minutes = 0` and the format is not `ioi16`. |
+| The scoreboard does not change right after switching format | LCOJ is recalculating every participation; large contests can take a while. |
+
+## Next steps
+
+- [Contest setup](/en/organize/contest-setup): create a contest, add problems, invite contestants.
+- [Your first contest](/en/tutorials/first-contest): a step-by-step walkthrough from start to finish.
+- [Contest data download](/en/organize/contest-data-download): export submissions after the contest.

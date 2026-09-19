@@ -1,5 +1,13 @@
 # Các định dạng kỳ thi
 
+> So sánh 7 định dạng kỳ thi của LCOJ (tính điểm, phá hoà, phạt, đóng băng bảng) và cách cấu hình từng định dạng.
+>
+> ⏱ ~15 phút đọc · 👤 Người tổ chức kỳ thi · 🔑 Quyền sửa kỳ thi trong trang quản trị
+
+## Khi nào cần trang này
+
+Dùng trang này khi tạo kỳ thi và cần chọn luật tính điểm, hoặc khi thí sinh hỏi vì sao bảng xếp hạng sắp như vậy. Nếu chưa từng tạo kỳ thi, hãy bắt đầu với [Thiết lập kỳ thi](/organize/contest-setup).
+
 Định dạng kỳ thi (contest format) quyết định **cách tính điểm** và **cách xếp hạng khi bằng điểm** trên bảng xếp hạng. LCOJ có sẵn 7 định dạng, kế thừa từ DMOJ và VNOJ.
 
 ## Nên chọn định dạng nào?
@@ -270,3 +278,20 @@ flowchart LR
 - Bảng **vẫn đóng băng sau khi kỳ thi kết thúc**. Để công bố kết quả, đặt lại `frozen_last_minutes = 0` và lưu; LCOJ sẽ tính lại bảng.
 - Khi đang đóng băng, danh sách toàn bộ bài nộp của kỳ thi bị ẩn với người không có quyền sửa.
 - Chỉ kỳ thi có `frozen_last_minutes = 0` mới xem lại được diễn biến bảng xếp hạng (replay).
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách khắc phục |
+|---|---|
+| Lưu kỳ thi báo `unknown config key` | `format_config` có khoá không thuộc định dạng đang chọn. Chỉ dùng tuỳ chọn của đúng định dạng đó. |
+| `format_config` bị từ chối dù khoá đúng | Kiểu giá trị phải khớp mặc định: số nguyên viết `5` (không phải `5.0`), boolean viết `true`/`false`. |
+| Không lưu được cấu hình với `default` | `default` chỉ chấp nhận cấu hình trống (`null` hoặc `{}`). |
+| Kỳ thi đã kết thúc nhưng bảng vẫn đóng băng | Đặt `frozen_last_minutes = 0` rồi lưu để công bố bảng thật. |
+| Không có chức năng xem lại diễn biến bảng (replay) | Replay chỉ có khi `frozen_last_minutes = 0` và không dùng `ioi16`. |
+| Bảng xếp hạng chưa đổi ngay sau khi đổi định dạng | LCOJ đang tính lại điểm mọi lượt tham gia; kỳ thi lớn có thể mất một lúc. |
+
+## Tiếp theo
+
+- [Thiết lập kỳ thi](/organize/contest-setup): tạo kỳ thi, thêm bài, mời thí sinh.
+- [Tổ chức kỳ thi đầu tiên](/tutorials/first-contest): hướng dẫn từng bước từ đầu đến cuối.
+- [Tải dữ liệu kỳ thi](/organize/contest-data-download): xuất bài nộp sau khi thi.

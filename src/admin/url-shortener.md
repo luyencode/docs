@@ -1,5 +1,9 @@
 # Rút gọn liên kết
 
+> Tạo link ngắn dạng `https://<tên-miền-rút-gọn>/hsg2026` trỏ tới địa chỉ dài, xem lượt truy cập, cấp quyền cho staff và cấu hình tên miền rút gọn riêng.
+>
+> ⏱ ~2 phút (tạo link) · ~15 phút (cấu hình tên miền) · 👤 Staff, admin, người vận hành · 🔑 Các quyền `urlshortener.*`; cấu hình tên miền cần quyền truy cập server
+
 LCOJ có sẵn một công cụ rút gọn liên kết nội bộ: bạn gán một **mã ngắn** (ví dụ `hsg2026`) cho một địa chỉ dài, rồi chia sẻ link dạng `https://<tên-miền-rút-gọn>/hsg2026`. Công cụ này hữu ích khi cần phát link kỳ thi, form đăng ký hay tài liệu trên slide, poster, tin nhắn nhóm.
 
 Trang này gồm ba phần, cho ba nhóm người đọc:

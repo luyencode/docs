@@ -1,6 +1,14 @@
 # Helper scripts
 
-This page is for operators running LCOJ with Docker. The `dmoj/scripts/` directory holds a few short Bash scripts that save you from typing long `docker compose` commands. Below is exactly what each one does and when to use it.
+> The `dmoj/scripts/` directory has 6 short Bash scripts (`initialize`, `migrate`, `copy_static`, `manage.py`, `enter_site`, `moderate_comments`) that wrap common `docker compose` commands. This page says exactly what each one does.
+>
+> ⏱ ~8 min read · 👤 Operators · 🔑 SSH to the server and permission to run `docker`
+
+## When you need this page
+
+- When another page tells you to run `./scripts/...` and you want to know what it does first.
+- When running a script from cron or CI and hitting a TTY error.
+- When you need to run a Django management command (see also [Management commands](/en/reference/management-commands)).
 
 ## Overview
 
@@ -181,6 +189,12 @@ Things to note:
   ```sh
   0 3 * * * COMPOSE_EXEC_FLAGS=-T /srv/lcoj-docker/dmoj/scripts/moderate_comments >> /var/log/lcoj-moderate.log 2>&1
   ```
+
+## Next steps
+
+- [Day-to-day operations](/en/operate/operations): restarts, logs, backups.
+- [Updating LCOJ](/en/operate/updating): when to run `migrate` and `copy_static` after pulling new code.
+- [Management commands](/en/reference/management-commands): commands you can run through `./scripts/manage.py`.
 
 ::: tip Need help?
 - Open an issue on [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

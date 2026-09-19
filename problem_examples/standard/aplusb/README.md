@@ -1,14 +1,15 @@
-# Chấm điểm chuẩn (Standard Grading)
+# Chấm chuẩn (Standard Grading)
 
-Đây là ví dụ về hệ thống chấm điểm phổ biến nhất: input và output được lưu trong file zip.
+Cách chấm phổ biến nhất: thí sinh đọc input từ stdin, in đáp án ra stdout, và checker mặc định `standard` so sánh với output chuẩn. Mọi file test nằm trong một file zip.
 
-## Cấu trúc
+## Các file
 
-File `init.yml` khai báo file zip bằng `archive`. Ba test case được liệt kê trong `test_cases`.
+| File | Vai trò |
+|---|---|
+| `init.yml` | Cấu hình bài. |
+| `aplusb.zip` | Test data: `aplusb.1.in`/`.out`, `aplusb.2.in`/`.out`, `aplusb.3.in`/`.out`. |
 
-Mỗi test case khai báo file input và output riêng, có thể là bất kỳ file nào trong zip. Các test case có giá trị lần lượt là 5, 20, và 75 điểm, tổng cộng 100 điểm.
-
-## File init.yml
+## init.yml
 
 ```yaml
 archive: aplusb.zip
@@ -18,19 +19,14 @@ test_cases:
 - {in: aplusb.3.in, out: aplusb.3.out, points: 75}
 ```
 
-## Cách hoạt động
+- `archive`: file zip chứa test. `in` và `out` là tên file bên trong zip.
+- Mỗi test được chấm độc lập và có điểm riêng: 5, 20 và 75, tổng 100.
+- Không khai báo `checker` nên dùng checker `standard` (bỏ qua khác biệt về khoảng trắng).
 
-1. Judge giải nén `aplusb.zip`
-2. Chạy chương trình với input từ `aplusb.1.in`
-3. So sánh output với `aplusb.1.out`
-4. Nếu đúng, được 5 điểm
-5. Lặp lại cho các test còn lại
+Điểm bài nộp là tổng điểm các test đúng, quy đổi theo số điểm của bài trên site.
 
-## Tính điểm
+## Chạy thử
 
-- Test 1 đúng: 5 điểm
-- Test 2 đúng: 20 điểm
-- Test 3 đúng: 75 điểm
-- **Tổng:** Tối đa 100 điểm
+Làm theo mục "Chạy thử một ví dụ" trong [README chung](../../README.md), với mã bài `aplusb`.
 
-Điểm cuối cùng là tổng điểm của các test đúng.
+Xem thêm: [Cấu trúc bài tập](../../../src/setter/problem-format.md).

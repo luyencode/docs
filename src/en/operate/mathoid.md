@@ -1,5 +1,9 @@
 # Math Formulas (MathJax and Mathoid)
 
+> LCOJ renders math with MathJax right in the browser, with no extra service to install. This page explains how it works, the formula syntax, and why you shouldn't enable Mathoid.
+>
+> ⏱ ~10 min · 👤 Operators, problem setters · 🔑 Just a browser; SSH + docker if you need to fix static files
+
 ::: info Do you need this?
 This page explains **how LCOJ renders math** in problem statements, blog posts, and comments, and **why you don't need to install Mathoid**.
 
@@ -128,6 +132,12 @@ Only do this on a development machine, after wiring `MathoidMathParser` into the
 
 Other settings and their defaults (in `dmoj/settings.py`): `MATHOID_GZIP = False`, `MATHOID_MML_CACHE = None`, `MATHOID_CSS_CACHE = 'default'`, `MATHOID_DEFAULT_TYPE = 'auto'`, `MATHOID_MML_CACHE_TTL = 86400`.
 
+## Verify
+
+1. Open a problem statement with a formula written as `~...~` or `$$...$$`: it renders as math, with no raw `~` characters left.
+2. Open DevTools (Network tab) and reload: `/static/vnoj/mathjax/3.2.0/es5/tex-chtml.min.js` returns status 200.
+3. `dmoj/config/local_settings.py` has no `MATHOID_URL` line (the default `False` stays in effect).
+
 ## Troubleshooting
 
 | Symptom | Common cause | Fix |
@@ -137,6 +147,12 @@ Other settings and their defaults (in `dmoj/settings.py`): `MATHOID_GZIP = False
 | `~a+b~` is shown literally after setting `MATHOID_URL` | Engine switched to `mml`, so MathJax isn't loaded | Remove `MATHOID_URL`, then `docker compose restart site` |
 | A formula shows a red error | Invalid LaTeX | Try the formula in an online LaTeX editor |
 | Old statements look unchanged after a config change | Statement HTML is cached for up to 1 day | Save the problem again (saving clears the cache), or wait for it to expire |
+
+## Next steps
+
+- [Problem format](/en/setter/problem-format): write a complete statement, formulas included.
+- [TikZ diagrams (Texoid)](/en/operate/texoid): the server-side renderer for TikZ/LaTeX diagrams.
+- [Helper scripts](/en/operate/scripts): `copy_static` when MathJax static files return 404.
 
 ::: tip Need help?
 Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

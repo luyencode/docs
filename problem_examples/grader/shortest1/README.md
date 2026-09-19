@@ -1,52 +1,54 @@
-# Custom Grader - Shortest Path
+# Grader Python tùy chỉnh: bài "code golf"
 
-Ví dụ này minh họa cách dùng custom grader cho bài tập có nhiều đáp án đúng.
+Ví dụ này minh họa `custom_judge`: một file Python định nghĩa class `Grader` thay đổi cách chấm. Đề bài: viết chương trình **ngắn nhất có thể** chạy mãi không dừng. Bài nộp chạy tới hết giới hạn thời gian (TLE) được tính là đúng, và mã nguồn càng ngắn càng nhiều điểm.
 
-## Bài toán
+## Các file
 
-Tìm đường đi ngắn nhất từ A đến B. Có thể có nhiều đường đi có cùng độ dài ngắn nhất.
+| File | Vai trò |
+|---|---|
+| `init.yml` | Cấu hình bài. |
+| `shortest1.py` | Grader tùy chỉnh. |
 
-## Tại sao cần Custom Grader?
+Không có test data: test duy nhất không có `in` hay `out`.
 
-Vì có nhiều đáp án đúng, không thể dùng checker chuẩn (so sánh output với file .out). Custom grader sẽ:
-1. Kiểm tra đường đi có hợp lệ không
-2. Tính độ dài đường đi
-3. So sánh với độ dài ngắn nhất
-
-## File init.yml
+## init.yml
 
 ```yaml
 custom_judge: shortest1.py
 test_cases:
-- points: 100
+- {points: 10}
 ```
 
-## Custom Grader (shortest1.py)
+- `custom_judge`: judge nạp class `Grader` trong `shortest1.py` thay cho grader chuẩn.
+- Một test, 10 điểm.
 
-Grader sẽ:
-- Đọc output của thí sinh (đường đi)
-- Kiểm tra các đỉnh có liên tiếp nhau không
-- Tính tổng độ dài
-- So sánh với đáp án tối ưu
+## Grader (`shortest1.py`)
 
-## Ví dụ
+```python
+from dmoj.graders.standard import StandardGrader
+from dmoj.result import Result, CheckerResult
 
-**Input:** Đồ thị với 4 đỉnh, tìm đường từ 1 đến 4
 
-**Đáp án đúng:**
-- `1 -> 2 -> 4` (độ dài 5)
-- `1 -> 3 -> 4` (độ dài 5)
+class Grader(StandardGrader):
+    def check_result(self, case, result):
+        passed = bool(result.result_flag & Result.TLE)
+        result.result_flag &= ~Result.TLE & ~Result.RTE
+        return CheckerResult(passed, min((9. / len(self.source)) ** 5 * case.points, case.points) if passed else 0)
 
-Cả hai đều được chấp nhận vì cùng độ dài ngắn nhất.
+    def _interact_with_process(self, case, result, input):
+        process = self._current_proc
+        for handle in [process.stdin, process.stdout, process.stderr]:
+            if handle:
+                handle.close()
+        process.wait()
+```
 
-## Khi nào dùng Custom Grader?
+- `_interact_with_process`: không gửi input, đóng stdin/stdout/stderr của bài nộp rồi chờ nó kết thúc (hoặc bị giết vì quá thời gian).
+- `check_result`: bài nộp chỉ đúng nếu bị **TLE**. Sau đó cờ TLE và RTE được xóa để kết quả không hiện là lỗi.
+- Điểm: `min((9 / độ dài mã nguồn)^5 × 10, 10)`. Mã nguồn từ 9 byte trở xuống được trọn 10 điểm; 18 byte chỉ được khoảng 0,31 điểm.
 
-- Bài có nhiều đáp án đúng
-- Cần kiểm tra tính hợp lệ phức tạp
-- Cần tính điểm theo độ chính xác
-- Ví dụ: Tìm đường đi, xếp lịch, tô màu đồ thị
+## Chạy thử
 
-## Xem thêm
+Làm theo mục "Chạy thử một ví dụ" trong [README chung](../../README.md), với mã bài `shortest1`, bật **partial** cho bài. Nộp một vòng lặp vô hạn thật ngắn, ví dụ Python `while 1:0` (9 byte), rồi thử bản dài hơn để thấy điểm giảm.
 
-- [Custom Graders Documentation](/problem_format/custom_graders.md)
-- [Custom Checkers](/problem_format/custom_checkers.md)
+Xem thêm: [Grader Python tùy chỉnh](../../../src/setter/graders.md).

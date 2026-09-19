@@ -1,6 +1,16 @@
 # Biến môi trường
 
-Trang này dành cho người cài đặt và vận hành LCOJ bằng Docker. Bạn sẽ biết có những file cấu hình nào trong `dmoj/environment/`, từng biến dùng để làm gì, giá trị mặc định ra sao và cách áp dụng khi thay đổi.
+> Tra cứu các file cấu hình trong `dmoj/environment/` (`site.env`, `mysql.env`, `mysql-admin.env`): từng biến làm gì, mặc định ra sao, thiết lập nào không đổi được qua biến môi trường và cách áp dụng khi sửa.
+>
+> ⏱ ~10 phút đọc · 👤 Người vận hành · 🔑 SSH vào máy chủ, quyền sửa file trong `dmoj/` và chạy `docker compose`
+
+## Khi nào cần trang này
+
+- **Khi cài mới**: điền `site.env` và hai file MySQL ở [Bước 4 của trang Cài đặt](/operate/installation).
+- **Khi đổi tên miền, cổng, khóa Google OAuth hoặc mật khẩu database.**
+- **Khi sửa cấu hình mà không thấy tác dụng**: xem [Áp dụng thay đổi](#applying-changes).
+
+Biến môi trường (environment variable) là cặp `TÊN=giá_trị` mà Docker đưa vào container lúc tạo; Django đọc chúng khi khởi động. Các thuật ngữ khác xem [Thuật ngữ](/start/glossary).
 
 Tất cả đường dẫn bên dưới tính từ thư mục `dmoj/` của repo [lcoj-docker](https://github.com/luyencode/lcoj-docker).
 
@@ -194,7 +204,7 @@ Nếu cần thêm một thiết lập bí mật mới, hãy đọc nó từ môi
 Lệnh quản trị `generate_editorials` đọc `OPENAI_API_KEY` (bắt buộc) và `OPENAI_BASE_URL` (tùy chọn) trực tiếp từ môi trường. Hai biến này không có trong file mẫu và không được `docker-compose.yml` nạp sẵn. Nếu cần, truyền khi chạy lệnh, ví dụ `docker compose exec -e OPENAI_API_KEY=<key> site python3 manage.py generate_editorials ...`.
 :::
 
-## Áp dụng thay đổi
+## Áp dụng thay đổi {#applying-changes}
 
 `docker compose restart` **không** đọc lại file `env_file`. Container giữ nguyên biến môi trường từ lúc được tạo. Sau khi sửa file `.env`, cần tạo lại container bằng `docker compose up -d`:
 
@@ -229,6 +239,13 @@ Lệnh thứ nhất chỉ sinh các ký tự `A–Z a–z 0–9 - _`, an toàn k
 ::: warning Đổi SECRET_KEY
 Đổi `SECRET_KEY` trên site đang chạy sẽ làm mất hiệu lực session hiện tại (mọi người bị đăng xuất). Giữ khóa bí mật, không commit vào git và không dán vào issue hay chat.
 :::
+
+## Tiếp theo
+
+- [Cài đặt](/operate/installation): nếu bạn đang cài mới, quay lại Bước 5 (build image).
+- [Các script hỗ trợ](/operate/scripts): `initialize` sao chép `local_settings.py` mẫu vào `repo/`.
+- [Vận hành hằng ngày](/operate/operations#change-db-password): đổi mật khẩu database đúng cách.
+- [Cấu hình trang web](/admin/site-config): các thiết lập chỉnh trong trang quản trị, không cần sửa file.
 
 ::: tip Cần hỗ trợ?
 - Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

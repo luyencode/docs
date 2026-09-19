@@ -13,8 +13,11 @@ hero:
     alt: LCOJ
   actions:
     - theme: brand
-      text: Bắt đầu làm bài
-      link: /learn/submissions
+      text: Bắt đầu từ đây
+      link: /start/introduction
+    - theme: alt
+      text: Bài hướng dẫn
+      link: /tutorials/first-problem
     - theme: alt
       text: Tự cài đặt LCOJ
       link: /operate/architecture

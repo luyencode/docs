@@ -64,7 +64,7 @@ sequenceDiagram
     W-->>B: Hiện kết quả cuối cùng
 ```
 
-Tóm lại:
+Tóm lại (các thuật ngữ *judge*, *bridge*, *verdict* được giải thích trong [Thuật ngữ](/start/glossary)):
 
 1. **Website** lưu bài nộp với trạng thái **Đang chờ** rồi gửi yêu cầu chấm tới **bridge**.
 2. **Bridge** chọn một **judge** đang rảnh, có dữ liệu bài và hỗ trợ ngôn ngữ bạn chọn. Nếu mọi judge đều bận, bài nằm trong hàng đợi.
@@ -141,7 +141,7 @@ Bạn luôn xem được mã nguồn của chính mình. Với bài của ngư�
 
 Nộp nhiều lần không bị trừ điểm khi luyện tập: hệ thống chỉ ghi nhận điểm cao nhất của bạn cho mỗi bài. Riêng trong kỳ thi, cách tính điểm và phạt phụ thuộc vào [định dạng kỳ thi](/organize/contest-formats).
 
-## Những lỗi hay gặp
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách sửa |
 |---|---|---|
@@ -156,3 +156,9 @@ Nộp nhiều lần không bị trừ điểm khi luyện tập: hệ thống ch
 | `CE` dù code đúng | Chọn sai ngôn ngữ hoặc phiên bản (ví dụ code C++ chọn C) | Bấm **Nộp lại**, chọn đúng ngôn ngữ rồi nộp |
 
 Giải thích chi tiết từng mã kết quả có tại [Mã trạng thái](/reference/status-codes). Danh sách ngôn ngữ xem tại [Ngôn ngữ được hỗ trợ](/reference/languages).
+
+## Tiếp theo
+
+- [Tham gia kỳ thi](/learn/contests): nộp bài trong kỳ thi, đọc bảng xếp hạng và thi ảo.
+- [Tham gia kỳ thi](/learn/contests): cách nộp bài, pretest và bảng xếp hạng trong kỳ thi.
+- [Câu hỏi thường gặp](/start/faq): giải đáp nhanh các thắc mắc khác.

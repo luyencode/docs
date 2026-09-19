@@ -7,12 +7,33 @@ type Group = { vi: string; en: string; items: Entry[] }
 
 const groups: Group[] = [
   {
+    vi: 'Bắt đầu',
+    en: 'Getting started',
+    items: [
+      ['/start/introduction', 'LCOJ là gì?', 'What is LCOJ?'],
+      ['/start/glossary', 'Thuật ngữ', 'Glossary'],
+      ['/start/faq', 'Câu hỏi thường gặp', 'FAQ'],
+    ],
+  },
+  {
+    vi: 'Bài hướng dẫn',
+    en: 'Tutorials',
+    items: [
+      ['/tutorials/first-problem', 'Ra đề đầu tiên', 'Your first problem'],
+      ['/tutorials/first-contest', 'Tổ chức kỳ thi đầu tiên', 'Your first contest'],
+      ['/tutorials/first-quiz', 'Tạo bài trắc nghiệm đầu tiên', 'Your first quiz'],
+    ],
+  },
+  {
     vi: 'Học sinh',
     en: 'Students',
     items: [
+      ['/learn/account', 'Tài khoản và đăng nhập', 'Account and sign-in'],
       ['/learn/submissions', 'Nộp bài và chấm bài', 'Submitting and judging'],
+      ['/learn/contests', 'Tham gia kỳ thi', 'Taking part in contests'],
       ['/learn/quiz', 'Làm bài trắc nghiệm', 'Taking a quiz'],
       ['/learn/exam-library', 'Thư viện đề thi', 'Exam library'],
+      ['/learn/community', 'Blog, bình luận và báo lỗi', 'Blog, comments and tickets'],
     ],
   },
   {
@@ -32,7 +53,9 @@ const groups: Group[] = [
     vi: 'Tổ chức kỳ thi',
     en: 'Contest organizers',
     items: [
+      ['/organize/contest-setup', 'Tạo và quản lý kỳ thi', 'Creating and managing contests'],
       ['/organize/contest-formats', 'Các định dạng kỳ thi', 'Contest formats'],
+      ['/organize/organizations', 'Tổ chức (nhóm, lớp học)', 'Organizations (groups, classes)'],
       ['/organize/contest-data-download', 'Tải dữ liệu kỳ thi', 'Contest data download'],
     ],
   },
@@ -40,7 +63,9 @@ const groups: Group[] = [
     vi: 'Quản trị viên',
     en: 'Site admins',
     items: [
+      ['/admin/users', 'Quản lý người dùng', 'Managing users'],
       ['/admin/permissions', 'Hệ thống phân quyền', 'Permission system'],
+      ['/admin/site-config', 'Cấu hình giao diện và nội dung', 'Site configuration and content'],
       ['/admin/url-shortener', 'Rút gọn liên kết', 'URL shortener'],
     ],
   },
@@ -94,6 +119,7 @@ export function nav(lang: 'vi' | 'en'): DefaultTheme.NavItem[] {
   const p = lang === 'en' ? '/en' : ''
   const t = (vi: string, en: string) => (lang === 'en' ? en : vi)
   return [
+    { text: t('Bắt đầu', 'Start'), link: `${p}/start/introduction`, activeMatch: `^${p}/(start|tutorials)/` },
     { text: t('Học sinh', 'Students'), link: `${p}/learn/submissions`, activeMatch: `^${p}/learn/` },
     { text: t('Ra đề', 'Setters'), link: `${p}/setter/managing-problems`, activeMatch: `^${p}/setter/` },
     { text: t('Vận hành', 'Operators'), link: `${p}/operate/architecture`, activeMatch: `^${p}/operate/` },

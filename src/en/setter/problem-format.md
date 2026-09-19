@@ -1,6 +1,12 @@
 # Problem format
 
-This page describes `init.yml`, the file that tells the judge how to grade a problem.
+> Reference for `init.yml`, the file that tells the judge how to grade a problem: test lists, batches, pretests and configuration keys.
+>
+> ⏱ ~15 min read · 👤 Problem setters · 🔑 Edit rights on the problem (writing the file by hand: **manually managed** must be enabled in the admin)
+
+## When you need this page
+
+This page describes `init.yml`, the file that tells the judge (the grading machine, see the [Glossary](/en/start/glossary)) how to grade a problem. Use it when you need to understand the `init.yml` the site generated, or to write one by hand for features the web editor does not cover.
 
 ::: tip Do I need to write this by hand?
 Usually not. When you save test data in the web editor, LCOJ generates `init.yml` for you (see [Managing problems](/en/setter/managing-problems)). You only write it by hand for features the web editor does not cover, such as [generators](/en/setter/generators) or Python checkers. In that case, mark the problem as **manually managed** in the admin so the site does not overwrite your file.
@@ -251,3 +257,9 @@ This is how some of the [examples](/en/setter/examples) are written.
 ::: info
 All of these keys are read by the judge ([judge-server](https://github.com/luyencode/judge-server), a fork of the DMOJ/VNOJ judge). If a key is misspelled, the judge silently ignores it.
 :::
+
+## Next steps
+
+- [Managing problems](/en/setter/managing-problems): let the site generate `init.yml` from the web test editor.
+- [Problem examples](/en/setter/examples): sample `init.yml` files for each kind of problem.
+- [Checkers](/en/setter/checkers) and [Graders](/en/setter/graders): customise how output is graded.

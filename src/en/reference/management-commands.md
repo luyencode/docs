@@ -1,6 +1,30 @@
 # Management Commands
 
+> A lookup of every LCOJ-specific admin command (create users, register judges, import problems, export contest data, generate editorials...) with the exact arguments each one takes.
+>
+> 👤 Operators · 🔑 SSH access to the server and permission to run `docker compose` in the `dmoj/` directory
+
 LCOJ ships a set of Django management commands for administrative work: creating users and judges, importing problems, exporting contest data, generating editorials, and more. This page lists **every** custom command in `judge/management/commands/` of lcoj-site, with the exact arguments each one accepts.
+
+## When you need this page
+
+Use this page when you need an admin task that the web interface can't do, or does slowly (for example, creating many accounts at once). A *management command* is a Django command run from the command line inside the `site` container; see also the [Glossary](/en/start/glossary).
+
+- Every command runs the same way; see [How to run a command](#how-to-run-a-command).
+- Find a command by group in the [Summary](#summary) table, or by task:
+
+| I want to... | Command |
+|---|---|
+| Create one account | [`adduser`](#adduser) |
+| Create accounts for a whole class from a CSV file | [`batchadduser`](#batchadduser) |
+| Merge two accounts belonging to the same person | [`move_user_content`](#move-user-content) |
+| Give a user an API token | [`generate_api_token`](#generate-api-token) |
+| Register a new judge | [`addjudge`](#addjudge) |
+| Import a problem from Codeforces Polygon | [`import_polygon_package`](#import-polygon-package) |
+| Download contestants' source code after a contest | [`export_contest_submissions`](#export-contest-submissions) |
+| Check a contest for plagiarism | [`runmoss`](#runmoss) |
+| Generate editorials automatically | [`generate_editorials`](#generate-editorials) |
+| See the arguments of any command | `./scripts/manage.py help <command>` ([details](#getting-help-for-a-command)) |
 
 ## How to run a command
 
@@ -263,7 +287,11 @@ For every problem that allows language `source`, also allow language `target`, a
 ./scripts/manage.py copy_language CPP17 CPP20
 ```
 
-Both arguments are **language keys**, not problem codes. Note that the allowed-problem list of `target` is replaced by that of `source`.
+Both arguments are **language keys**, not problem codes.
+
+::: danger Overwrites the problem list of `target`
+The allowed-problem list of `target` is **replaced** by that of `source`: any problem that allows `target` but not `source` loses `target`. Back up the database before running it.
+:::
 
 ### render_pdf
 
@@ -613,3 +641,10 @@ Show the arguments of one command:
 # for example
 ./scripts/manage.py help adduser
 ```
+
+## Next steps
+
+- [Helper scripts](/en/operate/scripts): the other scripts in `dmoj/scripts/`, including `manage.py` and `enter_site`.
+- [Judge setup](/en/operate/judge-setup): uses `addjudge` when adding a judge.
+- [Managing users](/en/admin/users): working with accounts through the web interface.
+- [API](/en/reference/api): uses the token created by `generate_api_token`.

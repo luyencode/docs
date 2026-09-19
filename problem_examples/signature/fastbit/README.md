@@ -1,168 +1,96 @@
-# Signature Grading (IOI-style)
+# Chấm theo chữ ký hàm (Signature Grading, kiểu IOI)
 
-Ví dụ này minh họa bài tập kiểu IOI, nơi thí sinh implement hàm thay vì đọc/ghi input/output.
+Thí sinh không viết chương trình đầy đủ mà chỉ cài đặt một hàm. Judge biên dịch bài nộp cùng file entry của người ra đề, file này có `main` và gọi hàm của thí sinh. Ví dụ này còn dùng checker Python để thưởng mã nguồn ngắn.
 
-## Khái niệm
+## Đề bài
 
-Thay vì viết chương trình đầy đủ với `main()`, thí sinh chỉ cần implement một hoặc nhiều hàm theo yêu cầu.
-
-## Ví dụ: Fast Bit Counting
-
-**Yêu cầu:** Implement hàm đếm số bit 1 trong số nguyên.
+Cài đặt hàm trả về số bit 1 của một số 64 bit:
 
 ```c
-int count_bits(int n);
+int setbits(unsigned long long);
 ```
 
-## Cấu trúc
+## Các file
 
-### 1. header.h - Header file
+| File | Vai trò |
+|---|---|
+| `init.yml` | Cấu hình bài. |
+| `fastbit.h` | Header khai báo hàm thí sinh cần cài đặt. |
+| `grader.c` | File entry: có `main`, gọi `setbits`. |
+| `checker.py` | Checker Python. |
+| `1.txt`, `2.txt`, `3.txt` | Input: số lần gọi hàm (1 000 000, 10 000 000, 100 000 000). |
+| `correct.txt` | Output chuẩn chung cho mọi test: `Correct.` |
 
-Khai báo hàm thí sinh cần implement:
+Không có file zip: các file test nằm trực tiếp trong thư mục bài.
 
-```c
-#ifndef _GRADER_HEADER_INCLUDED
-#define _GRADER_HEADER_INCLUDED
-
-int count_bits(int n);
-
-#endif
-```
-
-### 2. handler.c - Entry point
-
-Chương trình chính, đọc input và gọi hàm của thí sinh:
-
-```c
-#include "header.h"
-#include <stdio.h>
-
-int main() {
-    int n;
-    scanf("%d", &n);
-    
-    int result = count_bits(n);  // Gọi hàm thí sinh
-    
-    printf("%d\n", result);
-    return 0;
-}
-```
-
-### 3. Bài nộp của thí sinh
-
-Thí sinh chỉ cần implement hàm:
-
-```c
-int count_bits(int n) {
-    int count = 0;
-    while (n > 0) {
-        count += n & 1;
-        n >>= 1;
-    }
-    return count;
-}
-```
-
-## File init.yml
+## init.yml
 
 ```yaml
-signature_grader:
-  entry: handler.c
-  header: header.h
+output_prefix_length: 0
+checker: checker.py
+signature_grader: {entry: grader.c, header: fastbit.h}
+out: correct.txt
 test_cases:
-- {in: 1.txt, out: 1.out, points: 50}
-- {in: 2.txt, out: 2.out, points: 50}
+- {in: 1.txt, points: 20}
+- {in: 2.txt, points: 30}
+- {in: 3.txt, points: 50}
 ```
 
-## Cách hoạt động
+- `signature_grader`: `entry` là file có `main`, `header` là file khai báo hàm. Chỉ dùng được với các ngôn ngữ họ C/C++ (C, C11, C++03 đến C++20, Clang).
+- `out: correct.txt` và `checker: checker.py` ở cấp ngoài cùng nên mọi test kế thừa.
+- `output_prefix_length: 0`: không lưu và hiển thị output của bài nộp (đây cũng là mặc định khi có `signature_grader`).
+- Ba test 20, 30 và 50 điểm, tổng 100.
 
-1. Hệ thống tự động include `header.h` vào bài nộp
-2. Đổi tên `main()` của thí sinh (nếu có) thành `main_GUID`
-3. Compile và link với `handler.c`
-4. Chạy và so sánh output
+## Cách judge biên dịch
 
-## Lợi ích
+1. Thêm vào đầu bài nộp dòng `#include "fastbit.h"`.
+2. Thêm `#define main main_<chuỗi ngẫu nhiên>`, nên nếu thí sinh có `main` để thử ở máy, nó không xung đột với `main` của `grader.c` (trừ khi đặt `allow_main: true`).
+3. Biên dịch bài nộp cùng `grader.c` với cờ `-DSIGNATURE_GRADER`.
 
-✅ **Đơn giản hóa** - Thí sinh không cần lo về I/O
+## File entry (`grader.c`)
 
-✅ **Tập trung logic** - Chỉ cần implement thuật toán
+`main` đọc số lần gọi `total` từ input, sinh `total` số 64 bit bằng bộ sinh xorshift cố định, và so `setbits(k)` với `__builtin_popcountll(k)`:
 
-✅ **Dễ test** - Thí sinh có thể test local dễ dàng
-
-✅ **Giống IOI** - Format chuẩn của Olympic Tin học
-
-## Ví dụ thực tế
-
-### Bài 1: Tính giai thừa
-
-**header.h:**
 ```c
-long long factorial(int n);
-```
-
-**handler.c:**
-```c
-#include "header.h"
-#include <stdio.h>
-
 int main() {
-    int n;
-    scanf("%d", &n);
-    printf("%lld\n", factorial(n));
-    return 0;
-}
-```
+    int total;
+    scanf("%d", &total);
 
-**Thí sinh implement:**
-```c
-long long factorial(int n) {
-    if (n <= 1) return 1;
-    return n * factorial(n - 1);
-}
-```
-
-### Bài 2: Tìm kiếm nhị phân
-
-**header.h:**
-```c
-int binary_search(int arr[], int n, int x);
-```
-
-**handler.c:**
-```c
-#include "header.h"
-#include <stdio.h>
-
-int main() {
-    int n, x;
-    scanf("%d %d", &n, &x);
-    
-    int arr[n];
-    for (int i = 0; i < n; i++) {
-        scanf("%d", &arr[i]);
+    for (int i = 0; i < total; ++i) {
+        unsigned long long k = ((unsigned long long) xorshf96() << 32) | xorshf96();
+        if (setbits(k) != __builtin_popcountll(k))
+            return 0;
+        if (i == 0) putchar('C');
     }
-    
-    int pos = binary_search(arr, n, x);
-    printf("%d\n", pos);
-    return 0;
+    puts("orrect.");
 }
 ```
 
-## Ngôn ngữ hỗ trợ
+Chỉ khi mọi lần gọi đều đúng thì output mới là `Correct.`. Test 3 gọi hàm 100 triệu lần, nên `setbits` phải nhanh.
 
-- C
-- C++
-- C11
-- C++11/14/17/20
-- Clang/Clang++
+## Checker (`checker.py`)
 
-## Lưu ý
+```python
+from dmoj.result import CheckerResult
+from dmoj.utils.unicode import utf8text
 
-- Thí sinh có thể có `main()` để test local, sẽ tự động bị vô hiệu hóa
-- Không dùng biến toàn cục trùng tên với handler
-- Include guard trong header.h là bắt buộc
+def check(process_output, judge_output, judge_input, point_value, submission_source, **kwargs):
+    result = utf8text(process_output.rstrip()).split('\n')
+    if len(result) != 1 or result[0].strip() != 'Correct.':
+        return CheckerResult(False, 0)
+    return CheckerResult(True, int(point_value) / (1 if len(submission_source) < 560 else 2))
+```
 
-## Xem thêm
+Output phải đúng một dòng `Correct.`. Nếu mã nguồn ngắn hơn 560 byte thì được trọn điểm test, còn lại được một nửa.
 
-- [Custom Graders Documentation](/problem_format/custom_graders.md)
-- [IOI Problem Format](https://ioinformatics.org/)
+## Chạy thử
+
+Làm theo mục "Chạy thử một ví dụ" trong [README chung](../../README.md), với mã bài `fastbit`, bật **partial** cho bài. Nộp bằng C hoặc C++, ví dụ:
+
+```c
+int setbits(unsigned long long x) {
+    return __builtin_popcountll(x);
+}
+```
+
+Xem thêm: [Chấm theo chữ ký hàm](../../../src/setter/graders.md), [Checker viết bằng Python](../../../src/setter/checkers.md).

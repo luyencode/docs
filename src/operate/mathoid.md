@@ -1,5 +1,9 @@
 # Công thức toán học (MathJax và Mathoid)
 
+> LCOJ hiển thị công thức toán bằng MathJax ngay trong trình duyệt, không cần cài thêm dịch vụ. Trang này giải thích cơ chế, cú pháp viết công thức và vì sao không nên bật Mathoid.
+>
+> ⏱ ~10 phút · 👤 Người vận hành, người ra đề · 🔑 Chỉ cần trình duyệt; SSH + docker nếu phải sửa lỗi file tĩnh
+
 ::: info Bạn có cần trang này không?
 Trang này giải thích **cách LCOJ hiển thị công thức toán** trong đề bài, blog, bình luận và **vì sao bạn không cần cài Mathoid**.
 
@@ -128,7 +132,13 @@ Chỉ làm trên máy dev, sau khi đã nối `MathoidMathParser` vào bộ rend
 
 Các setting còn lại và giá trị mặc định (trong `dmoj/settings.py`): `MATHOID_GZIP = False`, `MATHOID_MML_CACHE = None`, `MATHOID_CSS_CACHE = 'default'`, `MATHOID_DEFAULT_TYPE = 'auto'`, `MATHOID_MML_CACHE_TTL = 86400`.
 
-## Xử lý sự cố
+## Kiểm tra kết quả
+
+1. Mở một đề bài có công thức viết bằng `~...~` hoặc `$$...$$`: công thức hiển thị dạng toán, không còn ký tự `~` thô.
+2. Mở DevTools (tab Network), tải lại trang: file `/static/vnoj/mathjax/3.2.0/es5/tex-chtml.min.js` trả về mã 200.
+3. Trong `dmoj/config/local_settings.py` không có dòng `MATHOID_URL` (giữ mặc định `False`).
+
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|
@@ -137,6 +147,12 @@ Các setting còn lại và giá trị mặc định (trong `dmoj/settings.py`):
 | Hiện nguyên `~a+b~` sau khi đặt `MATHOID_URL` | Engine chuyển sang `mml`, MathJax không được nạp | Bỏ `MATHOID_URL`, rồi `docker compose restart site` |
 | Công thức báo lỗi đỏ | Sai cú pháp LaTeX | Thử công thức trên một trình soạn LaTeX trực tuyến |
 | Đổi cấu hình mà đề bài cũ vẫn hiển thị như trước | HTML đề bài được cache tới 1 ngày | Lưu lại đề bài (cache được xóa khi lưu), hoặc chờ cache hết hạn |
+
+## Tiếp theo
+
+- [Định dạng bài tập](/setter/problem-format): viết đề bài hoàn chỉnh, gồm công thức.
+- [Sơ đồ TikZ (Texoid)](/operate/texoid): dịch vụ render hình TikZ/LaTeX phía server.
+- [Các script hỗ trợ](/operate/scripts): `copy_static` khi file tĩnh MathJax bị 404.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

@@ -1,6 +1,30 @@
 # Management Commands
 
+> Tra cứu mọi lệnh quản trị riêng của LCOJ (tạo người dùng, đăng ký máy chấm, nhập bài, xuất dữ liệu kỳ thi, sinh lời giải...) cùng đúng tham số của từng lệnh.
+>
+> 👤 Người vận hành · 🔑 SSH vào máy chủ và quyền chạy `docker compose` trong thư mục `dmoj/`
+
 LCOJ có sẵn một bộ lệnh quản trị (Django management command) cho các việc như tạo người dùng và máy chấm, nhập bài, xuất dữ liệu kỳ thi, sinh lời giải... Trang này liệt kê **toàn bộ** lệnh tùy biến trong `judge/management/commands/` của lcoj-site, kèm đúng các tham số mà từng lệnh nhận.
+
+## Khi nào cần trang này
+
+Dùng trang này khi bạn cần làm một việc quản trị mà giao diện web không làm được hoặc làm chậm (ví dụ tạo hàng loạt tài khoản). *Management command* là một lệnh Django chạy từ dòng lệnh bên trong container `site`; xem thêm [Thuật ngữ](/start/glossary).
+
+- Mọi lệnh đều chạy theo cùng một cách, xem [Cách chạy lệnh](#cach-chay-lenh).
+- Tìm lệnh theo nhóm trong bảng [Tổng quan](#tong-quan), hoặc theo việc cần làm:
+
+| Tôi muốn... | Lệnh |
+|---|---|
+| Tạo một tài khoản | [`adduser`](#adduser) |
+| Tạo tài khoản cho cả lớp từ file CSV | [`batchadduser`](#batchadduser) |
+| Gộp hai tài khoản của cùng một người | [`move_user_content`](#move-user-content) |
+| Cấp API token cho người dùng | [`generate_api_token`](#generate-api-token) |
+| Đăng ký một máy chấm mới | [`addjudge`](#addjudge) |
+| Nhập bài từ Codeforces Polygon | [`import_polygon_package`](#import-polygon-package) |
+| Tải mã nguồn của thí sinh sau kỳ thi | [`export_contest_submissions`](#export-contest-submissions) |
+| Kiểm tra đạo code trong kỳ thi | [`runmoss`](#runmoss) |
+| Sinh lời giải tự động | [`generate_editorials`](#generate-editorials) |
+| Xem tham số của một lệnh bất kỳ | `./scripts/manage.py help <command>` ([chi tiết](#xem-huong-dan-cua-lenh)) |
 
 ## Cách chạy lệnh
 
@@ -263,7 +287,11 @@ Với mọi bài đang cho phép ngôn ngữ `source`, cho phép thêm ngôn ng�
 ./scripts/manage.py copy_language CPP17 CPP20
 ```
 
-Cả hai tham số là **mã ngôn ngữ**, không phải mã bài. Lưu ý danh sách bài cho phép `target` sẽ bị thay bằng danh sách của `source`.
+Cả hai tham số là **mã ngôn ngữ**, không phải mã bài.
+
+::: danger Ghi đè danh sách bài của `target`
+Danh sách bài cho phép `target` sẽ bị **thay** bằng danh sách của `source`: bài nào đang cho phép `target` nhưng không cho phép `source` sẽ mất `target`. Hãy sao lưu cơ sở dữ liệu trước khi chạy.
+:::
 
 ### render_pdf
 
@@ -613,3 +641,10 @@ Xem tham số của một lệnh:
 # ví dụ
 ./scripts/manage.py help adduser
 ```
+
+## Tiếp theo
+
+- [Các script hỗ trợ](/operate/scripts): các script khác trong `dmoj/scripts/`, gồm `manage.py` và `enter_site`.
+- [Cài đặt máy chấm](/operate/judge-setup): dùng `addjudge` khi thêm máy chấm.
+- [Quản lý người dùng](/admin/users): làm việc với tài khoản qua giao diện web.
+- [API](/reference/api): dùng token tạo bởi `generate_api_token`.

@@ -1,5 +1,15 @@
 # Status codes
 
+> Look up every submission processing status (`QU`, `G`, `D`, ...) and result code (`AC`, `WA`, `TLE`, ...) on LCOJ, with what each means and how to fix it.
+>
+> ⏱ ~10 min read · 👤 Everyone
+
+## When you need this page
+
+- You see an unfamiliar code on a submission page (for example `IR` or `SC`) and want to know what it means.
+- You want to understand why a whole submission is marked `TLE` even though only one test was slow.
+- You are writing a tool that reads submission data (for example via the [API](/en/reference/api)) and need the full list of codes.
+
 Every submission on LCOJ carries two pieces of information: a **processing status** (which stage the submission is at) and a **result** (the verdict: whether it passed, and if not, how it failed). This page lists every code, exactly as defined in the site's source (`judge/models/submission.py`) and the judge.
 
 For how to submit and read the submission page, see [Submitting and judging](/en/learn/submissions).
@@ -140,3 +150,10 @@ The test was **skipped** without running and shows as `—` on the submission pa
 ### AB: Aborted
 
 The submission was cancelled before grading finished, either because you clicked **Abort** while it was being graded or because an administrator cancelled it. Aborted submissions get 0 points.
+
+## Next steps
+
+- [Submitting and judging](/en/learn/submissions): how to submit and read the submission page.
+- [Supported languages](/en/reference/languages): pick the right language to avoid `CE`.
+- [Checkers](/en/setter/checkers): for problem setters, how a checker decides between `AC`, `PAC`, and `WA`.
+- [Glossary](/en/start/glossary): terms such as judge, checker, and test case.

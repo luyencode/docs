@@ -1,6 +1,18 @@
 # Architecture
 
-This page is for operators who want to understand how LCOJ runs before installing, debugging, or scaling it. Everything here comes from the [lcoj-docker](https://github.com/luyencode/lcoj-docker) repository: `dmoj/docker-compose.yml`, the `Dockerfile`s in `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf`, and `dmoj/config/`.
+> LCOJ is 7 Docker Compose services (nginx, site, celery, bridged, wsevent, db, redis) plus judges that run separately. This page explains what each service does, which networks/ports they use to talk to each other, and where data lives.
+>
+> ⏱ ~15 min read · 👤 Operators · 🔑 Nothing to read it; tuning uWSGI needs SSH + docker on the server
+
+## When you need this page
+
+- **Before installing**: to know what you are about to run and which ports to open.
+- **When debugging**: to guess which service is at fault (for example, a 502 means nginx cannot reach `site`).
+- **When scaling**: to tune uWSGI workers, add judges, or plan backups.
+
+If a term is unfamiliar (container, volume, reverse proxy, judge...), see the [Glossary](/en/start/glossary).
+
+Everything here comes from the [lcoj-docker](https://github.com/luyencode/lcoj-docker) repository: `dmoj/docker-compose.yml`, the `Dockerfile`s in `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf`, and `dmoj/config/`.
 
 LCOJ is based on [DMOJ](https://github.com/DMOJ/online-judge) and [VNOJ](https://github.com/VNOI-Admin/OJ). The whole website runs under Docker Compose; the judges run separately and connect to the system on port 9999.
 
@@ -210,6 +222,13 @@ docker compose logs --tail=100 site
 
 Common causes are a syntax error in `local_settings.py` or a missing environment variable. See [Environment variables](/en/operate/environment).
 :::
+
+## Next steps
+
+- [Installation](/en/operate/installation): bring up all of the services above step by step.
+- [Environment variables](/en/operate/environment): configure the `redis`, `wsevent`, `bridged` addresses and `NGINX_PORT`.
+- [Judge setup](/en/operate/judge-setup): connect judges to port 9999.
+- [Day-to-day operations](/en/operate/operations): back up and monitor the services.
 
 ::: tip Need help?
 - Open an issue on [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

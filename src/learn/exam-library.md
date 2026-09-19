@@ -1,5 +1,9 @@
 # Thư viện đề thi
 
+> Tìm và đọc đề thi chính thức (PDF) ngay trên trình duyệt, vào làm bài nếu đề có kỳ thi; và cách quản trị viên đăng, hẹn giờ, lưu trữ đề.
+>
+> ⏱ ~5 phút (người đọc) · ~20 phút (quản trị viên) · 👤 Học sinh, giáo viên, quản trị viên · 🔑 Đọc: không cần đăng nhập; quản lý: tài khoản staff có quyền trên "Tài nguyên"
+
 Thư viện đề thi (`/library/`) là nơi LCOJ lưu các đề thi chính thức dưới dạng PDF: đề học sinh giỏi, Tin học trẻ, đề vào 10 chuyên Tin… Người đọc lật từng trang đề ngay trên trình duyệt bằng trình xem dạng sách (flipbook). Nếu đề đã gắn với một kỳ thi, người đọc bấm một nút là vào làm bài và được chấm tự động.
 
 Trang này gồm hai phần:
@@ -218,7 +222,7 @@ Người soạn đề thường chỉ cần quyền với đề, cùng `judge.vi
 #### Các bước
 
 1. Vào `/admin/judge/examstatement/` và bấm nút thêm mới.
-2. Nhập **Tiêu đề** (tối đa 100 ký tự). Ô **Slug** tự điền theo tiêu đề (đã bỏ dấu).
+2. Nhập **Tiêu đề** (tối đa 100 ký tự). Ô **Slug** (chuỗi định danh ngắn, không dấu, dùng làm địa chỉ trang) tự điền theo tiêu đề (đã bỏ dấu).
 3. Sửa lại **Slug** nếu cần. Slug phải là duy nhất, tối đa 50 ký tự, và sẽ thành địa chỉ trang đề `/library/<slug>`.
 4. Chọn **Nhóm** (nhóm đề, bắt buộc).
 5. Chọn **Tỉnh/thành phố** nếu là đề của một địa phương, không thì để trống.
@@ -472,3 +476,9 @@ Các thư viện này **không** nằm trong repo lcoj-site và không lấy t�
 
 - [Cài đặt LCOJ](/operate/installation)
 - [Vận hành LCOJ](/operate/operations)
+
+## Tiếp theo
+
+- [Nộp bài và chấm bài](/learn/submissions): cách nộp lời giải khi vào làm bài từ nút "Làm bài ngay".
+- [Tham gia kỳ thi](/learn/contests): cách kỳ thi luyện tập hoạt động.
+- [Thiết lập kỳ thi](/organize/contest-setup): dành cho quản trị viên muốn tạo kỳ thi để gắn với đề.

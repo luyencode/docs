@@ -1,5 +1,13 @@
 # Problem examples
 
+> Seven complete sample problems, one per grading style (standard, batched, generator, custom grader, interactive, function signature), each with a real `init.yml` you can copy and run.
+>
+> ⏱ ~10 min · 👤 Problem setters · 🔑 Permission to create problems and write access to the problem data directory
+
+## When you need this page
+
+Use this page when you want a working problem of the kind you plan to set, so you can adapt it instead of writing `init.yml` from scratch. Each key is explained in [Problem format](/en/setter/problem-format).
+
 The LCOJ documentation repository ([luyencode/docs](https://github.com/luyencode/docs)) includes complete, working example problems in its [`problem_examples`](https://github.com/luyencode/docs/tree/master/problem_examples) folder. Each one shows a different way of grading, with a real `init.yml` and all the files it needs. The examples are adapted from the [DMOJ problem examples](https://github.com/DMOJ/docs/tree/master/problem_examples).
 
 ## List of examples
@@ -154,3 +162,9 @@ See [Function signature grading](/en/setter/graders#function-signature-grading-s
 - [DMOJ problem examples](https://github.com/DMOJ/docs/tree/master/problem_examples), the original source of these examples
 - [testlib](https://github.com/VNOI-Admin/testlib), the version installed on LCOJ judges
 - [Codeforces Polygon](https://polygon.codeforces.com/), which LCOJ can import from (see [Managing problems](/en/setter/managing-problems))
+
+## Next steps
+
+- [Managing problems](/en/setter/managing-problems): create problems and upload tests in the web interface.
+- [Problem format](/en/setter/problem-format): reference for every key in `init.yml`.
+- [Graders](/en/setter/graders): choose the grading style that fits your problem.

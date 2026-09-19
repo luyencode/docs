@@ -1,8 +1,18 @@
 # Contest Data Download
 
+> Download a ZIP file with the source code of contestants' submissions after a contest ends.
+>
+> ⏱ ~5 min · 👤 Contest organisers, operators · 🔑 `judge.edit_own_contest` (author/curator) or `judge.edit_all_contest`
+
 After a contest ends, its organizers can download **the source code of contestants' submissions** as a ZIP file, for example to archive it, re-judge it offline or check for cheating.
 
-## Who can use it?
+## Before you start
+
+- [ ] You are signed in with an account that can edit the contest (see the table below).
+- [ ] The contest has ended.
+- [ ] An operator has enabled the feature (see [Configuration](#configuration-for-operators)).
+
+### Who can use it?
 
 You must be logged in and able to edit the contest, meaning one of:
 
@@ -39,13 +49,18 @@ flowchart LR
 In the current code, **Filter by result** filters the contest submission table, which has no `result` field, so the task may fail when you use it. If the task fails, leave the result filter empty.
 :::
 
+## Verify
+
+- The downloaded `<contest key>-data.zip` opens and has one folder per official participant (see [What's in the ZIP](#whats-in-the-zip)).
+- If someone is missing: virtual participants and spectators are not included.
+
 ## Rate limit
 
 Each **contest** (not each user) can prepare new data once per `DMOJ_CONTEST_DATA_DOWNLOAD_RATELIMIT` (1 day by default). You can prepare again sooner if the previous ZIP file is no longer on disk. You cannot start a new task while one is still running.
 
 While you wait, the page still lets you download the previously prepared file.
 
-## What's in the ZIP
+## What's in the ZIP {#whats-in-the-zip}
 
 The archive only contains the **source code** of submissions from **official** participants (no virtual participants or spectators). There is no CSV, scoreboard or score data.
 
@@ -69,7 +84,7 @@ The archive only contains the **source code** of submissions from **official** p
 | File extension | The extension of the chosen language (e.g. `cpp`, `py`, `java`) |
 | File-upload languages | For languages that submit a file, LCOJ puts the original uploaded file in the ZIP |
 
-## Configuration (for operators)
+## Configuration (for operators) {#configuration-for-operators}
 
 The settings live in the site's `dmoj/local_settings.py` (with Docker, `dmoj/repo/dmoj/local_settings.py`, copied from `dmoj/config/local_settings.py` by `./scripts/initialize`). They are **not** read from environment variables, so putting them in `environment/site.env` has no effect.
 
@@ -139,3 +154,9 @@ Example cron entry that runs every 4 hours:
 - The ZIP contains contestants' source code. Do not share it publicly without their consent.
 - The file can only be downloaded through the Django URL (which checks permissions); the nginx location is `internal`, so it cannot be accessed directly.
 - Users download their own personal data with a separate feature, see [User Data Download](/en/operate/user-data-download).
+
+## Next steps
+
+- [Contest setup](/en/organize/contest-setup): the other contest settings.
+- [Contest formats](/en/organize/contest-formats): how scoring and ranking work.
+- [User data download](/en/operate/user-data-download): the personal data download feature.

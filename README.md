@@ -16,25 +16,9 @@ npm run check:locales  # kiểm tra mỗi trang có đủ bản tiếng Việt v
 npm run preview  # xem bản build
 ```
 
-## Cấu trúc
+## Đóng góp
 
-```
-src/
-├── .vitepress/config.mts     # cấu hình chung
-├── .vitepress/locales/       # menu, sidebar cho từng ngôn ngữ (vi, en)
-├── public/                   # ảnh, logo, CNAME
-├── index.md                  # trang chủ tiếng Việt
-├── features/ site/ judge/ problem_format/ about/
-└── en/                       # bản tiếng Anh, cùng cấu trúc với bản tiếng Việt
-```
-
-**Mỗi trang phải có đủ hai ngôn ngữ.** Thêm trang mới:
-
-1. Tạo `src/<đường-dẫn>.md` (tiếng Việt) và `src/en/<đường-dẫn>.md` (tiếng Anh).
-2. Thêm link vào sidebar trong cả `src/.vitepress/locales/vi.mts` và `en.mts`.
-3. Chạy `npm run check:locales`. CI sẽ báo lỗi nếu một trang chỉ có một ngôn ngữ.
-
-Tài liệu không dùng ảnh chụp màn hình. Hãy dùng sơ đồ Mermaid (khối ` ```mermaid `), bảng và hộp lưu ý (`::: tip`, `::: warning`).
+Mọi trang có đủ hai ngôn ngữ (tiếng Việt ở `src/`, tiếng Anh ở `src/en/`), sidebar của cả hai nằm ở `src/.vitepress/sidebar.mts`. Cách thêm trang, quy tắc viết và kiểm tra: xem [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Triển khai
 

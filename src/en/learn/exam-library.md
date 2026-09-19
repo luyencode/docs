@@ -1,5 +1,9 @@
 # Exam library
 
+> Find and read official exam papers (PDF) right in the browser, and jump into a contest when the exam has one; plus how admins publish, schedule and store exams.
+>
+> ⏱ ~5 min (readers) · ~20 min (admins) · 👤 Students, teachers, admins · 🔑 Reading: no sign-in needed; managing: a staff account with permissions on "Resources"
+
 The exam library (`/library/`) is where LCOJ keeps official exam papers as PDFs: provincial and national olympiads, the Tin học trẻ contest, entrance exams for specialised computer science classes, and more. Readers flip through each paper in the browser with a book-style viewer (the flipbook). If an exam is linked to a contest, one click takes readers to that contest, where their submissions are graded automatically.
 
 This page has two parts:
@@ -218,7 +222,7 @@ Exam editors usually only need the exam permissions, plus `judge.view_examcatego
 #### Steps
 
 1. Go to `/admin/judge/examstatement/` and click the add button.
-2. Enter the **Title** (up to 100 characters). **Slug** fills itself in from the title, without diacritics.
+2. Enter the **Title** (up to 100 characters). **Slug** (a short identifier without diacritics, used as the page address) fills itself in from the title, without diacritics.
 3. Adjust the **Slug** if needed. It must be unique and at most 50 characters, and it becomes the exam page address `/library/<slug>`.
 4. Pick a **Category** (required).
 5. Pick a **Province** if the exam belongs to one. Otherwise leave it empty.
@@ -472,3 +476,9 @@ These libraries are **not** part of the lcoj-site repository and are not loaded 
 
 - [Installing LCOJ](/en/operate/installation)
 - [Operating LCOJ](/en/operate/operations)
+
+## Next steps
+
+- [Submitting and judging](/en/learn/submissions): how to submit once "Take the test now" takes you to the contest.
+- [Taking part in contests](/en/learn/contests): how practice contests work.
+- [Contest setup](/en/organize/contest-setup): for admins who want to create a contest to link to an exam.
