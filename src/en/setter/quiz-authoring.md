@@ -126,7 +126,7 @@ You see questions you authored or curate, plus every question marked **Public** 
 
 | Field | Required | Meaning |
 |---|---|---|
-| **Code** | Yes | Unique site-wide, only `a-z` and `0-9`, up to 32 characters. No underscores (the Vietnamese error message saying `^[a-z0-9_]+$` is wrong) |
+| **Code** | Yes | Unique site-wide, only `a-z` and `0-9`, up to 32 characters. No underscores, even though the Vietnamese error message shows `^[a-z0-9_]+$` |
 | **Question Type** | Yes | Multiple Choice (MC), Multiple Answer (MA), True/False (TF), Short Answer (SA) |
 | **Title** | Yes | Up to 200 characters, only used in the bank |
 | **Question Text** | Yes | Markdown with math |

@@ -18,7 +18,7 @@ Texoid là dịch vụ của DMOJ, biên dịch tài liệu LaTeX (ví dụ hìn
 |---|---|
 | `TEXOID_URL` trong `dmoj/config/local_settings.py` | **Không khai báo** (tắt) |
 | Dịch vụ Texoid trong `docker-compose.yml` | **Không có** |
-| Code gọi Texoid khi render Markdown | **Không có**: `judge/jinja2/markdown/__init__.py` chỉ import `TexoidRenderer` mà không gọi |
+| Render TikZ trong đề bài | **Chưa hỗ trợ**: bộ render Markdown chưa gọi Texoid |
 
 ## Điều gì xảy ra nếu viết TikZ trong đề?
 
@@ -51,7 +51,7 @@ SVG giữ nét sắc khi phóng to và thường nhẹ hơn PNG. Nên dùng SVG 
 
 ## Dành cho lập trình viên: chạy Texoid (tùy chọn)
 
-Chỉ cần phần này nếu bạn định **nối lại** `TexoidRenderer` vào bộ render Markdown. Làm trên máy dev, không làm trên production.
+Chỉ cần phần này nếu bạn định **nối lại** `TexoidRenderer` vào bộ render Markdown (`judge/jinja2/markdown/__init__.py` trong `dmoj/repo`). Làm trên máy dev, không làm trên production.
 
 ### Trước khi bắt đầu
 
@@ -61,7 +61,7 @@ Chỉ cần phần này nếu bạn định **nối lại** `TexoidRenderer` và
 
 ### Bước 1: Tạo image
 
-Texoid có trên PyPI (`pip install texoid`). Chế độ không dùng Docker cần `latex`, `dvisvgm` và `convert` của ImageMagick. Ví dụ `dmoj/addons/texoid/Dockerfile` (mẫu, chưa được kiểm thử trên LCOJ):
+Texoid có trên PyPI (`pip install texoid`). Chế độ không dùng Docker cần `latex`, `dvisvgm` và `convert` của ImageMagick. Ví dụ `dmoj/addons/texoid/Dockerfile` (mẫu tham khảo, hãy thử trên máy dev trước):
 
 ```dockerfile
 FROM python:3.11-slim
@@ -102,7 +102,7 @@ TEXOID_CACHE_ROOT = '/cache/texoid/'   # thư mục site ghi được
 TEXOID_CACHE_URL = '/texoid/'          # URL public của thư mục trên (cần thêm location nginx)
 ```
 
-Mặc định trong `dmoj/settings.py`: `TEXOID_GZIP = False`, `TEXOID_META_CACHE = 'default'`, `TEXOID_META_CACHE_TTL = 86400`. Lưu ý code kiểm tra `hasattr(settings, 'TEXOID_URL')`, nên muốn tắt thì phải **xóa hẳn** dòng `TEXOID_URL`, không phải đặt thành `None`.
+Mặc định trong `dmoj/settings.py`: `TEXOID_GZIP = False`, `TEXOID_META_CACHE = 'default'`, `TEXOID_META_CACHE_TTL = 86400`. Muốn tắt Texoid, hãy **xóa hẳn** dòng `TEXOID_URL`: đặt thành `None` vẫn bị coi là đã bật.
 
 ### Bước 4: Khởi động
 
@@ -129,7 +129,7 @@ docker compose restart site
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
 | Khối `$$tikz ... $$` hiện lỗi hoặc văn bản thô | LCOJ không render TikZ | Chuyển hình thành ảnh SVG/PNG |
-| Đã đặt `TEXOID_URL` nhưng không có gì thay đổi | Texoid chưa được nối vào bộ render | Đúng với code hiện tại, không phải lỗi cấu hình |
+| Đã đặt `TEXOID_URL` nhưng không có gì thay đổi | Texoid chưa được nối vào bộ render | LCOJ hiện chưa hỗ trợ; dùng ảnh SVG/PNG thay thế |
 | `curl` tới Texoid báo `Connection refused` | Texoid chỉ nghe `localhost` | Thêm `--address=0.0.0.0` |
 | Texoid trả `"success": false` | Lỗi LaTeX hoặc thiếu gói TeX | Đọc trường `error`, cài thêm gói TeX cần thiết |
 

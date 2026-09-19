@@ -469,7 +469,7 @@ These libraries are **not** part of the lcoj-site repository and are not loaded 
 | `/pdf/<uuid>.pdf` returns 404 | The file isn't in `dmoj/media/pdf/`, or nginx lacks `location /pdf`. Check the `./media/:/media/` mount on both `site` and `nginx`. |
 | The console reports a failed load of `pdf.worker.min.js` | The worker is loaded from the same folder as `pdfjs-init.js`. Make sure `pdf.worker.min.js` was copied to `/static/lcoj/pdfjs/`. |
 | The flipbook is blank or very slow for long files | Every page is rendered to an image in the browser, one at a time. Long or image-heavy PDFs use a lot of memory, especially on phones. Optimise the PDF (lower image resolution, drop unneeded pages). |
-| CORS errors in the console | These only happen when the PDF is on another domain. The default setup (PDF under `/pdf/` on the same domain) avoids them. Check `MEDIA_URL`/`SITE_FULL_URL` and whether a front proxy (Cloudflare) redirects to another domain. |
+| CORS errors in the console | These only happen when the PDF is on another domain. The default setup (PDF under `/pdf/` on the same domain) avoids them. Check `MEDIA_URL`/`SITE_FULL_URL` and whether a reverse proxy in front redirects to another domain. |
 | Upload fails with 413 | The request exceeded nginx's `client_max_body_size 64M`. This can't happen with files ≤ 5 MB. |
 
 #### Next steps

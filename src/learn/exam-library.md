@@ -469,7 +469,7 @@ Các thư viện này **không** nằm trong repo lcoj-site và không lấy t�
 | `/pdf/<uuid>.pdf` trả về 404 | Tệp không có trong `dmoj/media/pdf/`, hoặc nginx thiếu `location /pdf`. Kiểm tra mount `./media/:/media/` của cả `site` và `nginx`. |
 | Console báo lỗi tải `pdf.worker.min.js` | Worker được tải từ cùng thư mục với `pdfjs-init.js`. Đảm bảo `pdf.worker.min.js` đã được chép ra `/static/lcoj/pdfjs/`. |
 | Flipbook trắng hoặc rất chậm với tệp nhiều trang | Mọi trang được vẽ thành ảnh ngay trên trình duyệt, từng trang một. Tệp nhiều trang hoặc nhiều ảnh nặng sẽ tốn bộ nhớ, nhất là trên điện thoại. Hãy tối ưu PDF (giảm độ phân giải ảnh, bỏ trang thừa). |
-| Lỗi CORS trong Console | Chỉ xảy ra khi PDF nằm ở tên miền khác. Với cấu hình mặc định (PDF ở `/pdf/` cùng tên miền) thì không gặp. Kiểm tra `MEDIA_URL`/`SITE_FULL_URL` và proxy phía trước (Cloudflare) có chuyển hướng sang tên miền khác không. |
+| Lỗi CORS trong Console | Chỉ xảy ra khi PDF nằm ở tên miền khác. Với cấu hình mặc định (PDF ở `/pdf/` cùng tên miền) thì không gặp. Kiểm tra `MEDIA_URL`/`SITE_FULL_URL` và reverse proxy phía trước có chuyển hướng sang tên miền khác không. |
 | Tải lên báo lỗi 413 | Vượt `client_max_body_size 64M` của nginx. Không xảy ra với tệp ≤ 5 MB. |
 
 #### Tiếp theo

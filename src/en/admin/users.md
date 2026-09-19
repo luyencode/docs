@@ -31,7 +31,7 @@ flowchart LR
 | Superuser | Everything, no individual permissions needed | `/admin/auth/user/` or `adduser --superuser` |
 
 ::: info OAuth-only sign-up
-LCOJ sets `OAUTH_ONLY = True` in `dmoj/config/local_settings.py`: the password sign-up form is hidden and new users create accounts with Google/Facebook/GitHub. However, **the username + password login form still works**, so accounts you create with a command (which have a password) can log in normally. This is how you hand out accounts for a class or an on-site contest.
+The default lcoj-docker config sets `OAUTH_ONLY = True` in `dmoj/config/local_settings.py`: the password sign-up form is hidden and new users create accounts with Google/Facebook/GitHub. However, **the username + password login form still works**, so accounts you create with a command (which have a password) can log in normally. This is how you hand out accounts for a class or an on-site contest.
 :::
 
 ## Finding and inspecting a user
@@ -151,7 +151,7 @@ What each permission allows, and suggested role groups: see [Permissions](/en/ad
 
 ### Requiring 2FA for staff
 
-`DMOJ_REQUIRE_STAFF_2FA` (default `True` in `dmoj/settings.py`, unchanged in LCOJ) does **not force** staff to enable 2FA. It only prevents staff from **disabling** their last 2FA method: the **Disable** button on the profile edit page does nothing, and deleting the last WebAuthn key is rejected with `Staff may not disable 2FA`.
+`DMOJ_REQUIRE_STAFF_2FA` (default `True`) does **not force** staff to enable 2FA. It only prevents staff from **disabling** their last 2FA method: the **Disable** button on the profile edit page does nothing, and deleting the last WebAuthn key is rejected with `Staff may not disable 2FA`.
 
 So the right order is: ask the person to enable 2FA (TOTP or WebAuthn) on their profile edit page **first**, then check staff status.
 
@@ -195,7 +195,7 @@ Filling in **Ban reason** at `/admin/judge/profile/` does **not** ban anyone: LC
 
 ### Automatic bans for contest cheating
 
-There is a built-in mechanism that bans users after several contest disqualifications, but **it is off in LCOJ** (`VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS = False`). When enabled:
+There is a built-in mechanism that bans users after several contest disqualifications, but **it is off by default** (`VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS = False`). When enabled:
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -240,13 +240,13 @@ Behavior in LCOJ:
 Submitting, commenting, voting, joining contests, changing settings… while impersonating are all recorded for **the impersonated user**, even if they are in the middle of a contest. Look, don't touch. Always click **Stop impersonating** when you are done.
 :::
 
-::: warning Who can impersonate, and logging: the real behavior differs from the intent
-`dmoj/settings.py` sets `IMPERSONATE_REQUIRE_SUPERUSER = True` and `IMPERSONATE_DISABLE_LOGGING = True`, but django-impersonate 1.9.x only reads its configuration from an `IMPERSONATE = {...}` dict, so those two lines **have no effect**. As a result:
+::: warning Who can impersonate, and where to find the log
+With the default configuration:
 
 - The **Impersonate** tab is only shown to superusers, but **any staff member** can impersonate (non-superuser) users by going directly to `/impersonate/<id>/`.
-- Logging **is on**: see `/admin/impersonate/impersonationlog/` (who impersonated whom, start and end times).
+- Every impersonation session is logged: see `/admin/impersonate/impersonationlog/` (who impersonated whom, start and end times).
 
-To restrict impersonation to superusers, an operator adds this to `dmoj/config/local_settings.py`:
+To restrict impersonation to superusers, add this to `dmoj/config/local_settings.py`:
 
 ```python
 IMPERSONATE = {
@@ -263,12 +263,12 @@ LCOJ ships with an automatic login-by-IP mechanism, meant for contest rooms wher
 
 - The **IP-based authentication** field (`ip_auth`) on the profile: each IP can be assigned to only one user.
 - The `judge.ip_auth.IPBasedAuthBackend` backend is already in `AUTHENTICATION_BACKENDS`.
-- **But** `judge.middleware.IPBasedAuthMiddleware` is **not** in `MIDDLEWARE`, so filling in `ip_auth` currently has no effect.
+- The `judge.middleware.IPBasedAuthMiddleware` middleware is **not** enabled in `MIDDLEWARE` by default; until you enable it, filling in `ip_auth` has no effect.
 
 When the middleware is enabled, it reads the IP from `request.META[IP_BASED_AUTHENTICATION_HEADER]` (default `REMOTE_ADDR`) on every request; if the IP matches an active profile's `ip_auth`, it logs the browser in **as that user**, even if another account is currently logged in.
 
 ::: warning Plan carefully before enabling
-In LCOJ, requests go through Cloudflare Tunnel and nginx, so `REMOTE_ADDR` is the proxy's IP, not the contestant's machine. To use this, an operator must point `IP_BASED_AUTHENTICATION_HEADER` at a header carrying the real client IP and add the middleware after `AuthenticationMiddleware`. Only enable it on a dedicated instance for the contest room.
+The site runs behind a reverse proxy (nginx in lcoj-docker), so `REMOTE_ADDR` is the proxy's IP, not the contestant's machine. To use this, you must point `IP_BASED_AUTHENTICATION_HEADER` at a header carrying the real client IP and add the middleware after `AuthenticationMiddleware`. Only enable it on a dedicated instance for the contest room.
 :::
 
 ## Moving content between two accounts

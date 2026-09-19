@@ -46,7 +46,7 @@ flowchart LR
 4. When it is done, click **Download prepared data** (`/contest/<contest key>/data/download/`). The file is named `<contest key>-data.zip`.
 
 ::: warning Result filter
-In the current code, **Filter by result** filters the contest submission table, which has no `result` field, so the task may fail when you use it. If the task fails, leave the result filter empty.
+Using **Filter by result** can currently make the task fail. If the task fails, leave the result filter empty.
 :::
 
 ## Verify

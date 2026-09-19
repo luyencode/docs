@@ -159,6 +159,5 @@ Giải thích chi tiết từng mã kết quả có tại [Mã trạng thái](/r
 
 ## Tiếp theo
 
-- [Tham gia kỳ thi](/learn/contests): nộp bài trong kỳ thi, đọc bảng xếp hạng và thi ảo.
 - [Tham gia kỳ thi](/learn/contests): cách nộp bài, pretest và bảng xếp hạng trong kỳ thi.
 - [Câu hỏi thường gặp](/start/faq): giải đáp nhanh các thắc mắc khác.

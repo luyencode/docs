@@ -65,7 +65,7 @@ Với mỗi model, Django tự tạo bốn quyền: `add_<model>`, `change_<mode
 
 ## Danh sách quyền tùy chỉnh
 
-Các bảng dưới đây được đối chiếu với `Meta.permissions` trong mã nguồn (`judge/models/`, `quiz/models.py`) và với những chỗ mã nguồn kiểm tra từng quyền.
+Các quyền được nhóm theo đối tượng mà chúng áp dụng. Cột **Nhãn** là tên hiển thị trong trang quản trị.
 
 ### Bài tập (`judge` · Problem)
 
@@ -111,7 +111,7 @@ Các bảng dưới đây được đối chiếu với `Meta.permissions` trong
 | `edit_own_contest` | Edit own contests | Sửa những kỳ thi mình là tác giả hoặc curator; cần để mở trang sửa kỳ thi trong admin. |
 | `edit_all_contest` | Edit all contests | Xem và sửa mọi kỳ thi. |
 | `clone_contest` | Clone contest | Nhân bản kỳ thi mà mình sửa được. |
-| `moss_contest` | MOSS contest | Chạy MOSS (kiểm tra đạo code) cho kỳ thi. Nút MOSS chỉ hiện khi đã cấu hình `MOSS_API_KEY`. |
+| `moss_contest` | MOSS contest | Chạy MOSS (kiểm tra đạo code) cho kỳ thi. Tab MOSS luôn hiện với người có quyền này, nhưng chỉ chạy được khi đã đặt `MOSS_API_KEY` hợp lệ; nếu chưa có khóa, lệnh chạy MOSS sẽ thất bại. |
 | `contest_rating` | Rate contests | Bật tính rating cho kỳ thi (các trường `is_rated`, `rate_all`, `rate_exclude`) và chạy tính lại rating trong admin. |
 | `contest_access_code` | Contest access codes | Đặt mã truy cập (`access_code`) cho kỳ thi. |
 | `create_private_contest` | Create private contests | Đặt kỳ thi riêng tư hoặc riêng của tổ chức (các trường `is_private`, `private_contestants`, `is_organization_private`, `organization`); tạo kỳ thi trong tổ chức mình quản trị. |
@@ -127,18 +127,18 @@ Cách chọn thể thức và cấu hình kỳ thi: xem [Thể thức kỳ thi](
 |---|---|---|
 | `organization_admin` | Administer organizations | Trong admin: sửa danh sách quản trị viên, `is_open`, `slots`, tín dụng chấm (`paid_credit`, hạn mức miễn phí hằng tháng) của tổ chức. |
 | `edit_all_organization` | Edit all organizations | Sửa mọi tổ chức (không cần là quản trị viên tổ chức); tự tham gia cả các tổ chức đóng hoặc không công khai trong danh sách. |
-| `change_open_organization` | Change is_open field | Được khai báo nhưng hiện **không** được kiểm tra ở đâu trong mã nguồn; trường `is_open` trong admin do `organization_admin` quyết định. |
-| `spam_organization` | Create organization without limit | Dự định để tạo tổ chức vượt giới hạn `VNOJ_ORGANIZATION_ADMIN_LIMIT` (mặc định 3 tổ chức mà một người làm quản trị). Xem cảnh báo bên dưới. |
+| `change_open_organization` | Change is_open field | Không có tác dụng riêng: trường `is_open` trong admin do quyền `organization_admin` điều khiển, nên hãy cấp `organization_admin` thay cho quyền này. |
+| `spam_organization` | Create organization without limit | Tạo tổ chức vượt giới hạn `VNOJ_ORGANIZATION_ADMIN_LIMIT` (mặc định 3 tổ chức mà một người làm quản trị). Xem lưu ý bên dưới. |
 
-::: warning `spam_organization` hiện không có tác dụng với người dùng thường
-Mã nguồn kiểm tra `has_perm('spam_organization')` mà thiếu tiền tố `judge.`, nên với Django kiểm tra này chỉ đúng cho superuser. Cấp quyền này cho người dùng thường sẽ không giúp họ vượt giới hạn tạo tổ chức.
+::: warning `spam_organization` chỉ có tác dụng với superuser
+Hiện chỉ superuser mới vượt được giới hạn tạo tổ chức. Cấp quyền này cho người dùng thường sẽ không giúp họ vượt giới hạn.
 :::
 
 ### Người dùng (`judge` · Profile)
 
 | Codename | Nhãn | Cho phép |
 |---|---|---|
-| `test_site` | Shows in-progress development stuff | Cờ "Bật các tính năng đang thử nghiệm". Mọi người dùng đều tự bật/tắt được trong trang sửa hồ sơ; hiện không có tính năng nào trong mã nguồn được khóa sau quyền này. |
+| `test_site` | Shows in-progress development stuff | Cờ "Bật các tính năng đang thử nghiệm". Mọi người dùng đều tự bật/tắt được trong trang sửa hồ sơ; hiện chưa có tính năng nào dùng cờ này. |
 | `totp` | Edit TOTP settings | Xem và sửa khóa TOTP, mã dự phòng (xác thực hai lớp) của người dùng trong admin. |
 | `can_upload_image` | Can upload image directly to server via martor | Tải ảnh lên máy chủ từ trình soạn thảo Markdown. Người dùng staff luôn được phép. |
 | `high_problem_timelimit` | Can set high problem timelimit | Đặt giới hạn thời gian của bài vượt `VNOJ_PROBLEM_TIMELIMIT_LIMIT` (mặc định 5 giây). |
@@ -209,3 +209,4 @@ Chi tiết: xem [Soạn quiz](/setter/quiz-authoring).
 - [Quản lý người dùng](/admin/users): tìm tài khoản, khóa tài khoản, bật staff.
 - [Cấu hình site](/admin/site-config): các thiết lập toàn site.
 - [Tổ chức](/organize/organizations): quyền quản trị viên của từng tổ chức.
+- [Tham khảo cấu hình](/reference/settings): các giới hạn như `DMOJ_SUBMISSION_LIMIT`, `VNOJ_ORGANIZATION_ADMIN_LIMIT`, `MOSS_API_KEY`.

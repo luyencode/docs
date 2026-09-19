@@ -5,7 +5,7 @@
 > ⏱ ~45 min · 👤 Operators · 🔑 SSH + docker access on the server, permission to edit `dmoj/environment/` and `nginx.conf`
 
 ::: info Do you need this?
-When a statement, blog post, or comment embeds an image from another website (especially an `http://` image), browsers may block it or show a "mixed content" warning because LCOJ is served over HTTPS. The image host also sees every viewer's IP address.
+When a statement, blog post, or comment embeds an image from another website (especially an `http://` image), browsers may block it or show a "mixed content" warning because your site is served over HTTPS. The image host also sees every viewer's IP address.
 
 [Camo](https://github.com/atmos/camo) is an image proxy: LCOJ rewrites external image links so browsers load them through your own Camo server, over HTTPS.
 
@@ -25,14 +25,14 @@ When a statement, blog post, or comment embeds an image from another website (es
 
 ```mermaid
 flowchart LR
-  A["Markdown with an image<br/>http://example.com/a.png"] --> B["site rewrites src to<br/>https://luyencode.net/camo/HMAC/HEX-URL"]
+  A["Markdown with an image<br/>http://example.com/a.png"] --> B["site rewrites src to<br/>https://lcoj.example.com/camo/HMAC/HEX-URL"]
   B --> C["Browser"]
   C -->|HTTPS| D["nginx /camo/"]
   D --> E["camo:8081"]
   E -->|HTTP/HTTPS| F["example.com"]
 ```
 
-- While rendering Markdown, LCOJ (`judge/utils/camo.py`) rewrites the `src` and `data-src` attributes of `<img>` tags and the `data` attribute of `<object>` tags.
+- While rendering Markdown, LCOJ rewrites the `src` and `data-src` attributes of `<img>` tags and the `data` attribute of `<object>` tags.
 - The new URL looks like `<DMOJ_CAMO_URL>/<HMAC-SHA1 signature>/<hex-encoded original URL>`. Camo verifies the signature with `CAMO_KEY`, so outsiders can't use your Camo to proxy arbitrary links.
 - **Not** rewritten: relative paths (for example `/martor/a.png`), URLs starting with `DMOJ_CAMO_URL`, and URLs starting with any prefix in `DMOJ_CAMO_EXCLUDE`.
 - Every LCOJ Markdown style (statements, blogs, comments, profiles, and so on) has `use_camo` enabled, so once configured it applies everywhere.
@@ -107,10 +107,10 @@ The trailing `/` on `proxy_pass` strips the `/camo` prefix before the request re
 Add to `dmoj/config/local_settings.py`, then copy it to `dmoj/repo/dmoj/local_settings.py` (the file the site actually reads; see [Environment and configuration](/en/operate/environment)):
 
 ```python
-DMOJ_CAMO_URL = 'https://luyencode.net/camo'
+DMOJ_CAMO_URL = 'https://lcoj.example.com/camo'
 DMOJ_CAMO_KEY = os.environ.get('DMOJ_CAMO_KEY')
 # URL prefixes that should not be proxied. MUST be a tuple (not a list).
-DMOJ_CAMO_EXCLUDE = ('https://luyencode.net/', 'http://luyencode.net/')
+DMOJ_CAMO_EXCLUDE = ('https://lcoj.example.com/', 'http://lcoj.example.com/')
 # Treat //host/... URLs as https://
 DMOJ_CAMO_HTTPS = True
 ```
@@ -139,9 +139,9 @@ docker compose restart nginx         # load location /camo/ if nginx wasn't recr
    ./scripts/manage.py camo http://example.com/image.png
    ```
 
-   It prints a URL like `https://luyencode.net/camo/<hmac>/<hex>`. If it says `Camo not available`, `DMOJ_CAMO_URL` or `DMOJ_CAMO_KEY` has no value.
+   It prints a URL like `https://lcoj.example.com/camo/<hmac>/<hex>`. If it says `Camo not available`, `DMOJ_CAMO_URL` or `DMOJ_CAMO_KEY` has no value.
 2. Open that URL in a browser; the image should load.
-3. Post a test comment with an external image and view the page source: `src` should start with `https://luyencode.net/camo/`.
+3. Post a test comment with an external image and view the page source: `src` should start with `https://lcoj.example.com/camo/`.
 
 ::: tip Old pages still show the original links?
 Statement HTML and some other pages are cached for up to 1 day. Save the problem again or wait for the cache to expire.
@@ -184,7 +184,7 @@ Camo has **no cache of its own**. `CAMO_HEADER_VIA` and `CAMO_TIMING_ALLOW_ORIGI
   }
   ```
 
-- **Caching** with nginx `proxy_cache`, or a Cloudflare cache rule for the `/camo/` path.
+- **Caching** with nginx `proxy_cache` (in the container or in the host reverse proxy) for the `/camo/` path.
 
 ## Troubleshooting
 

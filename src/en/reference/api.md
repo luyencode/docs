@@ -18,7 +18,7 @@ LCOJ exposes two machine-facing interfaces:
 | [Contest sync API](#contest-sync-api) | External scoreboards / resolvers that read a contest's problems, ranking and submissions as JSON | `X-Global-API-Key` header (one site-wide key) | No (`VNOJ_ENABLE_SYNC_API = False`) |
 
 ::: warning No public data API
-Upstream DMOJ has a public JSON API under `/api/v2/` (`/api/v2/problems`, `/api/v2/users`, `/api/v2/contests`, ...). **LCOJ does not ship these endpoints**: those URLs return 404 on luyencode.net. The only JSON API under `/api/v2/` is the contest sync API described below.
+If you are coming from DMOJ: LCOJ has **no** public JSON endpoints such as `/api/v2/problems`, `/api/v2/users`, or `/api/v2/contests`; requests to those URLs return 404. The only JSON API under `/api/v2/` is the contest sync API described below.
 :::
 
 ## Personal API token {#personal-api-token}
@@ -52,7 +52,7 @@ Authorization: Bearer <API token>
 curl -H "Authorization: Bearer $LCOJ_TOKEN" https://luyencode.net/user
 ```
 
-The token is checked by `judge.middleware.APIMiddleware`. When valid, the request is authenticated as the token's owner, counts as having passed 2FA, and skips CSRF checks.
+When the token is valid, the request is authenticated as the token's owner, counts as having passed 2FA, and skips CSRF checks.
 
 ### Errors
 
@@ -245,3 +245,4 @@ curl -H "X-Global-API-Key: $LCOJ_SYNC_KEY" \
 - [Environment and configuration](/en/operate/environment): where to set `VNOJ_ENABLE_SYNC_API` and `GLOBAL_API_KEY`.
 - [Contest formats](/en/organize/contest-formats): how a frozen scoreboard affects the sync API.
 - [Status codes](/en/reference/status-codes): what `submissionStatus` values mean.
+- [Settings reference](/en/reference/settings): defaults for `VNOJ_ENABLE_SYNC_API`, `GLOBAL_API_KEY`, and other settings.

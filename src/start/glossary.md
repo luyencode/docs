@@ -17,7 +17,6 @@ Nhấn `Ctrl+F` (hoặc `Cmd+F` trên macOS) để tìm một thuật ngữ tron
 | **Bảng xếp hạng** — Ranking, scoreboard | Bảng thứ hạng thí sinh trong một kỳ thi, cập nhật trực tiếp khi có kết quả chấm. Cách tính thứ hạng phụ thuộc định dạng kỳ thi. | [Tham gia kỳ thi](/learn/contests) |
 | **Bridge** (`bridged`) — Bridge | Dịch vụ trung gian giữa website và các máy chấm: nhận yêu cầu chấm từ website, giao cho máy chấm rảnh, ghi kết quả vào cơ sở dữ liệu. | [Kiến trúc hệ thống](/operate/architecture) |
 | **Chấm điểm từng phần** — Partial points | Chế độ của bài tập: được điểm theo tỉ lệ số test đúng. Bài không bật chế độ này chỉ được điểm khi đúng mọi test. | [Quản lý bài tập](/setter/managing-problems#cach-tinh-diem) |
-| **Cloudflare Tunnel** — Cloudflare Tunnel | Dịch vụ của Cloudflare mà luyencode.net dùng để nhận HTTPS từ Internet rồi chuyển HTTP thường về nginx trên máy chủ, không cần mở cổng 80/443. | [Cài đặt với Docker](/operate/installation#https) |
 | **Đề bài** — Statement | Phần mô tả bài tập: yêu cầu, dữ liệu vào, kết quả, ví dụ. Viết bằng Markdown, hỗ trợ công thức toán. | [Quản lý bài tập](/setter/managing-problems) |
 | **Điểm** — Points | Số điểm của một bài tập hoặc một test. Điểm bài nộp được tính từ điểm các test đã qua. | [Quản lý bài tập](/setter/managing-problems#cach-tinh-diem) |
 | **Điểm đóng góp** (Đóng góp) — Contribution points | Điểm thể hiện mức đóng góp cho cộng đồng: tăng khi bình luận, bài blog được bình chọn hoặc khi báo lỗi hữu ích, giảm khi mở lời giải của bài chưa giải được. | [Blog, bình luận và báo lỗi](/learn/community) |

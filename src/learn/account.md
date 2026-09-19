@@ -134,14 +134,14 @@ LCOJ bật cài đặt `DMOJ_REQUIRE_STAFF_2FA`. Với tài khoản **staff**, s
 :::
 
 ::: info Khóa bảo mật (WebAuthn) chưa bật trên luyencode.net
-Mã nguồn có hỗ trợ khóa bảo mật phần cứng (mục **Khoá bảo mật:**), nhưng tính năng này chỉ hiện khi máy chủ đặt `WEBAUTHN_RP_ID`. luyencode.net hiện chưa đặt, nên bạn chỉ dùng được ứng dụng xác thực và mã dự phòng.
+LCOJ hỗ trợ khóa bảo mật phần cứng (mục **Khoá bảo mật:**), nhưng mục này chỉ hiện khi máy chủ đặt `WEBAUTHN_RP_ID`. luyencode.net hiện chưa đặt, nên bạn chỉ dùng được ứng dụng xác thực và mã dự phòng.
 :::
 
 ## API token
 
 API token cho phép chương trình của bạn gọi API của LCOJ thay mặt tài khoản, bằng header `Authorization: Bearer <token>`. Token **bỏ qua bước 2FA**, nên hãy giữ bí mật như mật khẩu.
 
-Trên LCOJ, trang **Chỉnh sửa hồ sơ** hiện **không có nút tạo API token** (giao diện này đã bị bỏ, dù địa chỉ `/accounts/api/token/generate/` vẫn tồn tại ở phía máy chủ). Nếu cần token, hãy liên hệ quản trị viên. Họ có thể tạo token bằng lệnh quản trị `generate_api_token` (xem [Lệnh quản trị](/reference/management-commands)). Cách gọi API xem tại [API](/reference/api).
+Trên LCOJ, trang **Chỉnh sửa hồ sơ** hiện **không có nút tạo API token**. Nếu cần token, hãy liên hệ quản trị viên. Họ có thể tạo token bằng lệnh quản trị `generate_api_token` (xem [Lệnh quản trị](/reference/management-commands)). Cách gọi API xem tại [API](/reference/api).
 
 ## Tải dữ liệu của bạn
 

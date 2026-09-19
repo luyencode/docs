@@ -62,9 +62,9 @@ Nói cách khác, biến môi trường chỉ ghi đè được **những thiế
 
 | Biến | Bắt buộc? | Mặc định (nếu không đặt) | Ý nghĩa |
 |---|---|---|---|
-| `HOST` | Có | `localhost` | Tên miền công khai, không kèm `http://`. Dùng cho `ALLOWED_HOSTS = [HOST]` và địa chỉ WebSocket `ws://HOST/event/`, `wss://HOST/event/` |
-| `SITE_FULL_URL` | Nên có | `http://localhost/` | URL đầy đủ của site, dùng để tạo link tuyệt đối (ví dụ link trong webhook) |
-| `MEDIA_URL` | Có | `http://localhost/` | URL gốc để truy cập file media. nginx phục vụ media ngay tại gốc site (`/martor`, `/pdf`...), nên thường trùng với `SITE_FULL_URL`. Phải kết thúc bằng `/` |
+| `HOST` | Có | `localhost` | Tên miền công khai, không kèm `http://` và không kèm cổng. Dùng cho `ALLOWED_HOSTS = [HOST]` và địa chỉ WebSocket `ws://HOST/event/`, `wss://HOST/event/` |
+| `SITE_FULL_URL` | Nên có | `http://localhost/` | URL đầy đủ của site, dùng để tạo link tuyệt đối (ví dụ link trong webhook). Dùng `https://` khi site chạy sau reverse proxy HTTPS |
+| `MEDIA_URL` | Có | `http://localhost/` | URL gốc để truy cập file media. nginx phục vụ media ngay tại gốc site (`/martor`, `/pdf`...), nên thường trùng với `SITE_FULL_URL` (kể cả `https://`). Phải kết thúc bằng `/` |
 | `DEBUG` | Không | `0` | Chỉ bật khi giá trị **đúng bằng** `1`. Mọi giá trị khác (`true`, `yes`...) đều là tắt |
 | `SECRET_KEY` | Có | rỗng | Khóa bí mật của Django. Để trống thì Django không khởi động được |
 | `EVENT_DAEMON_POST` | Không | `ws://wsevent:15101/` | Địa chỉ site gửi sự kiện tới wsevent |
@@ -72,16 +72,16 @@ Nói cách khác, biến môi trường chỉ ghi đè được **những thiế
 | `CELERY_BROKER_URL` | Không | `redis://redis:6379/1` | Hàng đợi tác vụ của Celery |
 | `CELERY_RESULT_BACKEND` | Không | `redis://redis:6379/1` | Nơi Celery lưu kết quả tác vụ |
 | `BRIDGED_HOST` | Không | `bridged` | Tên máy của bridged. Site kết nối tới `BRIDGED_HOST:9998`, bridged lắng nghe judge tại `BRIDGED_HOST:9999` |
-| `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` | Có (trên LCOJ) | rỗng | Client ID của Google OAuth |
-| `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` | Có (trên LCOJ) | rỗng | Client secret của Google OAuth |
+| `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` | Có (khi `OAUTH_ONLY = True`) | rỗng | Client ID của Google OAuth |
+| `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` | Có (khi `OAUTH_ONLY = True`) | rỗng | Client secret của Google OAuth |
 | `MOSS_API_KEY` | Không | rỗng | Khóa [MOSS](https://theory.stanford.edu/~aiken/moss/) để kiểm tra đạo code trong kỳ thi |
 
-Ví dụ `site.env` cho production (giá trị bí mật để dạng placeholder):
+Ví dụ `site.env` cho một bản cài chạy HTTPS tại `lcoj.example.com` (giá trị bí mật để dạng placeholder):
 
 ```ini
-HOST=luyencode.net
-SITE_FULL_URL=https://luyencode.net/
-MEDIA_URL=https://luyencode.net/
+HOST=lcoj.example.com
+SITE_FULL_URL=https://lcoj.example.com/
+MEDIA_URL=https://lcoj.example.com/
 
 DEBUG=0
 SECRET_KEY=<chuỗi ngẫu nhiên dài>
@@ -107,10 +107,11 @@ MOSS_API_KEY=<moss-user-id>
 
 Một số lưu ý:
 
-- **Chỉ có một tên miền.** `ALLOWED_HOSTS` chỉ chứa đúng `HOST`. Nếu cần phục vụ thêm tên miền khác (ví dụ `www.luyencode.net`), hãy sửa `ALLOWED_HOSTS` trong `local_settings.py`.
-- **Đăng nhập chỉ qua OAuth.** LCOJ đặt `OAUTH_ONLY = True` trong `local_settings.py`, nên đăng ký bằng mật khẩu bị tắt. Thiếu hai biến Google OAuth thì người dùng mới không có cách nào đăng ký.
+- **Chỉ có một tên miền.** `ALLOWED_HOSTS` chỉ chứa đúng `HOST`. Nếu cần phục vụ thêm tên miền khác (ví dụ `www.lcoj.example.com`), hãy sửa `ALLOWED_HOSTS` (và `CSRF_TRUSTED_ORIGINS` nếu dùng HTTPS) trong `local_settings.py`.
+- **Chạy HTTPS cần thêm thiết lập Django.** Đổi `SITE_FULL_URL`/`MEDIA_URL` sang `https://` là chưa đủ: phải thêm `CSRF_TRUSTED_ORIGINS` và `SECURE_PROXY_SSL_HEADER` vào `local_settings.py`, xem [Cài đặt: Cấu hình Django cho HTTPS](/operate/installation#django-https).
+- **Đăng nhập chỉ qua OAuth.** File `local_settings.py` đi kèm đặt `OAUTH_ONLY = True`, nên đăng ký bằng mật khẩu bị tắt. Thiếu hai biến Google OAuth thì người dùng mới không có cách nào đăng ký.
 - **`SITE_FULL_URL` và dấu `/` cuối.** File mẫu có `/` ở cuối và site vẫn chạy bình thường. Tuy nhiên một số chỗ (webhook) nối chuỗi trực tiếp như `SITE_FULL_URL + '/user/...'`, nên link sinh ra có thể bị `//`. Nếu dùng webhook, cân nhắc bỏ `/` cuối.
-- **`MOSS_API_KEY` để trống.** Code chỉ kiểm tra `MOSS_API_KEY is not None`, mà giá trị mặc định là chuỗi rỗng, nên tab MOSS vẫn hiện trong trang kỳ thi (với người có quyền `moss_contest`) dù chưa có khóa, và sẽ lỗi khi chạy.
+- **`MOSS_API_KEY` để trống.** Tab MOSS vẫn hiện trong trang kỳ thi (với người có quyền `moss_contest`) ngay cả khi chưa có khóa, và sẽ báo lỗi khi chạy. Chỉ dùng tab này sau khi đã đặt `MOSS_API_KEY`.
 - **Các giá trị Docker nội bộ** (`EVENT_DAEMON_POST`, `REDIS_*`, `CELERY_*`, `BRIDGED_HOST`) dùng tên dịch vụ trong `docker-compose.yml`. Chỉ đổi khi bạn tách dịch vụ sang máy khác.
 
 ::: danger Không bật DEBUG trên production
@@ -121,7 +122,7 @@ Một số lưu ý:
 
 `docker-compose.yml` publish nginx bằng `${NGINX_PORT:-8071}:80`. Đây là **biến thay thế của Docker Compose**, được đọc khi Compose phân tích file YAML, không phải biến bên trong container.
 
-- Mặc định: `8071` (Cloudflare Tunnel trỏ vào cổng này).
+- Mặc định: `8071`. Reverse proxy HTTPS trên máy chủ (Caddy hoặc nginx) chuyển tiếp tới cổng này; nên chỉ bind nó vào `127.0.0.1`, xem [Cài đặt: HTTPS trên VPS](/operate/installation#https).
 - Compose chỉ lấy giá trị từ biến môi trường của shell hoặc file `dmoj/.env` (nằm cạnh `docker-compose.yml`). Đặt `NGINX_PORT` trong `environment/site.env` **không** đổi được cổng publish; nó chỉ được đưa vào bên trong container nginx và không có tác dụng gì.
 
 Muốn đổi cổng, tạo hoặc sửa `dmoj/.env`:
@@ -181,6 +182,7 @@ Những thiết lập sau được ghi cứng trong `local_settings.py`, không 
 | `ALLOWED_HOSTS` | `[HOST]` | Suy ra từ `HOST` |
 | `EVENT_DAEMON_GET`, `EVENT_DAEMON_GET_SSL` | `ws://{HOST}/event/`, `wss://{HOST}/event/` | Suy ra từ `HOST` |
 | `EVENT_DAEMON_POLL` | `'/channels/'` | Đường dẫn long polling |
+| `CSRF_TRUSTED_ORIGINS`, `SECURE_PROXY_SSL_HEADER` | chưa đặt | Cần thêm khi chạy sau reverse proxy HTTPS, xem [Cài đặt](/operate/installation#django-https) |
 | `DMOJ_PROBLEM_DATA_ROOT`, `MEDIA_ROOT`, `STATIC_ROOT` | `/problems/`, `/media/`, `/assets/static/` | Khớp với volume trong `docker-compose.yml` |
 | `VNOJ_CP_TICKET` | `5` | Thiết lập kế thừa từ VNOJ |
 | Email (`EMAIL_BACKEND`...), `ADMINS` | chưa cấu hình (đang comment) | |

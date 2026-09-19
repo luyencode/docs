@@ -126,7 +126,7 @@ Bạn thấy câu hỏi mình tạo hoặc làm giám khảo, cộng với mọi
 
 | Trường (nhãn tiếng Việt) | Bắt buộc | Ý nghĩa |
 |---|---|---|
-| **Mã** | Có | Duy nhất trong toàn hệ thống, chỉ gồm `a-z` và `0-9`, tối đa 32 ký tự. Không có gạch dưới (thông báo lỗi tiếng Việt ghi `^[a-z0-9_]+$` là sai) |
+| **Mã** | Có | Duy nhất trong toàn hệ thống, chỉ gồm `a-z` và `0-9`, tối đa 32 ký tự. Không dùng gạch dưới, dù thông báo lỗi tiếng Việt ghi `^[a-z0-9_]+$` |
 | **Loại câu hỏi** | Có | Trắc nghiệm (MC), Nhiều đáp án (MA), Đúng/Sai (TF), Trả lời ngắn (SA) |
 | **Tiêu đề** | Có | Tối đa 200 ký tự, chỉ dùng trong ngân hàng |
 | **Nội dung câu hỏi** | Có | Markdown, có công thức toán |

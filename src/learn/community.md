@@ -134,7 +134,7 @@ Tài khoản bị staff bật **tắt bình luận** (*comment mute*) sẽ khôn
 |---|---|
 | Mỗi phiếu lên / xuống cho bình luận của bạn (bình luận không bị ẩn) | +1 / −1 |
 | Mỗi phiếu lên / xuống cho blog công khai của bạn (không thuộc tổ chức) | +1 / −1 |
-| Mỗi báo cáo được đánh dấu **tốt** | **+5** trên LCOJ (`VNOJ_CP_TICKET = 5`, mặc định của mã nguồn là 10) |
+| Mỗi báo cáo được đánh dấu **tốt** | **+5** (`VNOJ_CP_TICKET = 5`) |
 | Mỗi lần mở xem lời giải của bài **chưa giải được** | −1 |
 
 Xem điểm ở đâu:

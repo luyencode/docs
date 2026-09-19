@@ -101,7 +101,7 @@ If you install the judge directly (without Docker), run `dmoj-autoconf` to print
 
 ### Other optional keys
 
-These keys all have defaults in the judge's `dmoj/judgeenv.py`. Only add them when you need to.
+These keys all have defaults. Only add them when you need to.
 
 | Key | Default | Meaning |
 |---|---|---|

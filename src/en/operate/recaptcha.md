@@ -22,7 +22,7 @@ reCAPTCHA adds an "I'm not a robot" box to the **username/password signup form**
 
 ## How LCOJ integrates reCAPTCHA
 
-The code lives in `judge/utils/recaptcha.py` and `judge/views/register.py` in `dmoj/repo`:
+LCOJ decides whether to show a captcha like this:
 
 1. LCOJ tries to import `snowpenguin.django.recaptcha2`. That module comes from the PyPI package **`django-recaptcha2`**.
 2. If the import succeeds **and** settings has a `RECAPTCHA_PRIVATE_KEY` attribute, the signup form gets a `captcha` field (a reCAPTCHA **v2 checkbox** widget).
@@ -37,24 +37,24 @@ flowchart LR
 ```
 
 ::: warning Don't mix up the two packages
-- LCOJ's code uses **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), which supports reCAPTCHA v2 only.
-- The **`django-recaptcha`** package (module `django_recaptcha`, which has reCAPTCHA v3) is **not** used by LCOJ's code. Installing it won't make a captcha appear.
+- LCOJ uses **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), which supports reCAPTCHA v2 only.
+- The **`django-recaptcha`** package (module `django_recaptcha`, which has reCAPTCHA v3) is **not** used by LCOJ. Installing it won't make a captcha appear.
 :::
 
 ::: details A note on `OAUTH_ONLY`
-`OAUTH_ONLY` is only used in the `registration/registration_form.html` template to hide the input fields. The `/accounts/register/` view itself doesn't check `OAUTH_ONLY`.
+`OAUTH_ONLY` currently only hides the input fields on the signup page; `/accounts/register/` still accepts a signup form posted to it directly. If you're worried about bots posting the form directly, enable reCAPTCHA as described on this page.
 :::
 
 ## Before you start
 
-- [ ] You've decided to turn off `OAUTH_ONLY` to reopen password signup (see [OAuth](/en/start/glossary)).
+- [ ] You plan to turn off `OAUTH_ONLY` to reopen password signup (see [OAuth](/en/start/glossary)).
 - [ ] You can SSH into the server and run `docker compose` in the `dmoj/` directory.
 - [ ] You have a Google account to create reCAPTCHA keys.
-- [ ] You have a development machine to try it first (`django-recaptcha2` is untested with Django 4.2).
+- [ ] You have a development machine to try it first (`django-recaptcha2` only declares support up to Django 2.1).
 
 ## Enabling reCAPTCHA (only after turning off `OAUTH_ONLY`)
 
-::: warning Not tested on LCOJ
+::: warning Try it on a development machine first
 `django-recaptcha2` (latest release 1.4.1) only declares support up to Django 2.1, while LCOJ runs Django 4.2. Try it on a development machine before enabling it in production.
 :::
 
@@ -64,7 +64,7 @@ flowchart LR
 2. Create a new site:
    - **Label**: `LCOJ`
    - **Type**: reCAPTCHA **v2**, _"I'm not a robot" Checkbox_
-   - **Domains**: `luyencode.net` (add your dev domain if needed)
+   - **Domains**: your domain, for example `lcoj.example.com` (add your dev domain if needed)
 3. Keep the **Site key** (public) and **Secret key** (private).
 
 ### Step 2: Install the Python package
@@ -119,7 +119,7 @@ docker compose up -d site celery
 
 ## Verify
 
-1. Open `https://luyencode.net/accounts/register/` in a private window.
+1. Open `https://lcoj.example.com/accounts/register/` in a private window.
 2. The "I'm not a robot" box appears at the bottom of the form.
 3. Try registering a test account.
 

@@ -255,7 +255,7 @@ This is how some of the [examples](/en/setter/examples) are written.
 | `custom_judge`, `interactive`, `signature_grader`, `output_only`, `communication` | none | Select a non-standard grader. See [Graders](/en/setter/graders). |
 
 ::: info
-All of these keys are read by the judge ([judge-server](https://github.com/luyencode/judge-server), a fork of the DMOJ/VNOJ judge). If a key is misspelled, the judge silently ignores it.
+The judge silently ignores keys it does not recognize, so a misspelled key simply has no effect. Double-check the spelling.
 :::
 
 ## Next steps

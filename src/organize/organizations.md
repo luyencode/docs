@@ -60,7 +60,7 @@ flowchart TD
 Bạn cũng có thể chọn tổ chức mở trong ô tổ chức ở trang sửa hồ sơ `/edit/profile/`.
 
 ::: info Giới hạn số tổ chức
-Mỗi người chỉ được ở tối đa `DMOJ_USER_MAX_ORGANIZATION_COUNT` tổ chức **mở** (LCOJ: **3**). Tổ chức đóng không tính vào giới hạn này.
+Mỗi người chỉ được ở tối đa `DMOJ_USER_MAX_ORGANIZATION_COUNT` tổ chức **mở** (trên luyencode.net: **3**). Tổ chức đóng không tính vào giới hạn này.
 :::
 
 ### Xin vào tổ chức đóng
@@ -104,7 +104,7 @@ Các trường chính:
 :::
 
 ::: info Giới hạn và nhóm quyền "Org Admin"
-- Người đã là quản trị viên của `VNOJ_ORGANIZATION_ADMIN_LIMIT` tổ chức (LCOJ: **3**) không tạo thêm được trên site. Quyền `spam_organization` lẽ ra bỏ giới hạn này nhưng hiện chỉ có tác dụng với superuser (xem [Hệ thống phân quyền](/admin/permissions)).
+- Người đã là quản trị viên của `VNOJ_ORGANIZATION_ADMIN_LIMIT` tổ chức (trên luyencode.net: **3**) không tạo thêm được trên site. Quyền `spam_organization` dùng để bỏ giới hạn này, nhưng hiện chỉ có tác dụng với superuser (xem [Hệ thống phân quyền](/admin/permissions)).
 - Khi lưu form tổ chức **trên site**, mọi quản trị viên được thêm vào nhóm Django tên `GROUP_PERMISSION_FOR_ORG_ADMIN` (mặc định `Org Admin`). Người vận hành cần tạo sẵn nhóm này và gán cho nó các quyền quản trị viên tổ chức cần, ví dụ `create_organization_problem`, `create_private_contest`, `edit_organization_post`. Nếu nhóm chưa tồn tại, lưu form sẽ lỗi. Thêm quản trị viên **trong Django admin** thì **không** tự vào nhóm; khi đó hãy thêm người đó vào nhóm bằng tay.
 :::
 
@@ -192,7 +192,7 @@ Tab **Thành viên** là bảng xếp hạng nội bộ, mặc định sắp the
 điểm tổ chức = VNOJ_ORG_PP_SCALE × (pp[0] + 0.95 × pp[1] + 0.95² × pp[2] + … + 0.95⁹⁹ × pp[99])
 ```
 
-với `pp[i]` là điểm hiệu suất của thành viên đứng thứ `i` (tính từ 0). Các hằng số: `VNOJ_ORG_PP_STEP = 0.95`, `VNOJ_ORG_PP_ENTRIES = 100`, `VNOJ_ORG_PP_SCALE = 1` (LCOJ dùng mặc định). Điểm cập nhật khi có người vào/ra tổ chức; admin có thao tác **Tính lại điểm**.
+với `pp[i]` là điểm hiệu suất của thành viên đứng thứ `i` (tính từ 0). Các hằng số: `VNOJ_ORG_PP_STEP = 0.95`, `VNOJ_ORG_PP_ENTRIES = 100`, `VNOJ_ORG_PP_SCALE = 1` (luyencode.net dùng giá trị mặc định). Điểm cập nhật khi có người vào/ra tổ chức; admin có thao tác **Tính lại điểm**.
 
 ## Dung lượng, hạn mức và credit {#dung-luong-han-muc-va-credit}
 
@@ -208,14 +208,14 @@ Quản trị viên bấm **Chi phí sử dụng tổ chức** (`/organization/<s
 
 **Credit:** mỗi bài nộp vào bài riêng của tổ chức, hoặc trong kỳ thi riêng của tổ chức, tiêu tốn credit bằng tổng thời gian chấm. Credit miễn phí hằng tháng được dùng trước, sau đó tới credit đã mua. Biểu đồ chi phí tính `(số giây dùng − VNOJ_MONTHLY_FREE_CREDIT) / 3600 × VNOJ_PRICE_PER_HOUR` nghìn đồng.
 
-| Cài đặt | Mặc định | LCOJ | Ý nghĩa |
+| Cài đặt | Mặc định | luyencode.net | Ý nghĩa |
 |---|---|---|---|
-| `VNOJ_ENABLE_ORGANIZATION_CREDIT_LIMITATION` | `False` | `False` | Nếu bật, chặn nộp bài khi tổ chức hết credit. LCOJ **không** chặn; credit chỉ để theo dõi. |
+| `VNOJ_ENABLE_ORGANIZATION_CREDIT_LIMITATION` | `False` | `False` | Nếu bật, chặn nộp bài khi tổ chức hết credit. luyencode.net **không** chặn; credit chỉ để theo dõi. |
 | `VNOJ_MONTHLY_FREE_CREDIT` | `10800` (3 giờ) | 3 giờ | Credit miễn phí mỗi tháng (giây). |
 | `VNOJ_PRICE_PER_HOUR` | `50` | `50` | Giá mỗi giờ chấm vượt mức miễn phí (nghìn đồng), chỉ dùng cho biểu đồ. |
 | `VNOJ_ORGANIZATION_DEFAULT_MAX_PROBLEMS` | `1000` | `1000` | Số bài tối đa mặc định. |
 | `VNOJ_ORGANIZATION_DEFAULT_MAX_STORAGE` | 5 GB | 5 GB | Dung lượng test tối đa mặc định. |
-| `VNOJ_QUOTA_ENFORCEMENT_ENABLED` | `False` | `False` | Nếu bật, chặn tạo bài/tải test khi vượt hạn mức. LCOJ chỉ **cảnh báo**. |
+| `VNOJ_QUOTA_ENFORCEMENT_ENABLED` | `False` | `False` | Nếu bật, chặn tạo bài/tải test khi vượt hạn mức. luyencode.net chỉ **cảnh báo**. |
 | `VNOJ_QUOTA_WARNING_THRESHOLD` | `0.8` | `0.8` | Cảnh báo khi dùng từ 80% hạn mức. |
 | `VNOJ_QUOTA_WARNING_SUFFIX` | `''` | `''` | Đoạn HTML thêm vào cuối cảnh báo (ví dụ liên kết hướng dẫn). |
 | `VNOJ_QUOTA_PACKAGE_PROBLEMS`, `VNOJ_QUOTA_PACKAGE_STORAGE` | `1000`, 5 GB | như mặc định | Mỗi gói hạn mức thêm bao nhiêu bài và dung lượng. |
@@ -226,7 +226,7 @@ Việc chốt số liệu và cấp lại credit miễn phí vào ngày 1 hằng
 
 ## Tên miền phụ cho tổ chức
 
-LCOJ có sẵn `OrganizationSubdomainMiddleware` để mở tổ chức qua tên miền phụ (ví dụ `<slug>.example.com`), nhưng middleware này **không** có trong `MIDDLEWARE` của LCOJ, nên tính năng **không hoạt động** trên luyencode.net. Nếu người vận hành muốn bật, cần thêm middleware, cấu hình DNS/proxy cho tên miền phụ, và thêm các tên miền phụ không phải tổ chức vào `VNOJ_IGNORED_ORGANIZATION_SUBDOMAINS` (mặc định `['oj', 'www', 'localhost']`). Với luyencode.net, phần đầu của tên miền là `luyencode`, nên phải thêm `luyencode` (và `dev`) vào danh sách, nếu không mọi trang sẽ báo 404.
+LCOJ có sẵn `OrganizationSubdomainMiddleware` để mở tổ chức qua tên miền phụ (ví dụ `<slug>.example.com`), nhưng middleware này **không** được bật trong `MIDDLEWARE` mặc định, nên tính năng **không hoạt động** trên luyencode.net. Nếu người vận hành muốn bật, cần thêm middleware, cấu hình DNS/proxy cho tên miền phụ, và thêm các tên miền phụ không phải tổ chức vào `VNOJ_IGNORED_ORGANIZATION_SUBDOMAINS` (mặc định `['oj', 'www', 'localhost']`). Với luyencode.net, phần đầu của tên miền là `luyencode`, nên phải thêm `luyencode` (và `dev`) vào danh sách, nếu không mọi trang sẽ báo 404.
 
 ## Kiểm tra kết quả
 

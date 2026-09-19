@@ -18,7 +18,7 @@ LCOJ cung cấp hai giao diện cho máy/chương trình:
 | [API đồng bộ kỳ thi](#contest-sync-api) | Bảng xếp hạng / resolver bên ngoài đọc danh sách bài, bảng xếp hạng và bài nộp của một kỳ thi dưới dạng JSON | Header `X-Global-API-Key` (một khoá chung cho toàn site) | Không (`VNOJ_ENABLE_SYNC_API = False`) |
 
 ::: warning Không có API dữ liệu công khai
-DMOJ gốc có API JSON công khai dưới `/api/v2/` (`/api/v2/problems`, `/api/v2/users`, `/api/v2/contests`, ...). **LCOJ không có các endpoint này**: những URL đó trả về 404 trên luyencode.net. API JSON duy nhất dưới `/api/v2/` là API đồng bộ kỳ thi mô tả bên dưới.
+Nếu bạn quen với DMOJ: LCOJ **không có** các endpoint JSON công khai như `/api/v2/problems`, `/api/v2/users`, `/api/v2/contests`; gọi các URL này sẽ nhận 404. API JSON duy nhất dưới `/api/v2/` là API đồng bộ kỳ thi mô tả bên dưới.
 :::
 
 ## API token cá nhân {#personal-api-token}
@@ -52,7 +52,7 @@ Authorization: Bearer <API token>
 curl -H "Authorization: Bearer $LCOJ_TOKEN" https://luyencode.net/user
 ```
 
-Token được kiểm tra bởi `judge.middleware.APIMiddleware`. Nếu hợp lệ, request được xác thực là chủ token, được coi như đã qua 2FA và bỏ qua kiểm tra CSRF.
+Nếu token hợp lệ, request được xác thực là chủ token, được coi như đã qua 2FA và bỏ qua kiểm tra CSRF.
 
 ### Lỗi
 
@@ -245,3 +245,4 @@ curl -H "X-Global-API-Key: $LCOJ_SYNC_KEY" \
 - [Biến môi trường và cấu hình](/operate/environment): nơi đặt `VNOJ_ENABLE_SYNC_API` và `GLOBAL_API_KEY`.
 - [Thể thức kỳ thi](/organize/contest-formats): cách đóng băng bảng xếp hạng ảnh hưởng tới API đồng bộ.
 - [Mã trạng thái](/reference/status-codes): ý nghĩa `submissionStatus`.
+- [Tham khảo cấu hình](/reference/settings): giá trị mặc định của `VNOJ_ENABLE_SYNC_API`, `GLOBAL_API_KEY` và các thiết lập khác.

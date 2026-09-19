@@ -85,7 +85,7 @@ Sao lưu cơ sở dữ liệu trước, rồi cập nhật cả hai repo (lcoj-d
 :::
 
 ::: details Có bắt buộc HTTPS không?
-Để chạy thử trên máy cá nhân thì không, `http://localhost:8071/` là đủ. Khi mở cho người dùng thật thì nên có: nginx trong Docker chỉ phục vụ HTTP, nên bạn đặt một lớp TLS phía trước, như Cloudflare Tunnel (cách luyencode.net đang làm) hoặc một reverse proxy như Caddy. Xem [HTTPS](/operate/installation#https).
+Để chạy thử trên máy cá nhân thì không, `http://localhost:8071/` là đủ. Khi mở cho người dùng thật thì nên có: nginx trong Docker chỉ phục vụ HTTP, nên bạn đặt một reverse proxy có TLS phía trước trên máy chủ, ví dụ Caddy hoặc nginx kèm certbot. Xem [HTTPS](/operate/installation#https).
 :::
 
 ::: details Tôi có thể đổi tên và logo thành của trường mình không?

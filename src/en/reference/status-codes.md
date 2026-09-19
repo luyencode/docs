@@ -10,7 +10,7 @@
 - You want to understand why a whole submission is marked `TLE` even though only one test was slow.
 - You are writing a tool that reads submission data (for example via the [API](/en/reference/api)) and need the full list of codes.
 
-Every submission on LCOJ carries two pieces of information: a **processing status** (which stage the submission is at) and a **result** (the verdict: whether it passed, and if not, how it failed). This page lists every code, exactly as defined in the site's source (`judge/models/submission.py`) and the judge.
+Every submission on LCOJ carries two pieces of information: a **processing status** (which stage the submission is at) and a **result** (the verdict: whether it passed, and if not, how it failed). This page lists every code.
 
 For how to submit and read the submission page, see [Submitting and judging](/en/learn/submissions).
 

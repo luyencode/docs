@@ -46,7 +46,7 @@ flowchart LR
 4. Khi xong, bấm **Tải dữ liệu đã chuẩn bị** (`/contest/<mã kỳ thi>/data/download/`). File tải về có tên `<mã kỳ thi>-data.zip`.
 
 ::: warning Bộ lọc kết quả
-Trong mã nguồn hiện tại, bộ lọc **Lọc theo kết quả** lọc trên bảng bài nộp kỳ thi, vốn không có trường `result`, nên tác vụ có thể bị lỗi khi chọn bộ lọc này. Nếu tác vụ thất bại, hãy để trống bộ lọc kết quả.
+Hiện tại, chọn bộ lọc **Lọc theo kết quả** có thể làm tác vụ bị lỗi. Nếu tác vụ thất bại, hãy để trống bộ lọc kết quả.
 :::
 
 ## Kiểm tra kết quả
