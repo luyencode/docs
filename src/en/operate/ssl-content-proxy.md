@@ -1,5 +1,9 @@
 # Proxying External Images over HTTPS (Camo)
 
+> Install Camo (optional) so images embedded from other websites load through your server over HTTPS, avoiding "mixed content" warnings and hiding viewers' IPs.
+>
+> ⏱ ~45 min · 👤 Operators · 🔑 SSH + docker access on the server, permission to edit `dmoj/environment/` and `nginx.conf`
+
 ::: info Do you need this?
 When a statement, blog post, or comment embeds an image from another website (especially an `http://` image), browsers may block it or show a "mixed content" warning because LCOJ is served over HTTPS. The image host also sees every viewer's IP address.
 
@@ -32,6 +36,14 @@ flowchart LR
 - The new URL looks like `<DMOJ_CAMO_URL>/<HMAC-SHA1 signature>/<hex-encoded original URL>`. Camo verifies the signature with `CAMO_KEY`, so outsiders can't use your Camo to proxy arbitrary links.
 - **Not** rewritten: relative paths (for example `/martor/a.png`), URLs starting with `DMOJ_CAMO_URL`, and URLs starting with any prefix in `DMOJ_CAMO_EXCLUDE`.
 - Every LCOJ Markdown style (statements, blogs, comments, profiles, and so on) has `use_camo` enabled, so once configured it applies everywhere.
+
+## Before you start
+
+- [ ] You really need to proxy external images (otherwise, encouraging uploads to LCOJ is enough).
+- [ ] You can SSH in and run `docker compose` in the `dmoj/` directory.
+- [ ] The server has `openssl` to generate a secret key, and the Camo container can reach the internet.
+- [ ] You accept the extra bandwidth, since every external image will pass through your server.
+- [ ] You know how to change settings: see [Environment and configuration](/en/operate/environment).
 
 ## Installation (optional)
 
@@ -119,7 +131,7 @@ docker compose up -d site nginx      # recreate site so it reads the new site.en
 docker compose restart nginx         # load location /camo/ if nginx wasn't recreated
 ```
 
-### Step 7: Verify
+## Verify
 
 1. Generate a Camo URL with the management command:
 
@@ -189,6 +201,12 @@ Camo has **no cache of its own**. `CAMO_HEADER_VIA` and `CAMO_TIMING_ALLOW_ORIGI
 
 - Camo uses your bandwidth, because every external image passes through your server.
 - Camo only proxies images; don't use it for video.
+
+## Next steps
+
+- [Architecture](/en/operate/architecture): the `nginx` network and how nginx forwards requests.
+- [Operating LCOJ](/en/operate/operations): check logs and restart services.
+- [Management commands](/en/reference/management-commands): the `camo` command and others.
 
 ::: tip Need help?
 Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

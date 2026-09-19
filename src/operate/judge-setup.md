@@ -1,14 +1,16 @@
 # Cài đặt judge
 
-Judge (máy chấm) là chương trình nhận bài nộp, biên dịch, chạy với từng test rồi gửi kết quả về website. Trong LCOJ, judge **không nằm trong Docker Compose**: mỗi judge là một container riêng, tự kết nối tới dịch vụ `bridged` qua cổng `9999`.
+> Đăng ký judge (máy chấm) trên website, chạy judge bằng Docker, chạy nhiều judge cùng lúc và kiểm tra judge đã kết nối.
+>
+> ⏱ ~20 phút · 👤 Người vận hành · 🔑 SSH + quyền chạy `docker` trên máy chấm, tài khoản superuser trên website
 
-Trang này hướng dẫn đăng ký judge trên website, chạy judge bằng Docker, chạy nhiều judge cùng lúc và kiểm tra judge đã kết nối.
+Judge (máy chấm) là chương trình nhận bài nộp, biên dịch, chạy với từng test rồi gửi kết quả về website. Trong LCOJ, judge **không nằm trong Docker Compose**: mỗi judge là một container riêng, tự kết nối tới dịch vụ `bridged` (cầu nối giữa website và các judge) qua cổng `9999`. Các thuật ngữ khác xem ở [Thuật ngữ](/start/glossary).
 
-::: info Trước khi bắt đầu
-- Đã cài xong website theo [Cài đặt với Docker](/operate/installation) và dịch vụ `bridged` đang chạy.
-- Máy chạy judge dùng **Linux** (sandbox của judge cần kernel Linux) và đã cài Docker.
-- Bạn có tài khoản quản trị (superuser) trên website.
-:::
+## Trước khi bắt đầu
+
+- [ ] Đã cài xong website theo [Cài đặt với Docker](/operate/installation) và dịch vụ `bridged` đang chạy.
+- [ ] Máy chạy judge dùng **Linux** (sandbox của judge cần kernel Linux) và đã cài Docker.
+- [ ] Bạn có tài khoản quản trị (superuser) trên website.
 
 ## Judge kết nối vào hệ thống như thế nào
 
@@ -195,7 +197,7 @@ docker run \
 Mỗi judge dùng khoảng một nhân CPU khi chấm. Một quy tắc đơn giản là số judge không vượt quá số nhân CPU trừ đi một hai nhân dành cho website và cơ sở dữ liệu. Chạy quá nhiều judge trên cùng máy làm thời gian chạy đo được kém ổn định.
 :::
 
-## Kiểm tra judge đã kết nối
+## Kiểm tra kết quả
 
 1. **Xem log của judge:**
 
@@ -234,7 +236,7 @@ Mỗi judge dùng khoảng một nhân CPU khi chấm. Một quy tắc đơn gi�
 Website không cho xóa hay đổi tên một judge **đang online**. Hãy dừng container trước.
 :::
 
-## Xử lý sự cố
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|
@@ -252,6 +254,13 @@ Kiểm tra nhanh dữ liệu một bài từ phía judge:
 docker exec judge_judge1 ls -la /problems/aplusb
 docker exec judge_judge1 cat /problems/aplusb/init.yml
 ```
+
+## Tiếp theo
+
+- [Cấu hình judge](/operate/judge-configuration): giải thích từng khóa trong file `judge_*.yml`.
+- [Ngôn ngữ được hỗ trợ](/reference/languages): ngôn ngữ nào có sẵn và cách bật cho bài.
+- [Quản lý bài tập](/setter/managing-problems): tải test lên để judge có dữ liệu chấm.
+- [Vận hành LCOJ](/operate/operations): xem log `bridged` và các thao tác hằng ngày.
 
 ::: tip Cần hỗ trợ?
 - Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

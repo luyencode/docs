@@ -1,5 +1,9 @@
 # Managing Problems
 
+> Create a problem, write its statement in Markdown, upload test data, pick a checker/grader, and submit test solutions to check it.
+>
+> ⏱ ~30 min · 👤 Problem setters · 🔑 `judge.add_problem` (create), `judge.edit_own_problem` (edit)
+
 LCOJ lets you create problems, write statements, and upload test data from the web interface. This page walks through the whole process, from an empty problem to a problem that is ready to be solved on luyencode.net.
 
 ::: tip Who can do this?
@@ -9,6 +13,23 @@ LCOJ lets you create problems, write statements, and upload test data from the w
 
 See [Permissions](/en/admin/permissions) for how to grant these.
 :::
+
+## Before you start
+
+- [ ] Your account has the permissions listed above (ask an admin if not).
+- [ ] You have the statement, a reference solution, and the tests (input/output file pairs).
+- [ ] You have picked a **problem code** (e.g. `aplusb`): lowercase letters, digits, underscores.
+
+The overall flow:
+
+```mermaid
+flowchart LR
+  A[Create problem] --> B[Write statement]
+  B --> C[Upload test data]
+  C --> D[Pick checker / grader]
+  D --> E[Test submissions]
+  E --> F[Make it public]
+```
 
 ## Where problem data is stored
 
@@ -44,7 +65,7 @@ There are three ways to create a problem.
 
 1. Open **Problems** and click the **Create new problem** tab (URL: `/problems/create`).
 2. Fill in the form (see [Problem settings](#problem-settings) below). The statement box is pre-filled with the example from the site configuration.
-3. Click **Save**. You are added as a **curator** of the problem, and every language marked "include in problem" is allowed automatically.
+3. Click **Create**. You are added as a **curator** of the problem, and every language marked "include in problem" is allowed automatically.
 4. You are taken to the problem page. The right-hand sidebar now shows **Edit problem**, **Delete problem**, and **Edit test data**.
 
 ::: info
@@ -91,7 +112,7 @@ The importer converts LaTeX statements with `pandoc`, which must be installed on
 | **Statement file** | Optional PDF statement (requires the `judge.upload_file_statement` permission). |
 | **Source** | Where the problem comes from; please credit the original source. |
 | **Testers** | Users who can see the private problem but cannot edit it. |
-| **Description** | The Markdown statement (see below). |
+| **Problem body** | The Markdown statement (see below). |
 
 ## Writing the statement
 
@@ -116,7 +137,7 @@ The editor has a live preview, so check how the statement looks before saving.
 
 ### Complete statement template
 
-Copy this template into the **Description** field and replace the content. You do not need to write the time and memory limits in the statement; they are shown automatically in the problem sidebar.
+Copy this template into the **Problem body** field and replace the content. You do not need to write the time and memory limits in the statement; they are shown automatically in the problem sidebar.
 
 ````markdown
 Given two integers ~a~ and ~b~, compute their sum.
@@ -318,7 +339,7 @@ Score = (points earned from cases / total case points) × problem points
 Score = (1 + 2) / (1 + 2 + 7) × 100 = 30
 ```
 
-## Testing your problem
+## Verify: testing your problem
 
 1. Go back to the problem page and click **Submit solution**.
 2. Submit a correct solution and make sure it gets AC on every case.
@@ -343,14 +364,14 @@ After fixing test data, rejudge the existing submissions:
 
 ## Troubleshooting
 
-**The editor shows an error after saving:**
-- Read the message at the top of the page; it names the case and the missing file.
-- Make sure every **Batch start** has points and every batch has at least one case.
+| Symptom | Fix |
+|---|---|
+| The editor shows an error after saving | Read the message at the top of the page; it names the case and the missing file. Make sure every **Batch start** has points and every batch has at least one case. |
+| Submissions get Internal Error (IE) | Check that `init.yml` exists (**View YAML**). Check the permissions of the problem directory (`DMOJ_PROBLEM_DATA_ROOT`). For custom checkers and interactors, check that the file compiles. |
+| Rejudge does not run | From `dmoj/`: `docker compose ps celery`, then `docker compose logs -f celery`. |
 
-**Submissions get Internal Error (IE):**
-- Check that `init.yml` exists (**View YAML**).
-- Check the permissions of the problem directory (`DMOJ_PROBLEM_DATA_ROOT`).
-- For custom checkers and interactors, check that the file compiles.
+## Next steps
 
-**Rejudge does not run:**
-- From `dmoj/`: `docker compose ps celery`, then `docker compose logs -f celery`
+- [Problem format](/en/setter/problem-format): what each field in `init.yml` means.
+- [Checkers](/en/setter/checkers): pick or write an output checker.
+- [Solve your first problem](/en/tutorials/first-problem): experience your problem from the solver's side.

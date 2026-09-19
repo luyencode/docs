@@ -1,6 +1,18 @@
 # Kiến trúc hệ thống
 
-Trang này dành cho người vận hành muốn hiểu LCOJ chạy như thế nào trước khi cài đặt, gỡ lỗi hay mở rộng hệ thống. Mọi thông tin dưới đây lấy từ repo [lcoj-docker](https://github.com/luyencode/lcoj-docker): `dmoj/docker-compose.yml`, các `Dockerfile` trong `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf` và `dmoj/config/`.
+> LCOJ gồm 7 dịch vụ Docker Compose (nginx, site, celery, bridged, wsevent, db, redis) cộng với các máy chấm chạy riêng. Trang này giải thích mỗi dịch vụ làm gì, nói chuyện với nhau qua mạng/cổng nào và dữ liệu nằm ở đâu.
+>
+> ⏱ ~15 phút đọc · 👤 Người vận hành · 🔑 Không cần quyền gì để đọc; chỉnh uWSGI cần SSH + docker trên máy chủ
+
+## Khi nào cần trang này
+
+- **Trước khi cài đặt**: để biết mình sắp chạy những gì và cần mở cổng nào.
+- **Khi gỡ lỗi**: để đoán lỗi nằm ở dịch vụ nào (ví dụ 502 là nginx không gọi được `site`).
+- **Khi mở rộng**: để chỉnh số worker uWSGI, thêm judge, hoặc lên kế hoạch sao lưu.
+
+Nếu gặp thuật ngữ lạ (container, volume, reverse proxy, judge...), xem [Thuật ngữ](/start/glossary).
+
+Mọi thông tin dưới đây lấy từ repo [lcoj-docker](https://github.com/luyencode/lcoj-docker): `dmoj/docker-compose.yml`, các `Dockerfile` trong `dmoj/*/`, `dmoj/nginx/conf.d/nginx.conf` và `dmoj/config/`.
 
 LCOJ dựa trên [DMOJ](https://github.com/DMOJ/online-judge) và [VNOJ](https://github.com/VNOI-Admin/OJ). Toàn bộ website chạy bằng Docker Compose; riêng các máy chấm (judge) chạy tách biệt và kết nối vào hệ thống qua cổng 9999.
 
@@ -210,6 +222,13 @@ docker compose logs --tail=100 site
 
 Lỗi hay gặp là sai cú pháp trong `local_settings.py` hoặc thiếu biến môi trường. Xem [Biến môi trường](/operate/environment).
 :::
+
+## Tiếp theo
+
+- [Cài đặt](/operate/installation): dựng toàn bộ các dịch vụ trên theo từng bước.
+- [Biến môi trường](/operate/environment): cấu hình địa chỉ `redis`, `wsevent`, `bridged` và `NGINX_PORT`.
+- [Cài đặt judge](/operate/judge-setup): kết nối máy chấm vào cổng 9999.
+- [Vận hành hằng ngày](/operate/operations): sao lưu và theo dõi các dịch vụ.
 
 ::: tip Cần hỗ trợ?
 - Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

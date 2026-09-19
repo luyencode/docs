@@ -1,10 +1,29 @@
 # Graders
 
+> Choose how the judge runs the contestant's program: standard (stdin/stdout), interactive, IOI-style function implementation, output-only, custom Python grader, or communication.
+>
+> ⏱ ~20 min · 👤 Problem setters · 🔑 Edit rights on the problem (`custom_judge`, `communication`: the problem must be **manually managed**)
+
+## When you need this page
+
 A **grader** controls how the contestant's program is run for each test case: what it reads, who it talks to, and how the result is decided. Most problems use the standard grader, which feeds the input file to stdin and passes stdout to a [checker](/en/setter/checkers). You only need another grader for interactive problems, IOI-style function problems, output-only problems, or truly unusual grading.
 
 ::: tip Checker or grader?
 If you only need to decide whether an output is correct (for example, many correct answers), a [checker](/en/setter/checkers) is enough. Use a different grader only when the program has to be run differently.
 :::
+
+```mermaid
+flowchart TD
+  A{Contestant submits code?} -- no --> O[output_only]
+  A -- yes --> B{Must talk to the program while it runs?}
+  B -- no --> C{Contestant only implements functions?}
+  C -- yes --> S[signature_grader]
+  C -- no --> D[Standard grader + checker]
+  B -- yes --> E{Interactor written in?}
+  E -- C++ --> I[interactive]
+  E -- Python --> P[custom_judge]
+  E -- "Manager + several processes" --> M[communication]
+```
 
 ## Grader types
 
@@ -57,18 +76,18 @@ sequenceDiagram
   Note over I: Exit code decides the verdict
 ```
 
-In `init.yml`:
+In `init.yml` (taken from the `interactive/seed2native` sample in [Problem examples](/en/setter/examples)):
 
 ```yaml
-unbuffered: true
+unbuffered: True
 archive: seed2.zip
-interactive:
-  files: interactor.cpp
-  type: testlib
-  lang: CPP20
+interactive: {files: interactor.cpp, type: testlib}
 test_cases:
-- {in: seed2.1.in, points: 50}
-- {in: seed2.2.in, points: 50}
+- {in: seed2.1.in, points: 20}
+- {in: seed2.2.in, points: 20}
+- {in: seed2.3.in, points: 20}
+- {in: seed2.4.in, points: 20}
+- {in: seed2.5.in, points: 20}
 ```
 
 In the web editor, choose **Interactive** and upload a `.cpp` interactor; LCOJ writes `files`, `type: testlib`, and `lang: CPP20` for you.
@@ -338,3 +357,20 @@ test_cases:
 | `signature` | none | Optional `{entry, header, allow_main}`, as in `signature_grader`, to compile the submission with a stub. |
 
 The combined running time of all copies must stay within the time limit.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| An interactive problem gets TLE although the algorithm is right | Output is not being flushed. Tell contestants to flush after every line (or set `unbuffered: true` when writing `init.yml` by hand), and make sure the interactor flushes too. |
+| An interactive case gets WA as soon as the contestant stops printing | The program closed its output early, so reading stopped; check that it prints every answer. |
+| C submissions fail to compile with `signature_grader` | The entry file is compiled in the submission's language. Write the entry in C if C submissions must work. |
+| Contestants see no output with `signature_grader` | `output_prefix_length` defaults to `0` for this grader. |
+| An output-only case gets WA | The zip has no file named exactly like that case's `out`. |
+| No `custom_judge` or `communication` option on the web | These graders have no web form. Enable **manually managed** and write `init.yml` by hand. |
+
+## Next steps
+
+- [Checkers](/en/setter/checkers): when you only need to decide whether output is correct.
+- [Problem examples](/en/setter/examples): sample problems for each grader type.
+- [Problem format](/en/setter/problem-format): the other keys in `init.yml`.

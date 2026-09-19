@@ -1,10 +1,19 @@
 # Vận hành LCOJ
 
-Các thao tác hằng ngày với một bản cài LCOJ bằng Docker: bật/tắt, xem log, áp dụng cấu hình, xóa cache, sao lưu và khôi phục.
+> Các thao tác hằng ngày với một bản cài LCOJ bằng Docker: bật/tắt, xem log, áp dụng cấu hình, xóa cache, sao lưu và khôi phục.
+>
+> ⏱ ~15 phút đọc; sao lưu/khôi phục tùy dung lượng dữ liệu · 👤 Người vận hành · 🔑 SSH + quyền chạy `docker` trên máy chủ
 
 ::: tip
 Mọi lệnh trong trang này chạy từ thư mục `lcoj-docker/dmoj/`. Danh sách service và cổng xem ở [Kiến trúc hệ thống](/operate/architecture), các script trong `scripts/` xem ở [Script hỗ trợ](/operate/scripts).
 :::
+
+## Trước khi bắt đầu
+
+- [ ] Đã [cài đặt LCOJ](/operate/installation) và các service đang chạy (`docker compose ps`).
+- [ ] Có SSH vào máy chủ và quyền chạy `docker compose` (thuộc nhóm `docker` hoặc dùng `sudo`).
+- [ ] Đang đứng trong thư mục `lcoj-docker/dmoj/`.
+- [ ] Biết sơ qua các thuật ngữ *service*, *container*, *volume*. Xem [Thuật ngữ](/start/glossary) nếu chưa quen.
 
 ## Bật, tắt và khởi động lại
 
@@ -130,6 +139,24 @@ Cần sao lưu bốn thứ:
 | Dữ liệu test | `problems/` | Thường là phần lớn nhất |
 | File tải lên | `media/` | Ảnh, PDF, file đính kèm |
 | Cấu hình | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/` | Chứa bí mật, hãy lưu ở nơi an toàn |
+
+Luồng sao lưu và khôi phục tổng quát:
+
+```mermaid
+flowchart LR
+  subgraph SL["Sao lưu"]
+    A["db (MariaDB)"] -->|mariadb-dump| D["backups/db_*.sql.gz"]
+    B["problems/, media/, cấu hình"] -->|tar -czf| E["backups/files_*.tar.gz"]
+  end
+  D --> F["Chép sang máy khác / kho ngoài"]
+  E --> F
+  subgraph KP["Khôi phục"]
+    F --> G["Dừng site, celery, bridged"]
+    G --> H["Nạp dump vào db"]
+    H --> I["Giải nén file"]
+    I --> J["docker compose up -d + migrate"]
+  end
+```
 
 ### Sao lưu thủ công
 
@@ -276,7 +303,24 @@ Nội dung trang nằm ở `repo/502.html`. Sau khi sửa, chạy `./scripts/cop
    docker compose up -d
    ```
 
-## Xử lý sự cố
+## Kiểm tra kết quả
+
+Sau khi sao lưu:
+
+- `ls -lh backups/` có file `db_*.sql.gz` và `files_*.tar.gz` mới, dung lượng khác 0.
+- `gunzip -t backups/db_<thời điểm>.sql.gz` không báo lỗi (file nén còn nguyên vẹn).
+- `tar -tzf backups/files_<thời điểm>.tar.gz | head` liệt kê được `problems/`, `media/`, `environment/`…
+
+Sau khi bật/tắt, đổi cấu hình hoặc khôi phục:
+
+- `docker compose ps` cho thấy các service đang chạy (`base` ở trạng thái đã thoát là bình thường).
+- Trang chủ tải được, có CSS; đăng nhập được; nộp thử một bài và thấy kết quả tự cập nhật.
+
+::: tip
+Thỉnh thoảng hãy thử khôi phục bản sao lưu lên một máy thử. Bản sao lưu chưa từng được khôi phục thử thì chưa chắc dùng được.
+:::
+
+## Sự cố thường gặp
 
 | Triệu chứng | Cách xử lý |
 |---|---|
@@ -287,12 +331,12 @@ Nội dung trang nằm ở `repo/502.html`. Sau khi sửa, chạy `./scripts/cop
 | Container khởi động lại liên tục | `docker compose logs --tail=100 <service>` |
 | Đầy ổ đĩa | `docker image prune`, `docker builder prune`, kiểm tra dung lượng `problems/` và `backups/` |
 
-## Xem thêm
+## Tiếp theo
 
-- [Cài đặt](/operate/installation)
-- [Cập nhật LCOJ](/operate/updating)
-- [Biến môi trường](/operate/environment)
-- [Management Commands](/reference/management-commands)
+- [Cập nhật LCOJ](/operate/updating): kéo code mới và build lại image, nhớ sao lưu trước.
+- [Biến môi trường](/operate/environment): ý nghĩa từng biến trong `environment/*.env`.
+- [Management Commands](/reference/management-commands): các lệnh `./scripts/manage.py` dùng khi quản trị.
+- [Cài đặt](/operate/installation): nếu cần dựng lại từ đầu trên máy chủ mới.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), hoặc liên hệ qua [behitek.com](https://behitek.com) và [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

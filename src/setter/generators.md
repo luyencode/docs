@@ -1,10 +1,20 @@
 # Generator
 
+> Dùng một chương trình nhỏ để sinh input và output chuẩn của test ngay khi chấm, thay vì lưu các file test lớn.
+>
+> ⏱ ~20 phút · 👤 Người ra đề · 🔑 Quyền sửa bài; bài phải bật **manually managed**
+
 **Generator** là chương trình tạo ra input và output chuẩn của một test ngay khi judge cần đến. Thay vì lưu các file test lớn, bạn chỉ cần lưu một chương trình nhỏ cùng các tham số của nó.
 
 ::: warning Chỉ dùng được với init.yml tự viết
 Trình sửa test trên web không có lựa chọn generator. Muốn dùng generator, hãy bật **manually managed** (quản lý test thủ công) cho bài trong admin và tự viết `init.yml`, đặt mã nguồn generator trong thư mục bài (xem [Cấu trúc bài tập](/setter/problem-format)).
 :::
+
+## Trước khi bắt đầu
+
+- [ ] Bài đã được bật **manually managed** trong admin.
+- [ ] Bạn ghi được file vào thư mục bài (ví dụ `dmoj/problems/<mã_bài>/` khi dùng Docker).
+- [ ] Đã hiểu cấu trúc `init.yml` (xem [Cấu trúc bài tập](/setter/problem-format)).
 
 ## Judge chạy generator như thế nào
 
@@ -229,3 +239,20 @@ test_cases:
 - **Đáp án nhất quán:** output chuẩn được tính bởi chính chương trình đã tạo ra input.
 
 Xem `generator/ds3` trong [Ví dụ bài tập](/setter/examples) để thấy một bài thật dùng generator.
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách khắc phục |
+|---|---|
+| Mọi bài nộp đều bị sai | Generator in thông tin thừa ra stderr, mà stderr chính là output chuẩn. Bỏ mọi dòng debug. |
+| Mỗi bài nộp gặp bộ test khác nhau | Seed lấy theo thời gian. Luôn lấy seed từ `generator_args`. |
+| Bài nộp bị Internal Error | Generator thoát với mã khác 0, bị crash hoặc vượt giới hạn. Chạy thử generator trên máy với cùng tham số. |
+| Generator đọc sai tham số | `argv[0]` là `_aux_file`; tham số đầu tiên của bạn là `argv[1]`. Giá trị YAML `true` thành chuỗi `"True"`. |
+| Quá thời gian biên dịch khi dùng testlib | Tăng `compiler_time_limit`. |
+| Generator không chạy cho một test | Test có cả `in` và `out` thì không dùng generator. |
+
+## Tiếp theo
+
+- [Cấu trúc bài tập](/setter/problem-format): các key khác trong `init.yml`.
+- [Ví dụ bài tập](/setter/examples): bài `generator/ds3` dùng generator thật.
+- [Checker](/setter/checkers): chấm output khi bài có nhiều đáp án đúng.

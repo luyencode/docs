@@ -1,14 +1,16 @@
 # Setting up judges
 
-A judge is the program that receives submissions, compiles them, runs them against each test case, and reports the results back to the site. In LCOJ, judges are **not part of Docker Compose**: each judge runs in its own container and connects to the `bridged` service on port `9999`.
+> Register a judge on the site, run it with Docker, run several judges side by side, and confirm that a judge is connected.
+>
+> ⏱ ~20 min · 👤 Operators · 🔑 SSH + permission to run `docker` on the judge machine, a superuser account on the site
 
-This page shows you how to register a judge on the site, run it with Docker, run several judges side by side, and confirm that a judge is connected.
+A judge is the program that receives submissions, compiles them, runs them against each test case, and reports the results back to the site. In LCOJ, judges are **not part of Docker Compose**: each judge runs in its own container and connects to the `bridged` service (the bridge between the site and the judges) on port `9999`. For other terms, see the [Glossary](/en/start/glossary).
 
-::: info Before you start
-- The site is installed as described in [Installing with Docker](/en/operate/installation), and the `bridged` service is running.
-- The judge machine runs **Linux** (the judge sandbox needs a Linux kernel) and has Docker installed.
-- You have an administrator (superuser) account on the site.
-:::
+## Before you start
+
+- [ ] The site is installed as described in [Installing with Docker](/en/operate/installation), and the `bridged` service is running.
+- [ ] The judge machine runs **Linux** (the judge sandbox needs a Linux kernel) and has Docker installed.
+- [ ] You have an administrator (superuser) account on the site.
 
 ## How judges connect
 
@@ -195,7 +197,7 @@ docker run \
 A judge uses roughly one CPU core while grading. A simple rule: run no more judges than your CPU cores, minus one or two for the site and the database. Too many judges on one machine makes measured run times less stable.
 :::
 
-## Verifying the connection
+## Verify
 
 1. **Check the judge's log:**
 
@@ -252,6 +254,13 @@ Quickly inspect a problem's data from the judge's point of view:
 docker exec judge_judge1 ls -la /problems/aplusb
 docker exec judge_judge1 cat /problems/aplusb/init.yml
 ```
+
+## Next steps
+
+- [Judge configuration](/en/operate/judge-configuration): what each key in `judge_*.yml` means.
+- [Supported languages](/en/reference/languages): which languages are available and how to enable them for a problem.
+- [Managing problems](/en/setter/managing-problems): upload test data so the judge has something to grade.
+- [Operating LCOJ](/en/operate/operations): reading `bridged` logs and other day-to-day tasks.
 
 ::: tip Need help?
 - Open an issue on [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

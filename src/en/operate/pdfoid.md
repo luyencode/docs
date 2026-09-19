@@ -1,5 +1,9 @@
 # Problem PDFs (Pdfoid)
 
+> Install Pdfoid (optional) so the server generates statement PDFs at `/problem/<code>/pdf`. Without it, LCOJ still lets users print statements to PDF from the browser.
+>
+> ⏱ ~45 min · 👤 Operators · 🔑 SSH + docker access on the server
+
 ::: info Do you need this?
 Pdfoid is a DMOJ service that uses headless Chromium to turn a problem statement's HTML into a PDF on the server.
 
@@ -40,6 +44,14 @@ Things to know:
 - The HTML sent to Pdfoid is the `problem/raw.html` template. It loads MathJax **from your site's absolute URL** (for example `https://luyencode.net/static/...`), so the Pdfoid container **must be able to reach your website**.
 - If `DMOJ_PDF_PROBLEM_CACHE` is set, PDFs are stored as `<CODE>.<language>.pdf` and are **deleted automatically when the problem is saved**. The next view renders a fresh copy.
 - Rendering happens inside the uWSGI request (not in Celery).
+
+## Before you start
+
+- [ ] You really need server-generated PDF links (otherwise the browser's print button is enough).
+- [ ] You can SSH in and run `docker compose` in the `dmoj/` directory.
+- [ ] The server has enough RAM for headless Chromium, since every uncached render launches a new Chromium.
+- [ ] The Pdfoid container will be able to reach your website (to load MathJax).
+- [ ] You know how to change settings: see [Environment and configuration](/en/operate/environment).
 
 ## Installation (optional)
 
@@ -100,12 +112,6 @@ docker compose up -d --build pdfoid
 docker compose restart site
 ```
 
-### Step 5: Test it
-
-1. Open any problem, for example `https://luyencode.net/problem/APLUSB`.
-2. The **View as PDF** button now points to `/problem/APLUSB/pdf`.
-3. Click it; after a few seconds the browser shows the PDF.
-
 ## Enable the PDF cache (recommended once you use Pdfoid)
 
 Without a cache, every PDF view launches a new Chromium. To cache:
@@ -146,6 +152,13 @@ Without a cache, every PDF view launches a new Chromium. To cache:
    docker compose up -d site nginx
    ```
 
+## Verify
+
+1. Open any problem, for example `https://luyencode.net/problem/APLUSB`.
+2. The **View as PDF** button now points to `/problem/APLUSB/pdf`.
+3. Click it; after a few seconds the browser shows the PDF.
+4. If you enabled the cache: the cache directory contains `APLUSB.<language>.pdf`, and the second view returns almost instantly.
+
 ## Settings that actually exist
 
 | Setting | Default (`dmoj/settings.py`) | Meaning |
@@ -182,6 +195,12 @@ The PDF view checks access the same way the problem page does: anyone who can't 
 | An edited statement still shows the old PDF | Cached files are only removed when the problem is saved | Save the problem again, or delete `<CODE>.<language>.pdf` from the cache directory |
 
 View logs with `docker compose logs -f pdfoid` and `docker compose logs -f site` (logger `judge.problem.pdf`).
+
+## Next steps
+
+- [Math formulas](/en/operate/mathoid): MathJax is also what Pdfoid waits for.
+- [Architecture](/en/operate/architecture): where `site`, `nginx` and the networks sit in the stack.
+- [Management commands](/en/reference/management-commands): `render_pdf` and other commands.
 
 ::: tip Need help?
 Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

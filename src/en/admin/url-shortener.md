@@ -1,5 +1,9 @@
 # URL shortener
 
+> Create short links like `https://<short-domain>/hsg2026` that point to long addresses, see visit counts, grant staff permissions, and configure a dedicated short-link domain.
+>
+> ⏱ ~2 min (create a link) · ~15 min (domain setup) · 👤 Staff, admins, operators · 🔑 The `urlshortener.*` permissions; domain setup needs server access
+
 LCOJ ships with a built-in URL shortener: you assign a **short code** (for example `hsg2026`) to a long address, then share a link such as `https://<short-domain>/hsg2026`. It is handy for handing out contest links, registration forms or materials on slides, posters and group chats.
 
 This page has three parts, for three audiences:

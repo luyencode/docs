@@ -1,5 +1,9 @@
 # Quản lý bài tập
 
+> Tạo một bài tập, viết đề bằng Markdown, tải test data lên, chọn checker/grader rồi nộp thử để kiểm tra bài.
+>
+> ⏱ ~30 phút · 👤 Người ra đề · 🔑 `judge.add_problem` (tạo), `judge.edit_own_problem` (sửa)
+
 LCOJ cho phép tạo bài tập, viết đề và tải test data lên ngay trên giao diện web. Trang này hướng dẫn toàn bộ quy trình, từ một bài tập trống đến khi bài sẵn sàng cho mọi người giải trên luyencode.net.
 
 ::: tip Ai được làm việc này?
@@ -9,6 +13,23 @@ LCOJ cho phép tạo bài tập, viết đề và tải test data lên ngay trê
 
 Xem [Phân quyền](/admin/permissions) để biết cách cấp các quyền này.
 :::
+
+## Trước khi bắt đầu
+
+- [ ] Tài khoản của bạn có các quyền nêu ở trên (hỏi quản trị viên nếu chưa có).
+- [ ] Đã có đề bài, lời giải chuẩn và bộ test (các cặp file input/output).
+- [ ] Đã chọn một **mã bài** (ví dụ `aplusb`): chữ thường, chữ số, dấu gạch dưới.
+
+Quy trình tổng quát:
+
+```mermaid
+flowchart LR
+  A[Tạo bài] --> B[Viết đề]
+  B --> C[Tải test data]
+  C --> D[Chọn checker / grader]
+  D --> E[Nộp thử]
+  E --> F[Công khai bài]
+```
 
 ## Dữ liệu bài tập được lưu ở đâu
 
@@ -44,7 +65,7 @@ Có ba cách tạo bài.
 
 1. Mở **Danh sách bài** và bấm tab **Tạo bài mới** (URL: `/problems/create`).
 2. Điền form (xem [Các thông số của bài](#cac-thong-so-cua-bai) bên dưới). Ô đề bài đã được điền sẵn đề mẫu lấy từ cấu hình site.
-3. Bấm **Lưu**. Bạn được thêm vào làm **curator** của bài, và mọi ngôn ngữ được đánh dấu "include in problem" sẽ tự động được cho phép.
+3. Bấm **Tạo**. Bạn được thêm vào làm **curator** của bài, và mọi ngôn ngữ được đánh dấu "include in problem" sẽ tự động được cho phép.
 4. Site chuyển sang trang bài tập. Thanh bên phải lúc này có **Sửa đề bài**, **Delete problem** (xóa bài) và **Sửa đổi test**.
 
 ::: info
@@ -91,7 +112,7 @@ Bộ nhập chuyển đề LaTeX sang Markdown bằng `pandoc`, nên máy chủ 
 | **File đề** | Đề dạng PDF (tùy chọn, cần quyền `judge.upload_file_statement`). |
 | **Nguồn** | Nguồn gốc của bài; hãy ghi rõ nguồn gốc. |
 | **Tester** | Những người được xem bài khi bài còn riêng tư nhưng không được sửa. |
-| **Mô tả** | Đề bài dạng Markdown (xem bên dưới). |
+| **Bài toán** | Đề bài dạng Markdown (xem bên dưới). |
 
 ## Viết đề bài
 
@@ -116,7 +137,7 @@ Trình soạn thảo có xem trước trực tiếp, hãy kiểm tra đề hiể
 
 ### Mẫu đề bài hoàn chỉnh
 
-Chép mẫu này vào ô **Mô tả** rồi thay nội dung. Không cần ghi giới hạn thời gian và bộ nhớ trong đề; chúng đã được hiển thị tự động ở thanh bên của trang bài.
+Chép mẫu này vào ô **Bài toán** rồi thay nội dung. Không cần ghi giới hạn thời gian và bộ nhớ trong đề; chúng đã được hiển thị tự động ở thanh bên của trang bài.
 
 ````markdown
 Cho hai số nguyên ~a~ và ~b~. Hãy tính tổng của chúng.
@@ -318,7 +339,7 @@ Với các trường hợp này, hãy tự viết `init.yml`:
 Điểm = (1 + 2) / (1 + 2 + 7) × 100 = 30
 ```
 
-## Nộp thử
+## Kiểm tra kết quả: nộp thử
 
 1. Quay lại trang bài và bấm **Gửi bài giải**.
 2. Nộp một lời giải đúng và đảm bảo nó AC ở mọi test.
@@ -341,16 +362,16 @@ Nút **Tính lại điểm của mọi bài nộp** trên cùng trang tính lạ
 - **Kiểm tra lại output chuẩn** bằng một lời giải thứ hai độc lập.
 - **Thử nhiều ngôn ngữ** (C++, Python, Java) để chắc chắn giới hạn thời gian hợp lý.
 
-## Xử lý lỗi thường gặp
+## Sự cố thường gặp
 
-**Trình sửa test báo lỗi sau khi lưu:**
-- Đọc thông báo ở đầu trang; nó nêu rõ test nào và file nào bị thiếu.
-- Đảm bảo mọi dòng **Bắt đầu nhóm test** đều có điểm và mỗi batch có ít nhất một test.
+| Triệu chứng | Cách khắc phục |
+|---|---|
+| Trình sửa test báo lỗi sau khi lưu | Đọc thông báo ở đầu trang; nó nêu rõ test nào và file nào bị thiếu. Đảm bảo mọi dòng **Bắt đầu nhóm test** đều có điểm và mỗi batch có ít nhất một test. |
+| Bài nộp bị Internal Error (IE) | Kiểm tra `init.yml` đã tồn tại (**Xem YAML**). Kiểm tra quyền truy cập thư mục bài (`DMOJ_PROBLEM_DATA_ROOT`). Với custom checker và interactor, kiểm tra file biên dịch được. |
+| Chấm lại không chạy | Chạy trong thư mục `dmoj/`: `docker compose ps celery`, rồi `docker compose logs -f celery`. |
 
-**Bài nộp bị Internal Error (IE):**
-- Kiểm tra `init.yml` đã tồn tại (**Xem YAML**).
-- Kiểm tra quyền truy cập thư mục bài (`DMOJ_PROBLEM_DATA_ROOT`).
-- Với custom checker và interactor, kiểm tra file biên dịch được.
+## Tiếp theo
 
-**Chấm lại không chạy:**
-- Chạy trong thư mục `dmoj/`: `docker compose ps celery`, rồi `docker compose logs -f celery`
+- [Cấu trúc bài tập](/setter/problem-format): ý nghĩa từng trường trong `init.yml`.
+- [Checker](/setter/checkers): chọn hoặc tự viết trình chấm output.
+- [Giải bài đầu tiên](/tutorials/first-problem): trải nghiệm bài của bạn từ góc nhìn người giải.

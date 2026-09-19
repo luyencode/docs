@@ -1,5 +1,13 @@
 # Permission System
 
+> How LCOJ checks permissions, how to grant them through groups or directly in the admin site, and the full list of custom permissions.
+>
+> ⏱ ~10 min (granting) · 👤 System administrators · 🔑 Superuser (or staff with `auth.change_group` / `auth.change_user`)
+
+## When you need this page
+
+Use this page when someone needs to do something a regular account cannot (setting problems, running contests, moderating comments, and so on), or when someone reports "permission denied" and you need to know which permission is missing. The first part explains how to grant permissions; the rest is a reference table.
+
 LCOJ uses Django's permission system: every sensitive action (editing a problem, rejudging, viewing a private contest, and so on) is checked against a **permission** named `<app>.<codename>`, for example `judge.edit_own_problem`. This page lists every custom LCOJ permission, explains what each one lets you do, and shows how to grant permissions in the admin site.
 
 ## How permissions work
@@ -41,6 +49,11 @@ Create one group per role (for example "Problem setters" or "Contest organizers"
 2. If the person needs the admin site, turn on **Staff status**.
 3. Under **User permissions**, select the permissions. Each entry is shown as `judge.edit_own_problem | Edit own problems` (app, codename, then label).
 4. Save.
+
+### Verify
+
+- The person reloads the page and tries the action that needs the permission (for example **Edit problem** on one of their problems).
+- If the role needs the admin site, they can open `/admin/` and see the matching sections.
 
 ::: info Search by codename
 Permission labels are stored in the database in English, and many of them have no Vietnamese translation. Search for permissions by **codename** (the first column in the tables below). If labels in the database are out of date after a code update, run `./scripts/manage.py update_permissions` (see [Management commands](/en/reference/management-commands)).
@@ -180,3 +193,19 @@ These are starting points; adjust them to your needs. Remember to turn on **Staf
 - `edit_all_problem`, `edit_all_contest`, and `view_all_submission` expose everyone's contest data and source code.
 - Review group and user permissions regularly, and remove permissions from people who are no longer involved.
 :::
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Cannot open `/admin/` despite having permissions | Turn on **Staff status** for the account. |
+| Has `edit_all_problem` but still cannot edit problems | Also grant `edit_own_problem`; without it, `edit_public_problem` and `edit_all_problem` have no effect. |
+| Cannot find a permission in the list | Search by **codename** instead of the label. If labels are stale, run `./scripts/manage.py update_permissions`. |
+| Granted `spam_organization` but the user is still limited | This permission currently only works for superusers (see the warning under Organizations). |
+| Bulk rejudge is capped at 10 submissions | Also grant `rejudge_submission_lot`. |
+
+## Next steps
+
+- [Managing users](/en/admin/users): find accounts, ban accounts, enable staff.
+- [Site configuration](/en/admin/site-config): site-wide settings.
+- [Organizations](/en/organize/organizations): per-organization admin rights.

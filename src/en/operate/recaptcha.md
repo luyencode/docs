@@ -1,5 +1,9 @@
 # Blocking Signup Spam with reCAPTCHA
 
+> Turn on the "I'm not a robot" box (reCAPTCHA v2) for the password signup form. You only need this after turning off `OAUTH_ONLY`; LCOJ's default configuration doesn't need it.
+>
+> ⏱ ~30 min · 👤 Operators · 🔑 SSH + docker access on the server, a Google account
+
 ::: info Do you need this?
 reCAPTCHA adds an "I'm not a robot" box to the **username/password signup form** to stop bots from creating junk accounts.
 
@@ -24,6 +28,14 @@ The code lives in `judge/utils/recaptcha.py` and `judge/views/register.py` in `d
 2. If the import succeeds **and** settings has a `RECAPTCHA_PRIVATE_KEY` attribute, the signup form gets a `captcha` field (a reCAPTCHA **v2 checkbox** widget).
 3. If either condition is missing, the form has no captcha and nothing is reported.
 
+```mermaid
+flowchart LR
+  A[Can import<br/>snowpenguin.django.recaptcha2?] -->|Yes| B[Settings has<br/>RECAPTCHA_PRIVATE_KEY?]
+  A -->|No| X[Form has no captcha]
+  B -->|Yes| C[Form shows reCAPTCHA v2]
+  B -->|No| X
+```
+
 ::: warning Don't mix up the two packages
 - LCOJ's code uses **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), which supports reCAPTCHA v2 only.
 - The **`django-recaptcha`** package (module `django_recaptcha`, which has reCAPTCHA v3) is **not** used by LCOJ's code. Installing it won't make a captcha appear.
@@ -32,6 +44,13 @@ The code lives in `judge/utils/recaptcha.py` and `judge/views/register.py` in `d
 ::: details A note on `OAUTH_ONLY`
 `OAUTH_ONLY` is only used in the `registration/registration_form.html` template to hide the input fields. The `/accounts/register/` view itself doesn't check `OAUTH_ONLY`.
 :::
+
+## Before you start
+
+- [ ] You've decided to turn off `OAUTH_ONLY` to reopen password signup (see [OAuth](/en/start/glossary)).
+- [ ] You can SSH into the server and run `docker compose` in the `dmoj/` directory.
+- [ ] You have a Google account to create reCAPTCHA keys.
+- [ ] You have a development machine to try it first (`django-recaptcha2` is untested with Django 4.2).
 
 ## Enabling reCAPTCHA (only after turning off `OAUTH_ONLY`)
 
@@ -98,7 +117,7 @@ cd dmoj
 docker compose up -d site celery
 ```
 
-### Step 5: Verify
+## Verify
 
 1. Open `https://luyencode.net/accounts/register/` in a private window.
 2. The "I'm not a robot" box appears at the bottom of the form.
@@ -118,6 +137,12 @@ docker compose up -d site celery
 
 - Never commit the secret key to git. Keep it in `dmoj/environment/site.env` (already gitignored).
 - Watch new-account counts to catch spam early.
+
+## Next steps
+
+- [Environment and configuration](/en/operate/environment): how `site.env` and `local_settings.py` work together.
+- [Updating LCOJ](/en/operate/updating): rebuild images after changing `additional_requirements.txt`.
+- [Managing users](/en/admin/users): clean up junk accounts that slipped through.
 
 ::: tip Need help?
 Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

@@ -1,5 +1,9 @@
 # Chống spam đăng ký với reCAPTCHA
 
+> Bật ô "I'm not a robot" (reCAPTCHA v2) cho form đăng ký bằng mật khẩu. Chỉ cần khi bạn đã tắt `OAUTH_ONLY`; cấu hình mặc định của LCOJ không cần bước này.
+>
+> ⏱ ~30 phút · 👤 Người vận hành · 🔑 SSH + quyền chạy docker trên máy chủ, tài khoản Google
+
 ::: info Bạn có cần trang này không?
 reCAPTCHA thêm ô "I'm not a robot" vào **form đăng ký bằng tên đăng nhập và mật khẩu**, giúp chặn bot tạo tài khoản rác.
 
@@ -24,6 +28,14 @@ Code nằm ở `judge/utils/recaptcha.py` và `judge/views/register.py` trong `d
 2. Nếu import được **và** settings có thuộc tính `RECAPTCHA_PRIVATE_KEY`, form đăng ký có thêm trường `captcha` (widget reCAPTCHA **v2 checkbox**).
 3. Nếu thiếu một trong hai điều kiện, form không có captcha và không báo lỗi gì.
 
+```mermaid
+flowchart LR
+  A[Import được<br/>snowpenguin.django.recaptcha2?] -->|Có| B[Settings có<br/>RECAPTCHA_PRIVATE_KEY?]
+  A -->|Không| X[Form không có captcha]
+  B -->|Có| C[Form có ô reCAPTCHA v2]
+  B -->|Không| X
+```
+
 ::: warning Không nhầm hai gói
 - Code LCOJ dùng **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), chỉ hỗ trợ reCAPTCHA v2.
 - Gói **`django-recaptcha`** (module `django_recaptcha`, có reCAPTCHA v3) **không** được code LCOJ dùng. Cài gói này không làm hiện captcha.
@@ -32,6 +44,13 @@ Code nằm ở `judge/utils/recaptcha.py` và `judge/views/register.py` trong `d
 ::: details Ghi chú về `OAUTH_ONLY`
 `OAUTH_ONLY` chỉ được dùng trong template `registration/registration_form.html` để ẩn các ô nhập liệu. View `/accounts/register/` không tự kiểm tra `OAUTH_ONLY`.
 :::
+
+## Trước khi bắt đầu
+
+- [ ] Bạn đã quyết định tắt `OAUTH_ONLY` để mở lại đăng ký bằng mật khẩu (xem [OAuth](/start/glossary)).
+- [ ] Có quyền SSH vào máy chủ và chạy `docker compose` trong thư mục `dmoj/`.
+- [ ] Có tài khoản Google để tạo key reCAPTCHA.
+- [ ] Có máy dev để thử trước (gói `django-recaptcha2` chưa được kiểm thử với Django 4.2).
 
 ## Bật reCAPTCHA (chỉ khi đã tắt `OAUTH_ONLY`)
 
@@ -98,13 +117,13 @@ cd dmoj
 docker compose up -d site celery
 ```
 
-### Bước 5: Kiểm tra
+## Kiểm tra kết quả
 
 1. Mở `https://luyencode.net/accounts/register/` trong cửa sổ ẩn danh.
 2. Cuối form có ô "I'm not a robot".
 3. Thử đăng ký một tài khoản test.
 
-## Xử lý sự cố
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -118,6 +137,12 @@ docker compose up -d site celery
 
 - Không commit secret key vào git. Để trong `dmoj/environment/site.env` (đã được gitignore).
 - Theo dõi số tài khoản mới để phát hiện spam sớm.
+
+## Tiếp theo
+
+- [Biến môi trường và cấu hình](/operate/environment): cách `site.env` và `local_settings.py` phối hợp với nhau.
+- [Cập nhật LCOJ](/operate/updating): build lại image sau khi đổi `additional_requirements.txt`.
+- [Quản lý người dùng](/admin/users): xử lý tài khoản rác nếu đã lọt qua.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

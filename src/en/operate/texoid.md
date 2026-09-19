@@ -1,5 +1,9 @@
 # TikZ Diagrams (Texoid)
 
+> LCOJ doesn't render TikZ in statements; the recommended way is to draw figures as SVG/PNG images and embed them. Running Texoid is only for developers who want to rebuild this feature.
+>
+> ⏱ ~10 min (embedding an image) · 👤 Operators, problem setters · 🔑 Permission to edit problems; SSH + docker on a dev machine to try Texoid
+
 ::: info Do you need this?
 Texoid is a DMOJ service that compiles LaTeX documents (such as TikZ drawings) into SVG/PNG images.
 
@@ -48,6 +52,12 @@ SVG stays sharp when zoomed and is usually smaller than PNG. Prefer SVG for grap
 ## For developers: running Texoid (optional)
 
 You only need this section if you plan to **wire** `TexoidRenderer` back into the Markdown renderer. Do it on a development machine, not in production.
+
+### Before you start
+
+- [ ] You have a separate development machine (not production) running the LCOJ Docker stack.
+- [ ] You can SSH in and run `docker compose` in the `dmoj/` directory.
+- [ ] You've changed the code so the Markdown renderer actually calls `TexoidRenderer` (otherwise the steps below have no effect on statements).
 
 ### Step 1: Build an image
 
@@ -102,14 +112,17 @@ docker compose up -d --build texoid
 docker compose restart site
 ```
 
-Test it from the `site` container:
+## Verify
 
-```sh
-docker compose exec site curl -s -H 'Content-Type: application/x-tex' \
-  --data-raw '\documentclass{standalone}\begin{document}$E=mc^2$\end{document}' http://texoid:8888/
-```
+- **Embedded image (recommended):** open the problem page and the figure shows; opening the image's `/martor/...` URL directly also shows it.
+- **Texoid (dev machine):** test it from the `site` container:
 
-A working setup returns JSON with `"success": true`.
+  ```sh
+  docker compose exec site curl -s -H 'Content-Type: application/x-tex' \
+    --data-raw '\documentclass{standalone}\begin{document}$E=mc^2$\end{document}' http://texoid:8888/
+  ```
+
+  A working setup returns JSON with `"success": true`.
 
 ## Troubleshooting
 
@@ -119,6 +132,12 @@ A working setup returns JSON with `"success": true`.
 | `TEXOID_URL` is set but nothing changes | Texoid isn't wired into the renderer | Expected with the current code; not a configuration error |
 | `curl` to Texoid says `Connection refused` | Texoid only listens on `localhost` | Add `--address=0.0.0.0` |
 | Texoid returns `"success": false` | LaTeX error or missing TeX package | Read the `error` field and install the missing TeX packages |
+
+## Next steps
+
+- [Math formulas](/en/operate/mathoid): the `~...~` and `$$...$$` syntax for regular math.
+- [Problem format](/en/setter/problem-format): the other parts of a problem.
+- [Environment and configuration](/en/operate/environment): where settings go if you try Texoid.
 
 ::: tip Need help?
 Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

@@ -1,11 +1,21 @@
 # User Data Download
 
+> Users can download a ZIP file with their own submission source code and comments. LCOJ ships with this enabled; this page helps you change the rate limit, turn the feature off, clean up old files, and troubleshoot.
+>
+> ⏱ ~15 min · 👤 Operators · 🔑 SSH + permission to run `docker compose` on the server
+
 ::: info Do you need this?
 This feature lets each user download a ZIP file with the **source code of their submissions** and **their comments**.
 
 - **LCOJ ships with this feature enabled**, with nginx and the Docker volume already configured. You don't need to do anything to make it work.
 - Read this page if you want to **change the rate limit**, **turn the feature off**, **clean up old files**, or troubleshoot user reports.
 :::
+
+## Before you start
+
+- [ ] You can SSH into the server and run `docker compose` in the `dmoj/` directory.
+- [ ] The `site`, `celery`, and `nginx` services are running (`docker compose ps`). ZIP files are built by [Celery](/en/start/glossary) (the background task queue).
+- [ ] You know where the config files live: see [Environment and configuration](/en/operate/environment).
 
 ## Status in LCOJ
 
@@ -111,6 +121,10 @@ docker compose restart site celery
 
 LCOJ **does not delete** ZIP files automatically. Each user has only one file, so storage doesn't grow without bound, but files stay in the volume after users download them. Clean up periodically.
 
+::: danger Deletes files
+The commands below permanently delete ZIP files in the `userdatacache` volume. Double-check the `/userdatacache/` path and the `-name '*.zip'` filter before running them.
+:::
+
 Run it manually (from the `dmoj/` directory):
 
 ```sh
@@ -130,6 +144,14 @@ Or add a cron job on the host (`crontab -e`), adjusting the path:
 Keep files **longer** than `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT`. Since users can prepare a new file as soon as theirs is deleted, deleting too early defeats the rate limit.
 :::
 
+## Verify
+
+1. Sign in with a regular account and open `/edit/profile/`: the **Download your data** link is shown (if the feature is on).
+2. Open `/data/prepare/`, choose your data, and submit the form. The progress page runs until it completes.
+3. Click download: you get `<username>-data.zip` containing `submissions/` and/or `comments/`.
+4. Open `/data/prepare/` again right away: the page shows how long you must wait before preparing a new file, meaning the rate limit works.
+5. If you turned the feature off: the link is gone and `/data/prepare/` returns 404.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -140,6 +162,12 @@ Keep files **longer** than `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT`. Since users can 
 | `/data/download/` returns 404 | The file hasn't been prepared or was cleaned up | Prepare it again from `/data/prepare/` |
 | Download is empty or nginx returns 404 | nginx can't see the file | Make sure the volume is mounted into `nginx` and the `/userdatacache` location exists in `nginx.conf` |
 | User is told to wait | `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT` hasn't elapsed | Wait, or download the previously prepared file |
+
+## Next steps
+
+- [Day-to-day operations](/en/operate/operations): logs, restarting services, and other routine maintenance.
+- [Environment and configuration](/en/operate/environment): other settings in `local_settings.py`.
+- [Contest data download](/en/organize/contest-data-download): the similar feature for contest organizers.
 
 ::: tip Need help?
 Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

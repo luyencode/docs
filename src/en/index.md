@@ -13,8 +13,11 @@ hero:
     alt: LCOJ
   actions:
     - theme: brand
-      text: Start solving
-      link: /en/learn/submissions
+      text: Start here
+      link: /en/start/introduction
+    - theme: alt
+      text: Tutorials
+      link: /en/tutorials/first-problem
     - theme: alt
       text: Self-host LCOJ
       link: /en/operate/architecture

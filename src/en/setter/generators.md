@@ -1,10 +1,20 @@
 # Generators
 
+> Use a small program to produce each case's input and expected output at judging time, instead of storing large test files.
+>
+> ⏱ ~20 min · 👤 Problem setters · 🔑 Edit rights on the problem; the problem must be **manually managed**
+
 A **generator** is a program that creates the input and the expected output of a test case when the judge needs them. Instead of storing large test files, you store a small program and its arguments.
 
 ::: warning Hand-written init.yml only
 The web test data editor has no generator option. To use a generator, mark the problem as **manually managed** in the admin and write `init.yml` yourself, with the generator source in the problem directory (see [Problem format](/en/setter/problem-format)).
 :::
+
+## Before you start
+
+- [ ] The problem is marked **manually managed** in the admin.
+- [ ] You can write files to the problem directory (e.g. `dmoj/problems/<problem_code>/` in Docker).
+- [ ] You know the structure of `init.yml` (see [Problem format](/en/setter/problem-format)).
 
 ## How the judge runs a generator
 
@@ -229,3 +239,20 @@ test_cases:
 - **Consistent answers:** the expected output is computed by the same program that created the input.
 
 For a real problem that uses a generator, see `generator/ds3` in [Problem examples](/en/setter/examples).
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Every submission is wrong | The generator prints extra text to stderr, and stderr is the expected output. Remove all debug output. |
+| Each submission sees different tests | The seed comes from the clock. Always take the seed from `generator_args`. |
+| Submissions get Internal Error | The generator exited with a non-zero code, crashed, or exceeded its limits. Run it locally with the same arguments. |
+| The generator reads the wrong arguments | `argv[0]` is `_aux_file`; your first argument is `argv[1]`. A YAML `true` becomes the string `"True"`. |
+| Compilation times out with testlib | Increase `compiler_time_limit`. |
+| The generator does not run for a case | A case with both `in` and `out` does not use the generator. |
+
+## Next steps
+
+- [Problem format](/en/setter/problem-format): the other keys in `init.yml`.
+- [Problem examples](/en/setter/examples): `generator/ds3`, a real problem that uses a generator.
+- [Checkers](/en/setter/checkers): grading output when there are several correct answers.

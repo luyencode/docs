@@ -1,11 +1,21 @@
 # Tải dữ liệu người dùng
 
+> Người dùng tự tải về file ZIP chứa mã nguồn bài nộp và bình luận của mình. LCOJ đã bật sẵn; trang này giúp bạn chỉnh giới hạn tần suất, tắt tính năng, dọn file cũ và xử lý lỗi.
+>
+> ⏱ ~15 phút · 👤 Người vận hành · 🔑 SSH + quyền chạy `docker compose` trên server
+
 ::: info Bạn có cần trang này không?
 Tính năng này cho phép mỗi người dùng tự tải về một file ZIP chứa **mã nguồn các bài nộp** và **bình luận** của chính họ.
 
 - **LCOJ đã bật sẵn tính năng này** và cấu hình xong cả nginx lẫn volume Docker. Bạn không cần làm gì để nó chạy.
 - Đọc trang này nếu bạn muốn **đổi giới hạn tần suất**, **tắt tính năng**, **dọn file cũ**, hoặc xử lý khi người dùng báo lỗi.
 :::
+
+## Trước khi bắt đầu
+
+- [ ] Có quyền SSH vào server và chạy `docker compose` trong thư mục `dmoj/`.
+- [ ] Các service `site`, `celery` và `nginx` đang chạy (`docker compose ps`). File ZIP do [Celery](/start/glossary) (hàng đợi tác vụ nền) tạo.
+- [ ] Biết file cấu hình nằm ở đâu: xem [Biến môi trường và cấu hình](/operate/environment).
 
 ## Trạng thái trong LCOJ
 
@@ -111,6 +121,10 @@ docker compose restart site celery
 
 LCOJ **không tự xóa** file ZIP. Mỗi người chỉ có một file nên dung lượng không tăng vô hạn, nhưng file của người đã tải xong vẫn nằm lại trong volume. Nên dọn định kỳ.
 
+::: danger Lệnh xóa file
+Các lệnh dưới đây xóa vĩnh viễn file ZIP trong volume `userdatacache`. Kiểm tra kỹ đường dẫn `/userdatacache/` và điều kiện `-name '*.zip'` trước khi chạy.
+:::
+
 Chạy thủ công (từ thư mục `dmoj/`):
 
 ```sh
@@ -130,7 +144,15 @@ Hoặc thêm cron trên máy host (`crontab -e`), thay đường dẫn cho đún
 Giữ file **lâu hơn** `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT`. Vì file bị xóa thì người dùng được tạo lại ngay, xóa quá sớm sẽ vô hiệu hóa giới hạn tần suất.
 :::
 
-## Xử lý sự cố
+## Kiểm tra kết quả
+
+1. Đăng nhập bằng một tài khoản thường, mở `/edit/profile/`: liên kết **Download your data** hiện ra (nếu tính năng đang bật).
+2. Mở `/data/prepare/`, chọn dữ liệu và gửi form. Trang tiến trình chạy tới khi hoàn tất.
+3. Bấm tải: nhận được file `<username>-data.zip` có thư mục `submissions/` và/hoặc `comments/`.
+4. Mở lại `/data/prepare/` ngay sau đó: trang cho biết thời gian phải chờ trước khi tạo file mới, nghĩa là giới hạn tần suất đang hoạt động.
+5. Nếu đã tắt tính năng: liên kết biến mất và `/data/prepare/` trả 404.
+
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -140,6 +162,12 @@ Giữ file **lâu hơn** `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT`. Vì file bị xóa
 | `/data/download/` trả 404 | File chưa được tạo hoặc đã bị dọn | Tạo lại từ `/data/prepare/` |
 | Tải về file rỗng hoặc lỗi 404 từ nginx | nginx không thấy file | Kiểm tra volume đã gắn vào `nginx` và location `/userdatacache` có trong `nginx.conf` |
 | Báo phải chờ | Chưa hết thời gian `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT` | Chờ, hoặc tải lại file đã tạo trước đó |
+
+## Tiếp theo
+
+- [Vận hành hằng ngày](/operate/operations): xem log, khởi động lại service và các việc bảo trì định kỳ khác.
+- [Biến môi trường và cấu hình](/operate/environment): các setting khác trong `local_settings.py`.
+- [Tải dữ liệu kỳ thi](/organize/contest-data-download): tính năng tương tự cho người tổ chức kỳ thi.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

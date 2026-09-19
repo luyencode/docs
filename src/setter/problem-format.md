@@ -1,6 +1,12 @@
 # Cấu trúc bài tập
 
-Trang này mô tả `init.yml`, file cho judge biết cách chấm một bài.
+> Tra cứu `init.yml`, file cho judge biết cách chấm một bài: danh sách test, batch, pretest và các key cấu hình.
+>
+> ⏱ ~15 phút đọc · 👤 Người ra đề · 🔑 Quyền sửa bài (tự viết file: cần bật **manually managed** trong admin)
+
+## Khi nào cần trang này
+
+Trang này mô tả `init.yml`, file cho judge (máy chấm, xem [Thuật ngữ](/start/glossary)) biết cách chấm một bài. Dùng trang này khi bạn cần đọc hiểu file `init.yml` do site sinh ra, hoặc tự viết file cho tính năng mà trình sửa test trên web không hỗ trợ.
 
 ::: tip Có cần tự viết file này không?
 Thường là không. Khi bạn lưu test data trong trình sửa test trên web, LCOJ tự sinh `init.yml` (xem [Quản lý bài tập](/setter/managing-problems)). Bạn chỉ cần tự viết khi dùng tính năng mà trình sửa test không hỗ trợ, như [generator](/setter/generators) hay checker viết bằng Python. Khi đó, hãy bật **manually managed** (quản lý test thủ công) cho bài trong admin để site không ghi đè file của bạn.
@@ -251,3 +257,9 @@ Một số [ví dụ bài tập](/setter/examples) được viết theo cách n�
 ::: info
 Tất cả các key trên đều do judge đọc ([judge-server](https://github.com/luyencode/judge-server), bản fork từ judge của DMOJ/VNOJ). Nếu viết sai tên key, judge sẽ âm thầm bỏ qua nó.
 :::
+
+## Tiếp theo
+
+- [Quản lý bài tập](/setter/managing-problems): để site tự sinh `init.yml` từ trình sửa test trên web.
+- [Ví dụ bài tập](/setter/examples): các file `init.yml` mẫu cho từng loại bài.
+- [Checker](/setter/checkers) và [Grader](/setter/graders): tùy chỉnh cách chấm.

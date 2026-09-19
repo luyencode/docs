@@ -1,5 +1,13 @@
 # Checker
 
+> Chọn checker có sẵn hoặc tự viết checker (C++/testlib, Python) để quyết định output của thí sinh đúng hay sai và được bao nhiêu điểm.
+>
+> ⏱ ~15 phút · 👤 Người ra đề · 🔑 Quyền sửa bài (checker Python: bài phải bật **manually managed**)
+
+## Khi nào cần trang này
+
+Dùng trang này khi bài có nhiều đáp án đúng, output là số thực, thứ tự output không quan trọng, hoặc cần cho điểm thành phần trong một test. Với bài chỉ có một đáp án duy nhất, checker mặc định `standard` là đủ và bạn không cần đổi gì.
+
 **Checker** quyết định output của thí sinh ở một test có đúng hay không. Checker chạy sau khi chương trình của thí sinh đã kết thúc; nó chỉ đọc output và không bao giờ trao đổi với chương trình. (Nếu cần trao đổi với chương trình trong lúc nó chạy, hãy dùng [grader tương tác](/setter/graders).)
 
 ```mermaid
@@ -324,3 +332,19 @@ def check(process_output, judge_output, judge_input, point_value, **kwargs):
 ```
 
 Xem ví dụ `signature/fastbit` trong [Ví dụ bài tập](/setter/examples) để thấy một bài hoàn chỉnh dùng checker Python.
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách khắc phục |
+|---|---|
+| Output đúng nhưng bị Presentation Error với `floats` | Hai output phải có cùng số dòng khác rỗng và cùng số token mỗi dòng. Kiểm tra output chuẩn và cách in của lời giải. |
+| Bài nộp bị Internal Error với checker loại `default` | Checker `default` chỉ được thoát với mã 0 hoặc 1; mã khác, crash hay quá thời gian gây ra Internal Error. Kiểm tra checker trên máy trước. |
+| Test bị sai với phản hồi `Checker exitcode N` | Checker (loại khác `default`) trả về mã thoát không hợp lệ, bị crash hoặc quá thời gian. Xem bảng [Các loại checker](#cac-loai-checker). |
+| Không tải được `checker.py` trên trình sửa test | Trình sửa test trên web không hỗ trợ checker Python. Bật **manually managed** và tự viết `init.yml`. |
+| Checker không được gọi khi chương trình bị TLE/RTE | Đây là mặc định. Với checker Python, đặt `check.run_on_error = True`. |
+
+## Tiếp theo
+
+- [Grader](/setter/graders): khi cần trao đổi với chương trình trong lúc chạy (bài tương tác).
+- [Cấu trúc bài tập](/setter/problem-format): cách đặt key `checker` trong `init.yml`.
+- [Ví dụ bài tập](/setter/examples): bài hoàn chỉnh dùng checker tự viết.

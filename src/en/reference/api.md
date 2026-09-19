@@ -1,5 +1,15 @@
 # API
 
+> LCOJ has two machine-facing interfaces: personal API tokens (scripts acting as a user) and the contest sync API (external tools reading contest data as JSON). There is no public data API like `/api/v2/problems`.
+>
+> ⏱ ~15 min read · 👤 Developers, administrators · 🔑 An API token or the `GLOBAL_API_KEY`
+
+## When you need this page
+
+- You want to write a script that acts on the site as a particular account.
+- You run a contest and want to connect a live scoreboard or an ICPC-style resolver.
+- You tried calling `/api/v2/...` from the DMOJ docs and got a 404.
+
 LCOJ exposes two machine-facing interfaces:
 
 | Interface | What it is for | Authentication | Enabled by default? |
@@ -228,3 +238,10 @@ print(len(subs), "judged submissions")
 curl -H "X-Global-API-Key: $LCOJ_SYNC_KEY" \
   "https://luyencode.net/api/v2/sync/contest/icpc2026/submissions?from_timestamp=2026-03-01T08:00:00Z&limit=500"
 ```
+
+## Next steps
+
+- [Management commands](/en/reference/management-commands): `generate_api_token` and other commands.
+- [Environment and configuration](/en/operate/environment): where to set `VNOJ_ENABLE_SYNC_API` and `GLOBAL_API_KEY`.
+- [Contest formats](/en/organize/contest-formats): how a frozen scoreboard affects the sync API.
+- [Status codes](/en/reference/status-codes): what `submissionStatus` values mean.

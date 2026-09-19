@@ -1,6 +1,16 @@
 # Judge configuration
 
-Each judge reads a YAML file at startup, passed in with the `-c` argument. This page explains the keys in that file. For how to run a judge, see [Setting up judges](/en/operate/judge-setup).
+> Each judge reads a YAML file at startup, passed in with the `-c` argument. This page explains the keys in that file and how to apply changes.
+>
+> ⏱ ~10 min · 👤 Operators · 🔑 SSH to the server (to edit `dmoj/problems/`) + permission to run `docker` on the judge machine
+
+For how to run a judge, see [Setting up judges](/en/operate/judge-setup). *YAML* is a `key: value` configuration file format; a *glob* is a path pattern with wildcards such as `*`. For other terms, see the [Glossary](/en/start/glossary).
+
+## Before you start
+
+- [ ] At least one judge is registered on the site and runs as described in [Setting up judges](/en/operate/judge-setup).
+- [ ] You know the judge container's name (e.g. `judge_judge1`) and its config file name.
+- [ ] You have SSH access to the server to edit files in `lcoj-docker/dmoj/problems/`.
 
 ## Where the config file lives
 
@@ -133,13 +143,34 @@ docker run ... vnoj/judge-tier3 \
    docker restart judge_judge1
    ```
 
-3. Check the logs for errors and confirm the judge reconnected:
+## Verify
 
-   ```sh
-   docker logs -f judge_judge1
-   ```
+Check the logs for errors and confirm the judge reconnected:
 
-   A line like `Judge "judge1" online: [localhost]:9999` means the judge is ready. You can also check the list of judges and languages on the site's `/status/` page.
+```sh
+docker logs -f judge_judge1
+```
+
+A line like `Judge "judge1" online: [localhost]:9999` means the judge is ready. You can also check the list of judges and languages on the site's `/status/` page.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| The judge exits with `no problems available to grade` | Add the `problem_storage_globs` key (e.g. `/problems/*`) |
+| The bridge logs `Judge authentication failure` | Compare `id` (case-sensitive) and `key` with the record at `/admin/judge/judge/`; remember command-line arguments and `DMOJ_JUDGE_NAME`/`DMOJ_JUDGE_KEY` override the file |
+| After editing the config, the judge has only a few languages | You added a `runtime:` block, which replaces the auto-detected runtimes. Remove it and filter with `-e`/`-x` instead |
+| The judge won't start with both `-e` and `-x` | The two can't be combined; keep only one |
+| Problems in subdirectories aren't picked up | The glob `/problems/*` matches one level only; use `**` for all levels |
+| Edits have no effect | The judge wasn't restarted: `docker restart judge_judge1` |
+
+For other connection problems, see [Setting up judges](/en/operate/judge-setup).
+
+## Next steps
+
+- [Setting up judges](/en/operate/judge-setup): run more judges, or run a judge on another machine.
+- [Supported languages](/en/reference/languages): executor codes (`CPP17`, `PY3`…) to use with `-e`/`-x`.
+- [Operating LCOJ](/en/operate/operations): reading `bridged` logs and other day-to-day tasks.
 
 ::: tip Need help?
 - Open an issue on [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

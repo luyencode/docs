@@ -1,5 +1,15 @@
 # Ngôn ngữ được hỗ trợ
 
+> Danh sách ngôn ngữ LCOJ có thể chấm, cách xem ngôn ngữ đang thực sự dùng được trên site, và cách quản trị viên thêm ngôn ngữ mới.
+>
+> ⏱ ~5 phút đọc · 👤 Mọi người dùng, quản trị viên
+
+## Khi nào cần trang này
+
+- Bạn muốn biết site có chấm ngôn ngữ mình dùng không, hoặc phiên bản trình biên dịch là gì.
+- Một ngôn ngữ không xuất hiện trong ô chọn khi nộp bài.
+- Bạn là quản trị viên và muốn bật thêm ngôn ngữ cho site.
+
 Mã nguồn judge của LCOJ ([luyencode/judge-server](https://github.com/luyencode/judge-server), dựa trên DMOJ và VNOJ) có sẵn trình chạy (executor) cho gần 70 ngôn ngữ. Tuy vậy, **danh sách ngôn ngữ bạn thực sự dùng được trên một site cụ thể là do các judge của site đó báo lên**, không phải danh sách đầy đủ bên dưới.
 
 ## Xem ngôn ngữ đang dùng được
@@ -69,3 +79,10 @@ Danh sách dưới đây lấy từ thư mục [`dmoj/executors/`](https://githu
 - Ngôn ngữ phổ biến trong lập trình thi đấu là C++ (nên dùng `CPP17` hoặc `CPP20`), Python 3 (với bài nặng, thử `PYPY3`), Java và Pascal.
 - Mỗi bài có thể đặt giới hạn thời gian và bộ nhớ **riêng cho từng ngôn ngữ**. Giới hạn áp dụng được ghi trên trang đề bài.
 - Các ngôn ngữ ít dùng có thể còn lỗi chưa phát hiện. Nếu gặp lỗi với một ngôn ngữ, hãy [báo lỗi cho judge](https://github.com/luyencode/judge-server/issues).
+
+## Tiếp theo
+
+- [Nộp bài và chấm bài](/learn/submissions): cách chọn ngôn ngữ và nộp bài.
+- [Mã trạng thái](/reference/status-codes): ý nghĩa các kết quả như `CE`, `RTE`, `IR`.
+- [Cài đặt judge](/operate/judge-setup): với người vận hành, chạy judge để site có ngôn ngữ.
+- [Thuật ngữ](/start/glossary): giải thích judge, executor, runtime.

@@ -1,10 +1,37 @@
 # Cập nhật LCOJ
 
-Trang này hướng dẫn đưa bản cài Docker lên phiên bản mới: lấy code, build lại khi cần, chạy migration và khởi động lại đúng service.
+> Đưa bản cài Docker lên phiên bản mới: lấy code, build lại khi cần, chạy migration và khởi động lại đúng service.
+>
+> ⏱ ~15–30 phút (lâu hơn nếu phải build lại image) · 👤 Người vận hành · 🔑 SSH + quyền chạy `docker` và `git` trên máy chủ
 
 ::: warning Luôn sao lưu trước
 Trước khi cập nhật, hãy [sao lưu cơ sở dữ liệu](/operate/operations#backup). Code cũ có thể lấy lại bằng Git, nhưng migration đã chạy thì không tự đảo ngược được.
 :::
+
+## Trước khi bắt đầu
+
+- [ ] Đã [sao lưu cơ sở dữ liệu](/operate/operations#backup) (và tốt nhất cả `problems/`, `media/`).
+- [ ] Chọn giờ ít người dùng, không có kỳ thi đang diễn ra.
+- [ ] Có SSH vào máy chủ, chạy được `docker compose` và `git` trong `lcoj-docker/dmoj/`.
+- [ ] Biết bản cài của bạn theo nhánh nào của lcoj-site (luyencode.net dùng `prod/luyencode`).
+- [ ] Hiểu *migration* là gì (thay đổi cấu trúc cơ sở dữ liệu do Django tạo). Xem [Thuật ngữ](/start/glossary).
+
+Tổng quan quy trình:
+
+```mermaid
+flowchart TD
+  A["Sao lưu cơ sở dữ liệu"] --> B["Ghi lại commit hiện tại (OLD)"]
+  B --> C["git pull repo ngoài + cập nhật repo/"]
+  C --> D{"Thư viện hoặc Dockerfile đổi?"}
+  D -- Có --> E["Build lại base rồi site, celery, bridged, wsevent"]
+  D -- Không --> F["docker compose up -d"]
+  E --> F
+  F --> G["./scripts/migrate + ./scripts/copy_static"]
+  G --> H["Restart site, celery, bridged, wsevent"]
+  H --> I{"Kiểm tra ổn?"}
+  I -- Có --> J["Xong"]
+  I -- Không --> K["Rollback về OLD, khôi phục DB nếu cần"]
+```
 
 ## Hai repo cần cập nhật
 
@@ -177,12 +204,24 @@ echo "Xong. Theo dõi log: docker compose logs -f site"
 
 Script không tự so sánh `config/` với các file cấu hình trong `repo/`. Hãy xem phần diff ở bước 4 phía trên sau mỗi lần cập nhật.
 
-## Kiểm tra sau khi cập nhật
+## Kiểm tra kết quả
 
 1. `docker compose ps`: mọi service (trừ `base`) đều **Up**.
 2. `docker compose logs --tail=50 site celery bridged`: không có traceback.
 3. Mở trang web, đăng nhập, xem một bài tập, nộp thử một bài.
 4. Trong `docker compose logs bridged`, thấy máy chấm kết nối lại.
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách xử lý |
+|---|---|
+| `git pull` trong `repo/` báo lỗi vì không ở nhánh nào | `repo/` đang detached HEAD. Chạy `git -C repo checkout prod/luyencode` rồi pull lại (xem [Submodule và "detached HEAD"](#submodule-va-detached-head)) |
+| `ModuleNotFoundError` sau khi cập nhật | Thư viện mới chưa được cài: build lại `base` trước, rồi các image khác ([Build lại](#rebuild)) |
+| Mất CSS hoặc giao diện cũ | `./scripts/copy_static` rồi `docker compose restart site` |
+| Lỗi bảng/cột không tồn tại | Chưa chạy migration: `./scripts/migrate` |
+| Biến mới trong `.env` không có tác dụng | Dùng `docker compose up -d`, không phải `restart` |
+| Tính năng mới cần cấu hình nhưng không chạy | So sánh `config/` với bản trong `repo/` và sửa bằng tay (xem cảnh báo ở trên) |
+| Site lỗi nặng, không sửa nhanh được | Làm theo [Rollback](#rollback) bên dưới |
 
 ## Rollback
 
@@ -219,6 +258,12 @@ Khi đã sửa xong lỗi, quay lại nhánh bằng `git -C repo checkout prod/l
 - Cập nhật vào giờ ít người dùng, tránh lúc đang có kỳ thi.
 - Báo trước cho người dùng. Trong lúc `site` dừng, nginx hiển thị trang `502.html` (xem [Trang bảo trì](/operate/operations#maintenance)).
 - Nếu có thể, thử bản mới trên một máy thử nghiệm trước.
+
+## Tiếp theo
+
+- [Vận hành LCOJ](/operate/operations): xem log, xóa cache, sao lưu định kỳ.
+- [Biến môi trường](/operate/environment): khi bản mới thêm biến vào `environment/*.env.example`.
+- [Management Commands](/reference/management-commands): các lệnh `./scripts/manage.py` có thể cần sau cập nhật.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), hoặc liên hệ qua [behitek.com](https://behitek.com) và [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

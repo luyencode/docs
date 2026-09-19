@@ -1,5 +1,13 @@
 # Checkers
 
+> Pick a built-in checker or write your own (C++/testlib, Python) to decide whether a contestant's output is correct and how many points it earns.
+>
+> ⏱ ~15 min · 👤 Problem setters · 🔑 Edit rights on the problem (Python checkers: the problem must be **manually managed**)
+
+## When you need this page
+
+Use this page when a problem has several correct answers, prints floating-point numbers, has output whose order does not matter, or needs partial points within a single case. If the problem has exactly one correct output, the default `standard` checker is enough and you do not need to change anything.
+
 A **checker** decides whether the contestant's output for one test case is correct. It runs after the contestant's program has finished; it only reads the output and never talks to the program. (If you need to talk to the program while it runs, use an [interactive grader](/en/setter/graders) instead.)
 
 ```mermaid
@@ -324,3 +332,19 @@ def check(process_output, judge_output, judge_input, point_value, **kwargs):
 ```
 
 For a complete problem that uses a Python checker, see the `signature/fastbit` example in [Problem examples](/en/setter/examples).
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Correct output gets Presentation Error with `floats` | Both outputs must have the same number of non-empty lines and the same number of tokens per line. Check the expected output and how the solution prints. |
+| Submissions get Internal Error with a `default`-type checker | A `default` checker may only exit with 0 or 1; any other exit code, a crash, or a timeout causes Internal Error. Test the checker locally first. |
+| A case fails with `Checker exitcode N` feedback | The checker (any type other than `default`) returned an invalid exit code, crashed, or timed out. See the [Checker types](#checker-types) table. |
+| The web editor cannot upload `checker.py` | The web editor does not support Python checkers. Enable **manually managed** and write `init.yml` by hand. |
+| The checker is not called when the program gets TLE/RTE | This is the default. For a Python checker, set `check.run_on_error = True`. |
+
+## Next steps
+
+- [Graders](/en/setter/graders): when you need to talk to the program while it runs (interactive problems).
+- [Problem format](/en/setter/problem-format): how to set the `checker` key in `init.yml`.
+- [Problem examples](/en/setter/examples): complete problems that use custom checkers.

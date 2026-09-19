@@ -64,7 +64,7 @@ sequenceDiagram
     W-->>B: Show the final result
 ```
 
-In short:
+In short (the terms *judge*, *bridge* and *verdict* are explained in the [Glossary](/en/start/glossary)):
 
 1. The **site** saves your submission as **Queued** and sends a grading request to the **bridge**.
 2. The **bridge** picks a free **judge** that has the problem's data and supports your language. If every judge is busy, the submission waits in the queue.
@@ -141,7 +141,7 @@ You can always view your own code. For other people's submissions, LCOJ's defaul
 
 Submitting many times doesn't cost you points in practice: only your best score on each problem counts. In contests, scoring and penalties depend on the [contest format](/en/organize/contest-formats).
 
-## Common mistakes
+## Troubleshooting
 
 | Symptom | Common cause | Fix |
 |---|---|---|
@@ -156,3 +156,9 @@ Submitting many times doesn't cost you points in practice: only your best score 
 | `CE` although the code is fine | Wrong language or version selected (e.g. C++ code submitted as C) | Click **Resubmit**, pick the right language, and submit |
 
 For every verdict in detail, see [Status codes](/en/reference/status-codes). For the language list, see [Supported languages](/en/reference/languages).
+
+## Next steps
+
+- [Taking part in contests](/en/learn/contests): submitting during a contest, reading the ranking and virtual participation.
+- [Taking part in contests](/en/learn/contests): submitting, pretests and the scoreboard during a contest.
+- [FAQ](/en/start/faq): quick answers to other common questions.

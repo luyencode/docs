@@ -1,6 +1,16 @@
 # Cấu hình judge
 
-Mỗi judge đọc một file YAML khi khởi động, truyền vào bằng tham số `-c`. Trang này giải thích các khóa trong file đó. Cách chạy judge xem tại [Cài đặt judge](/operate/judge-setup).
+> Mỗi judge đọc một file YAML khi khởi động, truyền vào bằng tham số `-c`. Trang này giải thích các khóa trong file đó và cách áp dụng thay đổi.
+>
+> ⏱ ~10 phút · 👤 Người vận hành · 🔑 SSH vào máy chủ (sửa `dmoj/problems/`) + quyền chạy `docker` trên máy chấm
+
+Cách chạy judge xem tại [Cài đặt judge](/operate/judge-setup). *YAML* là định dạng file cấu hình dạng `khóa: giá trị`; *glob* là mẫu đường dẫn có ký tự đại diện như `*`. Thuật ngữ khác xem ở [Thuật ngữ](/start/glossary).
+
+## Trước khi bắt đầu
+
+- [ ] Đã có ít nhất một judge đăng ký trên website và chạy được theo [Cài đặt judge](/operate/judge-setup).
+- [ ] Biết tên container judge (ví dụ `judge_judge1`) và tên file cấu hình của nó.
+- [ ] Có SSH vào máy chủ để sửa file trong `lcoj-docker/dmoj/problems/`.
 
 ## File cấu hình nằm ở đâu
 
@@ -133,13 +143,34 @@ docker run ... vnoj/judge-tier3 \
    docker restart judge_judge1
    ```
 
-3. Xem log để chắc không có lỗi và judge đã kết nối lại:
+## Kiểm tra kết quả
 
-   ```sh
-   docker logs -f judge_judge1
-   ```
+Xem log để chắc không có lỗi và judge đã kết nối lại:
 
-   Dòng `Judge "judge1" online: [localhost]:9999` nghĩa là judge đã sẵn sàng. Kiểm tra thêm danh sách judge và ngôn ngữ tại trang `/status/` của website.
+```sh
+docker logs -f judge_judge1
+```
+
+Dòng `Judge "judge1" online: [localhost]:9999` nghĩa là judge đã sẵn sàng. Kiểm tra thêm danh sách judge và ngôn ngữ tại trang `/status/` của website.
+
+## Sự cố thường gặp
+
+| Triệu chứng | Cách xử lý |
+|---|---|
+| Judge thoát với `no problems available to grade` | Thêm khóa `problem_storage_globs` (ví dụ `/problems/*`) |
+| Bridge báo `Judge authentication failure` | So `id` (phân biệt hoa thường) và `key` với bản ghi ở `/admin/judge/judge/`; nhớ tham số dòng lệnh và biến `DMOJ_JUDGE_NAME`/`DMOJ_JUDGE_KEY` sẽ ghi đè file |
+| Sau khi sửa cấu hình, judge chỉ còn vài ngôn ngữ | Bạn đã thêm khối `runtime:`, khối này thay thế runtime tự dò. Xóa nó và dùng `-e`/`-x` để lọc ngôn ngữ |
+| Judge không khởi động khi dùng cả `-e` và `-x` | Hai tham số này không dùng chung được, chỉ giữ một |
+| Bài trong thư mục con không được nhận | Glob `/problems/*` chỉ khớp một cấp; dùng `**` cho mọi cấp con |
+| Sửa file nhưng không có tác dụng | Chưa khởi động lại: `docker restart judge_judge1` |
+
+Các sự cố kết nối khác xem [Cài đặt judge](/operate/judge-setup).
+
+## Tiếp theo
+
+- [Cài đặt judge](/operate/judge-setup): chạy thêm judge hoặc chạy judge ở máy khác.
+- [Ngôn ngữ được hỗ trợ](/reference/languages): mã executor (`CPP17`, `PY3`…) dùng với `-e`/`-x`.
+- [Vận hành LCOJ](/operate/operations): xem log `bridged` và các thao tác hằng ngày.
 
 ::: tip Cần hỗ trợ?
 - Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

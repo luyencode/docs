@@ -1,6 +1,14 @@
 # Các script hỗ trợ
 
-Trang này dành cho người vận hành LCOJ bằng Docker. Thư mục `dmoj/scripts/` chứa vài script Bash ngắn giúp bạn khỏi phải gõ lại những lệnh `docker compose` dài. Dưới đây là chính xác từng script làm gì và khi nào nên dùng.
+> Thư mục `dmoj/scripts/` có 6 script Bash ngắn (`initialize`, `migrate`, `copy_static`, `manage.py`, `enter_site`, `moderate_comments`) bọc các lệnh `docker compose` hay dùng. Trang này nói chính xác từng script làm gì.
+>
+> ⏱ ~8 phút đọc · 👤 Người vận hành · 🔑 SSH vào máy chủ và quyền chạy `docker`
+
+## Khi nào cần trang này
+
+- Khi trang khác bảo bạn chạy `./scripts/...` và bạn muốn biết lệnh đó thực sự làm gì trước khi chạy.
+- Khi chạy script từ cron hoặc CI và gặp lỗi TTY.
+- Khi cần chạy một lệnh quản trị Django (xem thêm [Lệnh quản trị](/reference/management-commands)).
 
 ## Tổng quan
 
@@ -181,6 +189,12 @@ Một số lưu ý:
   ```sh
   0 3 * * * COMPOSE_EXEC_FLAGS=-T /srv/lcoj-docker/dmoj/scripts/moderate_comments >> /var/log/lcoj-moderate.log 2>&1
   ```
+
+## Tiếp theo
+
+- [Vận hành hằng ngày](/operate/operations): khởi động lại, xem log, sao lưu.
+- [Cập nhật LCOJ](/operate/updating): khi nào cần `migrate` và `copy_static` sau khi kéo code mới.
+- [Lệnh quản trị](/reference/management-commands): các lệnh chạy được qua `./scripts/manage.py`.
 
 ::: tip Cần hỗ trợ?
 - Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)

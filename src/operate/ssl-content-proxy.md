@@ -1,5 +1,9 @@
 # Proxy ảnh ngoài qua HTTPS (Camo)
 
+> Cài Camo (tùy chọn) để ảnh nhúng từ website khác được tải qua máy chủ của bạn bằng HTTPS, tránh cảnh báo "mixed content" và không lộ IP người xem.
+>
+> ⏱ ~45 phút · 👤 Người vận hành · 🔑 SSH + quyền chạy docker trên máy chủ, quyền sửa `dmoj/environment/` và `nginx.conf`
+
 ::: info Bạn có cần trang này không?
 Khi đề bài, blog hay bình luận nhúng ảnh từ website khác (nhất là ảnh `http://`), trình duyệt có thể chặn hoặc cảnh báo "mixed content" vì LCOJ chạy HTTPS. Ngoài ra, website chứa ảnh sẽ thấy IP của người xem.
 
@@ -32,6 +36,14 @@ flowchart LR
 - URL mới có dạng `<DMOJ_CAMO_URL>/<chữ ký HMAC-SHA1>/<URL gốc mã hóa hex>`. Camo kiểm tra chữ ký bằng `CAMO_KEY`, nên người ngoài không thể dùng Camo của bạn để proxy link tùy ý.
 - **Không** viết lại: đường dẫn tương đối (ví dụ `/martor/a.png`), URL bắt đầu bằng `DMOJ_CAMO_URL`, và URL bắt đầu bằng một tiền tố trong `DMOJ_CAMO_EXCLUDE`.
 - Tất cả kiểu Markdown của LCOJ (đề bài, blog, bình luận, hồ sơ...) đều bật `use_camo`, nên chỉ cần cấu hình là áp dụng ở mọi nơi.
+
+## Trước khi bắt đầu
+
+- [ ] Bạn thật sự cần proxy ảnh ngoài (nếu không, khuyến khích tải ảnh lên LCOJ là đủ).
+- [ ] Có quyền SSH và chạy `docker compose` trong thư mục `dmoj/`.
+- [ ] Máy chủ có `openssl` để tạo secret key, và container Camo ra được internet.
+- [ ] Chấp nhận tốn thêm băng thông, vì mọi ảnh ngoài sẽ đi qua server của bạn.
+- [ ] Đã biết cách sửa settings: xem [Biến môi trường và cấu hình](/operate/environment).
 
 ## Cài đặt (tùy chọn)
 
@@ -119,7 +131,7 @@ docker compose up -d site nginx      # tạo lại site để đọc site.env m�
 docker compose restart nginx         # nạp location /camo/ nếu nginx không bị tạo lại
 ```
 
-### Bước 7: Kiểm tra
+## Kiểm tra kết quả
 
 1. Sinh một URL Camo bằng lệnh quản trị:
 
@@ -174,7 +186,7 @@ Camo **không có cache riêng**. `CAMO_HEADER_VIA` và `CAMO_TIMING_ALLOW_ORIGI
 
 - **Cache** bằng `proxy_cache` của nginx hoặc quy tắc cache của Cloudflare cho đường dẫn `/camo/`.
 
-## Xử lý sự cố
+## Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -189,6 +201,12 @@ Camo **không có cache riêng**. `CAMO_HEADER_VIA` và `CAMO_TIMING_ALLOW_ORIGI
 
 - Camo tốn băng thông của bạn vì mọi ảnh ngoài đều đi qua server.
 - Camo chỉ proxy nội dung ảnh, không dùng cho video.
+
+## Tiếp theo
+
+- [Kiến trúc hệ thống](/operate/architecture): network `nginx` và cách nginx chuyển tiếp request.
+- [Vận hành LCOJ](/operate/operations): xem log, khởi động lại dịch vụ.
+- [Lệnh quản trị](/reference/management-commands): lệnh `camo` và các lệnh khác.
 
 ::: tip Cần hỗ trợ?
 Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).

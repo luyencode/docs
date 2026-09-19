@@ -1,5 +1,15 @@
 # API
 
+> LCOJ có hai giao diện cho chương trình: API token cá nhân (script hành động như một người dùng) và API đồng bộ kỳ thi (công cụ bên ngoài đọc dữ liệu kỳ thi dạng JSON). Không có API dữ liệu công khai kiểu `/api/v2/problems`.
+>
+> ⏱ ~15 phút đọc · 👤 Lập trình viên, quản trị viên · 🔑 API token hoặc `GLOBAL_API_KEY`
+
+## Khi nào cần trang này
+
+- Bạn muốn viết script tự động thao tác trên site dưới tên một tài khoản.
+- Bạn tổ chức kỳ thi và muốn nối bảng xếp hạng trực tiếp hoặc resolver kiểu ICPC.
+- Bạn thử gọi `/api/v2/...` theo tài liệu DMOJ và nhận về 404.
+
 LCOJ cung cấp hai giao diện cho máy/chương trình:
 
 | Giao diện | Dùng để làm gì | Xác thực | Bật sẵn? |
@@ -228,3 +238,10 @@ print(len(subs), "bài nộp đã chấm")
 curl -H "X-Global-API-Key: $LCOJ_SYNC_KEY" \
   "https://luyencode.net/api/v2/sync/contest/icpc2026/submissions?from_timestamp=2026-03-01T08:00:00Z&limit=500"
 ```
+
+## Tiếp theo
+
+- [Lệnh quản trị](/reference/management-commands): `generate_api_token` và các lệnh khác.
+- [Biến môi trường và cấu hình](/operate/environment): nơi đặt `VNOJ_ENABLE_SYNC_API` và `GLOBAL_API_KEY`.
+- [Thể thức kỳ thi](/organize/contest-formats): cách đóng băng bảng xếp hạng ảnh hưởng tới API đồng bộ.
+- [Mã trạng thái](/reference/status-codes): ý nghĩa `submissionStatus`.
