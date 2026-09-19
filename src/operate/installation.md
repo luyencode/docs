@@ -1,78 +1,99 @@
 # Cài đặt LCOJ với Docker
 
-Hướng dẫn này giúp bạn cài đặt LCOJ bằng Docker - cách được khuyến nghị và đơn giản nhất.
+Trang này hướng dẫn cài LCOJ từ đầu bằng [lcoj-docker](https://github.com/luyencode/lcoj-docker), đúng cách luyencode.net đang chạy. Cả hệ thống (web, cơ sở dữ liệu, cache, judge bridge, WebSocket) nằm trong Docker Compose, bạn không cần cài Python hay MariaDB lên máy chủ.
 
-**Repository:** [lcoj-docker](https://github.com/luyencode/lcoj-docker)
+::: info Máy chấm (judge) cài riêng
+Docker Compose ở đây **không** có máy chấm. Nó chỉ chạy `bridged` để các máy chấm kết nối vào. Sau khi site chạy ổn, xem [Cài đặt Judge](/operate/judge-setup).
+:::
 
-## Yêu cầu hệ thống
+## Yêu cầu
 
-### Phần cứng tối thiểu
+| | Tối thiểu | Khuyến nghị |
+|---|---|---|
+| CPU | 2 nhân | 4 nhân trở lên |
+| RAM | 4 GB | 8 GB trở lên |
+| Ổ đĩa | 20 GB trống | 50 GB SSD trở lên (dữ liệu test lớn dần theo thời gian) |
+| Hệ điều hành | Linux 64-bit (Ubuntu 22.04+ là dễ nhất) | |
 
-- **CPU:** 2 cores
-- **RAM:** 4GB
-- **Disk:** 20GB trống
-- **OS:** Linux (Ubuntu 20.04+ khuyến nghị)
+Phần mềm cần có: **Docker** với plugin **Docker Compose v2** (lệnh `docker compose`, không phải `docker-compose`) và **Git**.
 
-### Phần cứng khuyến nghị
+Hình dưới đây cho thấy các service sẽ được dựng. Chi tiết về từng service xem [Kiến trúc hệ thống](/operate/architecture).
 
-- **CPU:** 4+ cores
-- **RAM:** 8GB+
-- **Disk:** 50GB+ SSD
-- **Network:** 100Mbps+
+```mermaid
+flowchart LR
+  U[Trình duyệt] -->|HTTP, cổng NGINX_PORT| N[nginx]
+  N -->|uwsgi :8000| S[site]
+  N -->|/event/, /channels/| W[wsevent]
+  S --> DB[(db - MariaDB)]
+  S --> R[(redis)]
+  C[celery] --> R
+  C --> DB
+  J[Máy chấm] -->|TCP 9999| B[bridged]
+  S -->|9998| B
+  B --> DB
+```
 
-### Phần mềm
+## Bước 1: Cài Docker
 
-- Docker 20.10+
-- Docker Compose 2.0+
-- Git
-
-## Bước 1: Cài đặt Docker
-
-### Ubuntu/Debian
+Trên Ubuntu/Debian:
 
 ```sh
-# Cài đặt Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Thêm user vào group docker
+# Cho phép user hiện tại dùng docker mà không cần sudo
 sudo usermod -aG docker $USER
-
-# Logout và login lại để áp dụng
+# Đăng xuất rồi đăng nhập lại để quyền có hiệu lực
 ```
 
-### Kiểm tra
+Kiểm tra:
 
 ```sh
 docker --version
 docker compose version
 ```
 
-## Bước 2: Clone repository
+## Bước 2: Tải mã nguồn
 
 ```sh
 git clone --recursive https://github.com/luyencode/lcoj-docker.git
 cd lcoj-docker/dmoj
 ```
 
-**Lưu ý:** Flag `--recursive` rất quan trọng để clone cả submodules.
+Cờ `--recursive` bắt buộc: mã nguồn Django nằm trong submodule `dmoj/repo` (repo [lcoj-site](https://github.com/luyencode/lcoj-site)). Nếu lỡ clone thiếu, chạy `git submodule update --init --recursive`.
 
-## Bước 3: Khởi tạo
+::: tip
+Từ đây trở đi, **mọi lệnh đều chạy trong thư mục `dmoj/`**. Các script trong `scripts/` và lệnh `docker compose` đều dựa vào thư mục này.
+:::
 
-Chạy script khởi tạo:
+## Bước 3: Chạy script khởi tạo
 
 ```sh
 ./scripts/initialize
 ```
 
-Script này sẽ:
-- Tạo các thư mục cần thiết
-- Copy file cấu hình mẫu
-- Set permissions
+Script này chỉ làm hai việc:
+
+1. Tạo thư mục `problems/` (dữ liệu test) và `media/` (file người dùng tải lên).
+2. Chép các file cấu hình mẫu từ `config/` vào mã nguồn:
+
+| Nguồn | Đích | Dùng cho |
+|---|---|---|
+| `config/local_settings.py` | `repo/dmoj/local_settings.py` | Cấu hình Django |
+| `config/uwsgi.ini` | `repo/uwsgi.ini` | uWSGI (số worker…) |
+| `config/config.js` | `repo/websocket/config.js` | WebSocket server |
+
+::: warning
+Chạy lại `initialize` sẽ **ghi đè** ba file đích ở trên. Nếu bạn đã sửa chúng, hãy sao lưu trước.
+:::
+
+Chi tiết về các script khác xem [Script hỗ trợ](/operate/scripts).
 
 ## Bước 4: Cấu hình
 
-### 4.1. Tạo file environment
+### 4.1. Tạo file môi trường
+
+Các file mẫu nằm sẵn trong `environment/`:
 
 ```sh
 cp environment/mysql-admin.env.example environment/mysql-admin.env
@@ -80,448 +101,228 @@ cp environment/mysql.env.example environment/mysql.env
 cp environment/site.env.example environment/site.env
 ```
 
-### 4.2. Cấu hình MySQL
+Các file `*.env` đã được `.gitignore` loại trừ, không bị commit lên Git.
 
-**File: `environment/mysql.env`**
+### 4.2. Cơ sở dữ liệu
 
-```env
-MYSQL_DATABASE=lcoj
-MYSQL_USER=lcoj
-MYSQL_PASSWORD=<mat_khau_manh>
-```
+Hai file này dành cho MariaDB. `site`, `celery`, `bridged` cũng đọc `mysql.env` để biết cách kết nối, vì vậy **không** khai báo lại `MYSQL_*` trong `site.env`.
 
-**File: `environment/mysql-admin.env`**
+::: code-group
 
-```env
-MYSQL_ROOT_PASSWORD=<mat_khau_root_manh>
-```
-
-**Lưu ý:** Đổi `<mat_khau_manh>` thành mật khẩu thực tế!
-
-### 4.3. Cấu hình Site
-
-**File: `environment/site.env`**
-
-```env
-# Database
+```env [environment/mysql.env]
 MYSQL_HOST=db
-MYSQL_DATABASE=lcoj
-MYSQL_USER=lcoj
-MYSQL_PASSWORD=<trung_voi_mysql.env>
-
-# Site
-SITE_NAME=LCOJ
-SITE_LONG_NAME=LuyenCode Online Judge
-SITE_ADMIN_EMAIL=admin@luyencode.net
-
-# Secret key (generate mới)
-SECRET_KEY=<secret_key_dai_va_ngau_nhien>
-
-# Host
-HOST=luyencode.net
-
-# Debug (PHẢI ĐỔI THÀNH False KHI PRODUCTION)
-DEBUG=True
+MYSQL_DATABASE=dmoj
+MYSQL_USER=dmoj
+MYSQL_PASSWORD=<mật khẩu mạnh>
 ```
 
-**Tạo SECRET_KEY:**
+```env [environment/mysql-admin.env]
+MYSQL_ROOT_PASSWORD=<mật khẩu root khác>
+```
+
+:::
+
+MariaDB chỉ tạo database và user theo các biến này **ở lần khởi động đầu tiên**, khi thư mục `database/` còn trống. Đổi mật khẩu sau đó phải làm bằng SQL, xem [Vận hành](/operate/operations#change-db-password).
+
+### 4.3. Site
+
+Ví dụ tối thiểu cho file `environment/site.env` của một bản cài chạy tại `luyencode.net`:
+
+```env
+HOST=luyencode.net
+SITE_FULL_URL=https://luyencode.net/
+MEDIA_URL=https://luyencode.net/
+
+DEBUG=0
+SECRET_KEY=<chuỗi ngẫu nhiên dài>
+
+EVENT_DAEMON_POST=ws://wsevent:15101/
+REDIS_CACHING_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/1
+CELERY_RESULT_BACKEND=redis://redis:6379/1
+BRIDGED_HOST=bridged
+
+# Đăng nhập Google (bắt buộc để người dùng mới đăng ký được, xem 4.4)
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY=<client id>
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=<client secret>
+```
+
+Vài điểm hay nhầm:
+
+- `DEBUG` chỉ bật khi giá trị đúng bằng `1`. Viết `True` cũng bị coi là tắt. Máy chủ thật luôn để `0`.
+- `HOST` là tên miền trần (không có `https://`), được dùng làm `ALLOWED_HOSTS`. Chạy thử trên máy cá nhân thì để `localhost` và hai URL là `http://localhost:8071/`.
+- `SITE_NAME`, `SITE_LONG_NAME`, `SITE_ADMIN_EMAIL` **không** phải biến môi trường. Chúng được ghi thẳng trong `local_settings.py`.
+- Các biến Redis, Celery, WebSocket, bridge ở trên đã khớp với tên service trong `docker-compose.yml`, giữ nguyên nếu bạn không đổi gì.
+
+Tạo `SECRET_KEY`:
 
 ```sh
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
-### 4.4. Cấu hình Nginx
+Danh sách đầy đủ các biến (kể cả `MOSS_API_KEY` và `NGINX_PORT`) có ở [Biến môi trường](/operate/environment).
 
-**File: `nginx/conf.d/nginx.conf`**
+::: warning NGINX_PORT không đọc từ site.env
+Cổng nginx được publish là `${NGINX_PORT:-8071}` trong `docker-compose.yml`. Docker Compose chỉ thay biến này bằng giá trị từ shell hoặc từ file `dmoj/.env`, **không** lấy từ `environment/site.env`. Muốn đổi cổng, tạo file `dmoj/.env` chứa `NGINX_PORT=8080` (hoặc `export NGINX_PORT=8080` trước khi chạy lệnh), rồi chạy `docker compose up -d nginx`. Nếu không đặt gì, cổng là **8071**.
+:::
 
-Đổi `server_name`:
+### 4.4. Đăng nhập Google (OAuth)
+
+`local_settings.py` của LCOJ đặt `OAUTH_ONLY = True`. Khi đó trang đăng ký ẩn form tạo tài khoản bằng mật khẩu, người dùng mới chỉ đăng ký được qua Google. Form **đăng nhập** bằng username/mật khẩu vẫn còn, nên tài khoản quản trị tạo bằng lệnh vẫn đăng nhập bình thường.
+
+Cách lấy khóa:
+
+1. Vào [Google Cloud Console](https://console.cloud.google.com/apis/credentials), tạo **OAuth client ID** loại *Web application*.
+2. Thêm **Authorized redirect URI**: `https://luyencode.net/complete/google-oauth2/` (thay bằng tên miền của bạn).
+3. Chép *Client ID* và *Client secret* vào `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` và `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` trong `site.env`.
+
+### 4.5. Nginx
+
+Trong `nginx/conf.d/nginx.conf`, sửa `server_name` thành tên miền của bạn:
 
 ```nginx
 server {
-    listen 80;
-    server_name luyencode.net;  # Đổi thành domain của bạn
-    
-    # ... phần còn lại giữ nguyên
+    listen       80;
+    server_name  luyencode.net;  # đổi thành tên miền của bạn
+    # ... giữ nguyên phần còn lại
 }
 ```
 
-## Bước 5: Build Docker images
+Nginx trong container chỉ nghe HTTP ở cổng 80. HTTPS được xử lý ở lớp phía trước, xem [HTTPS](#https).
+
+## Bước 5: Build image
+
+Image `lcoj/lcoj-base` chứa Python, Node.js và toàn bộ thư viện (`requirements.txt`, `package.json`). Các image `site`, `celery`, `bridged` được build **từ** image này, nên hãy build `base` trước:
 
 ```sh
+docker compose build base
 docker compose build
 ```
 
-Quá trình này mất 10-20 phút tùy vào tốc độ mạng và máy.
+Lần đầu mất khoảng 10–20 phút tùy mạng.
 
-## Bước 6: Khởi động services
+## Bước 6: Khởi tạo cơ sở dữ liệu và static
 
-### 6.1. Khởi động database và cache
+1. Bật các service cần thiết:
 
-```sh
-docker compose up -d db redis
-```
+   ```sh
+   docker compose up -d site db redis celery
+   ```
 
-Đợi 10 giây để database khởi động hoàn toàn.
+   Lần đầu MariaDB cần vài chục giây để tạo database. Theo dõi bằng `docker compose logs -f db` cho đến khi thấy `ready for connections`.
 
-### 6.2. Khởi động site và celery
+2. Tạo bảng:
 
-```sh
-docker compose up -d site celery
-```
+   ```sh
+   ./scripts/migrate
+   ```
 
-### 6.3. Tạo database schema
+3. Build CSS và thu thập static (biên dịch SCSS, `collectstatic`, dịch giao diện, chép sang volume `assets` cho nginx):
 
-```sh
-./scripts/migrate
-```
+   ```sh
+   ./scripts/copy_static
+   ```
 
-### 6.4. Tạo static files
+4. Nạp dữ liệu ban đầu:
 
-```sh
-./scripts/copy_static
-```
+   ```sh
+   ./scripts/manage.py loaddata navbar
+   ./scripts/manage.py loaddata language_small
+   ./scripts/manage.py loaddata demo
+   ```
 
-### 6.5. Load dữ liệu mẫu
+   | Fixture | Nội dung |
+   |---|---|
+   | `navbar` | Thanh menu mặc định |
+   | `language_small` | Một số ngôn ngữ lập trình thông dụng (`language_all` nếu muốn nạp đủ) |
+   | `demo` | Dữ liệu mẫu, **kèm tài khoản `admin` mật khẩu `admin`** |
 
-```sh
-./scripts/manage.py loaddata navbar
-./scripts/manage.py loaddata language_small
-./scripts/manage.py loaddata demo
-```
+   ::: danger Đổi mật khẩu admin
+   Fixture `demo` tạo superuser `admin` / `admin`. Trên máy chủ công khai, hãy đổi mật khẩu hoặc xóa tài khoản này ngay, hoặc bỏ qua fixture `demo`.
+   :::
 
-**Cảnh báo:** `demo` tạo tài khoản admin với username/password là `admin`. Đổi ngay sau khi đăng nhập!
+5. Tạo tài khoản quản trị của riêng bạn:
 
-### 6.6. Tạo superuser
+   ```sh
+   ./scripts/manage.py createsuperuser
+   ```
 
-```sh
-./scripts/manage.py createsuperuser
-```
+   Đăng nhập tại `/accounts/login/` bằng username và mật khẩu vừa tạo, không cần Google.
 
-Làm theo hướng dẫn để tạo tài khoản admin của bạn.
-
-## Bước 7: Khởi động tất cả services
+## Bước 7: Bật toàn bộ hệ thống
 
 ```sh
 docker compose up -d
-```
-
-Kiểm tra tất cả containers đang chạy:
-
-```sh
 docker compose ps
 ```
 
-Bạn sẽ thấy:
+Các container `lcoj_site`, `lcoj_celery`, `lcoj_bridged`, `lcoj_wsevent`, `lcoj_mysql`, `lcoj_redis`, `lcoj_nginx` phải ở trạng thái **Up**. Service `base` chỉ dùng để build image, nó thoát ngay sau khi khởi động, điều này là bình thường.
 
-```
-NAME              STATUS
-lcoj_bridged      Up
-lcoj_celery       Up
-lcoj_mysql        Up
-lcoj_nginx        Up
-lcoj_redis        Up
-lcoj_site         Up
-lcoj_wsevent      Up
-```
-
-## Bước 8: Kiểm tra
-
-Truy cập `http://localhost` (hoặc domain của bạn) để kiểm tra.
-
-Bạn sẽ thấy trang chủ LCOJ!
-
-## Cấu trúc thư mục
-
-```
-dmoj/
-├── base/              # Base Docker image
-├── bridged/           # Bridge service
-├── celery/            # Celery worker
-├── config/            # Config files
-├── database/          # MySQL data (tự động tạo)
-├── environment/       # Environment variables
-├── media/             # User uploads
-├── nginx/             # Nginx config
-├── problems/          # Problem data
-├── repo/              # Site source code (submodule)
-├── scripts/           # Helper scripts
-├── site/              # Site Docker image
-├── wsevent/           # WebSocket event server
-└── docker-compose.yml # Docker Compose config
-```
-
-## Các services
-
-| Service | Container | Port | Mô tả |
-|---------|-----------|------|-------|
-| nginx | lcoj_nginx | 80 | Web server |
-| site | lcoj_site | - | Django application |
-| celery | lcoj_celery | - | Background tasks |
-| bridged | lcoj_bridged | 9998, 9999 | Judge bridge |
-| wsevent | lcoj_wsevent | 15100-15102 | WebSocket events |
-| db | lcoj_mysql | 3306 | MariaDB database |
-| redis | lcoj_redis | 6379 | Cache & message broker |
-
-## Quản lý services
-
-### Xem logs
+Kiểm tra:
 
 ```sh
-# Tất cả services
-docker compose logs -f
-
-# Một service cụ thể
-docker compose logs -f site
-docker compose logs -f celery
-docker compose logs -f nginx
+curl -I http://localhost:8071/
 ```
 
-### Restart service
+Mở `http://<ip-máy-chủ>:8071/` trên trình duyệt để thấy trang chủ LCOJ. Nếu đã nạp `demo`, vào **Admin → Sites** để sửa tên miền mặc định (`localhost:8081`) thành tên miền thật.
 
-```sh
-docker compose restart site
-docker compose restart celery
-```
+## Cổng mạng
 
-### Stop tất cả
+| Service | Container | Cổng | Mở ra máy chủ? |
+|---|---|---|---|
+| nginx | `lcoj_nginx` | `${NGINX_PORT:-8071}` → 80 | Có |
+| bridged | `lcoj_bridged` | 9999 (máy chấm kết nối), 9998 (site nói chuyện với bridge) | Có |
+| site | `lcoj_site` | 8000 (uwsgi) | Không |
+| wsevent | `lcoj_wsevent` | 15100, 15101, 15102 | Không, đi qua nginx `/event/`, `/channels/` |
+| db | `lcoj_mysql` | 3306 | Không |
+| redis | `lcoj_redis` | 6379 | Không |
+| celery | `lcoj_celery` | — | Không |
 
-```sh
-docker compose down
-```
+::: warning Tường lửa
+Chỉ cho máy chấm truy cập cổng 9999. Cổng 9998 không cần mở ra Internet. Lưu ý: cổng Docker publish **bỏ qua luật `ufw`**, nên hãy chặn bằng tường lửa của nhà cung cấp cloud hoặc chain `DOCKER-USER` của iptables.
+:::
 
-### Start lại
+## HTTPS
 
-```sh
-docker compose up -d
-```
+Nginx trong Docker chỉ phục vụ HTTP. Để có HTTPS, đặt một lớp TLS phía trước cổng `NGINX_PORT`.
 
-## Cập nhật
+### Cách luyencode.net đang làm: Cloudflare Tunnel
 
-### Cập nhật code
+luyencode.net dùng [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/). `cloudflared` chạy trên máy chủ, kết nối ra Cloudflare và chuyển request về nginx. Máy chủ không cần mở cổng 80/443 và không cần tự quản lý chứng chỉ.
 
-```sh
-cd lcoj-docker/dmoj
-git pull
-git submodule update --init --recursive
-```
+1. Cài `cloudflared` và tạo tunnel theo tài liệu của Cloudflare.
+2. Thêm *Public hostname* `luyencode.net` trỏ tới service `http://localhost:8071` (đúng cổng `NGINX_PORT`).
+3. Trong `site.env`, đặt `SITE_FULL_URL` và `MEDIA_URL` dùng `https://`, rồi chạy `docker compose up -d` để các container nhận biến mới.
 
-### Rebuild và restart
+WebSocket (`/event/`) chạy qua Cloudflare Tunnel mà không cần cấu hình thêm.
 
-```sh
-docker compose up -d --build site celery bridged wsevent
-```
+### Cách khác: reverse proxy có TLS
 
-### Chạy migrations
+Bạn có thể dùng bất kỳ reverse proxy nào trên máy chủ (Caddy, Nginx trên host với certbot…) để nhận HTTPS ở cổng 443 và chuyển tới `http://127.0.0.1:8071`. Nhớ chuyển tiếp header `Upgrade`/`Connection` để WebSocket ở `/event/` hoạt động. Đừng chạy `certbot --nginx` nhắm vào nginx trong container, vì cấu hình của nó nằm trong Docker và không có cổng 443.
 
-```sh
-./scripts/migrate
-```
+## Tinh chỉnh hiệu năng
 
-### Cập nhật static files
+- **Số worker uWSGI** (xử lý request web): sửa `workers = 8` trong `repo/uwsgi.ini` (bản gốc ở `config/uwsgi.ini`), rồi `docker compose restart site`. Mỗi worker có thể dùng đến 512 MB RAM trước khi bị nạp lại (`reload-on-rss = 512M`).
+- **Số tiến trình Celery**: giá trị `--concurrency=2` nằm trong `ENTRYPOINT` của `celery/Dockerfile`. Sửa ở đó rồi `docker compose up -d --build celery`.
 
-```sh
-./scripts/copy_static
-```
+## Checklist trước khi mở cho người dùng
 
-## Backup
-
-### Backup database
-
-```sh
-docker exec lcoj_mysql mysqldump -u root -p<root_password> lcoj > backup_$(date +%Y%m%d).sql
-```
-
-### Backup media files
-
-```sh
-tar -czf media_backup_$(date +%Y%m%d).tar.gz dmoj/media/
-```
-
-### Backup problems
-
-```sh
-tar -czf problems_backup_$(date +%Y%m%d).tar.gz dmoj/problems/
-```
-
-## Restore
-
-### Restore database
-
-```sh
-docker exec -i lcoj_mysql mysql -u root -p<root_password> lcoj < backup_20240101.sql
-```
-
-### Restore media
-
-```sh
-tar -xzf media_backup_20240101.tar.gz
-```
-
-## Monitoring
-
-### Kiểm tra resource usage
-
-```sh
-docker stats
-```
-
-### Kiểm tra disk usage
-
-```sh
-docker system df
-```
-
-### Xem logs realtime
-
-```sh
-# Site logs
-docker compose logs -f --tail=100 site
-
-# Celery logs
-docker compose logs -f --tail=100 celery
-
-# Nginx access logs
-docker compose exec nginx tail -f /var/log/nginx/access.log
-```
-
-## Troubleshooting
-
-### Container không start
-
-```sh
-# Xem logs
-docker compose logs <service_name>
-
-# Xem chi tiết
-docker inspect <container_name>
-```
-
-### Database connection error
-
-```sh
-# Kiểm tra MySQL đang chạy
-docker compose ps db
-
-# Kiểm tra logs
-docker compose logs db
-
-# Restart database
-docker compose restart db
-```
-
-### Static files không load
-
-```sh
-# Chạy lại copy_static
-./scripts/copy_static
-
-# Restart nginx
-docker compose restart nginx
-```
-
-### Out of memory
-
-```sh
-# Kiểm tra memory usage
-docker stats
-
-# Tăng memory limit trong docker-compose.yml
-# Thêm vào service cần thiết:
-deploy:
-  resources:
-    limits:
-      memory: 2G
-```
-
-### Disk full
-
-```sh
-# Xóa unused images
-docker image prune -a
-
-# Xóa unused volumes
-docker volume prune
-
-# Xóa unused containers
-docker container prune
-```
-
-## Production checklist
-
-Trước khi deploy production:
-
-- [ ] Đổi `DEBUG=False` trong `site.env`
-- [ ] Đổi mật khẩu mặc định `admin`
-- [ ] Cấu hình HTTPS (SSL certificate)
-- [ ] Setup backup tự động
-- [ ] Cấu hình firewall
-- [ ] Setup monitoring (Prometheus, Grafana)
-- [ ] Cấu hình log rotation
-- [ ] Test disaster recovery
-- [ ] Document các thay đổi custom
-
-## Cấu hình HTTPS
-
-### Với Let's Encrypt
-
-```sh
-# Cài đặt certbot
-apt install certbot python3-certbot-nginx
-
-# Lấy certificate
-certbot --nginx -d luyencode.net
-
-# Auto-renew
-certbot renew --dry-run
-```
-
-### Cập nhật nginx config
-
-Certbot sẽ tự động cập nhật nginx config. Sau đó:
-
-```sh
-docker compose restart nginx
-```
-
-## Performance tuning
-
-### Tăng số Celery workers
-
-**File: `celery/Dockerfile`**
-
-```dockerfile
-CMD celery -A dmoj_celery worker -l info --concurrency=4
-```
-
-### Tăng số uWSGI workers
-
-**File: `site/Dockerfile`**
-
-```dockerfile
-CMD uwsgi --ini uwsgi.ini --processes=4
-```
-
-### Cấu hình Redis persistence
-
-**File: `docker-compose.yml`**
-
-```yaml
-redis:
-  command: redis-server --appendonly yes
-  volumes:
-    - redis-data:/data
-```
+- [ ] `DEBUG=0`, `SECRET_KEY` ngẫu nhiên, mật khẩu MariaDB mạnh
+- [ ] Đã đổi mật khẩu hoặc xóa tài khoản `admin` của fixture `demo`
+- [ ] HTTPS hoạt động, `SITE_FULL_URL`/`MEDIA_URL` dùng `https://`
+- [ ] Đăng nhập Google hoạt động
+- [ ] Tường lửa chỉ mở cổng cần thiết
+- [ ] Đã thiết lập [sao lưu định kỳ](/operate/operations#backup)
+- [ ] Đã [kết nối ít nhất một máy chấm](/operate/judge-setup)
 
 ## Xem thêm
 
-- [Management Commands](/reference/management-commands)
-- [Cập nhật hệ thống](/operate/updating)
+- [Biến môi trường](/operate/environment)
+- [Script hỗ trợ](/operate/scripts)
+- [Vận hành hằng ngày](/operate/operations)
+- [Cập nhật LCOJ](/operate/updating)
 - [Cài đặt Judge](/operate/judge-setup)
-- [Quản lý bài tập](/setter/managing-problems)
 
-## Hỗ trợ
-
-Nếu gặp vấn đề:
-1. Kiểm tra logs: `docker compose logs -f`
-2. Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)
-3. Liên hệ hỗ trợ tại [https://luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he)
+::: tip Cần hỗ trợ?
+Tạo issue tại [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), hoặc liên hệ qua [behitek.com](https://behitek.com) và [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

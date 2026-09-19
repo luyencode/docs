@@ -1,260 +1,356 @@
 # Quản lý bài tập
 
-LCOJ cung cấp giao diện web để tạo và chỉnh sửa bài tập, bao gồm cả đề bài và test data.
+LCOJ cho phép tạo bài tập, viết đề và tải test data lên ngay trên giao diện web. Trang này hướng dẫn toàn bộ quy trình, từ một bài tập trống đến khi bài sẵn sàng cho mọi người giải trên luyencode.net.
 
-## Cấu hình
+::: tip Ai được làm việc này?
+- Tạo bài cần quyền `judge.add_problem`.
+- Sửa bài cần quyền `judge.edit_own_problem` **và** phải là tác giả (author) hoặc người phụ trách (curator) của bài (hoặc có quyền `judge.edit_all_problem`).
+- Chấm lại cần quyền `judge.rejudge_submission`; chấm lại hàng loạt cần thêm `judge.rejudge_submission_lot`.
+
+Xem [Phân quyền](/admin/permissions) để biết cách cấp các quyền này.
+:::
+
+## Dữ liệu bài tập được lưu ở đâu
+
+Mỗi bài có một thư mục riêng, đặt tên theo mã bài. Thư mục này chứa `init.yml` (cấu hình cho judge), file zip test data và các file phụ trợ (checker, interactor, header, ...).
 
 ### Với Docker (khuyến nghị)
 
-Test data được lưu trong thư mục `dmoj/problems/` và tự động mount vào container.
+Dữ liệu bài tập nằm trong `dmoj/problems/` và được mount vào container thành `/problems/`. Cấu hình mặc định đã đặt sẵn:
 
-Không cần cấu hình thêm, đã được setup sẵn trong Docker.
+```python
+DMOJ_PROBLEM_DATA_ROOT = '/problems/'
+```
+
+Không cần cấu hình thêm.
 
 ### Với bare metal
 
-Trong `local_settings.py`, đặt `DMOJ_PROBLEM_DATA_ROOT`:
+Trong `local_settings.py`, trỏ `DMOJ_PROBLEM_DATA_ROOT` tới thư mục mà các judge cũng đọc được:
 
 ```python
-DMOJ_PROBLEM_DATA_ROOT = '/home/lcoj/problems'
+DMOJ_PROBLEM_DATA_ROOT = '/home/lcoj/problems/'
 ```
 
-## Thêm bài tập mới
+::: warning
+Judge phải thấy đúng các file mà site thấy. Nếu judge không đọc được `<mã_bài>/init.yml` thì bài nộp cho bài đó sẽ không chấm được. Xem [Cài đặt judge](/operate/judge-setup).
+:::
 
-### Bước 1: Truy cập trang quản trị
+## Tạo bài tập
 
-Truy cập `/admin/` và đăng nhập bằng tài khoản admin.
+Có ba cách tạo bài.
 
-### Bước 2: Tạo bài tập
+### Cách 1: Tạo trên site (khuyến nghị)
 
-Click nút _Add_ ở mục _Problems_.
+1. Mở **Danh sách bài** và bấm tab **Tạo bài mới** (URL: `/problems/create`).
+2. Điền form (xem [Các thông số của bài](#cac-thong-so-cua-bai) bên dưới). Ô đề bài đã được điền sẵn đề mẫu lấy từ cấu hình site.
+3. Bấm **Lưu**. Bạn được thêm vào làm **curator** của bài, và mọi ngôn ngữ được đánh dấu "include in problem" sẽ tự động được cho phép.
+4. Site chuyển sang trang bài tập. Thanh bên phải lúc này có **Sửa đề bài**, **Delete problem** (xóa bài) và **Sửa đổi test**.
 
-![Add Problem](https://i.imgur.com/RFPQaUi.png)
+::: info
+Bài mới tạo ở chế độ riêng tư (chưa công khai) cho tới khi quản trị viên bật công khai, nên bạn có thể chuẩn bị xong xuôi trước khi ai đó nhìn thấy.
+:::
 
-### Bước 3: Điền thông tin cơ bản
+### Cách 2: Django admin
 
-**Thông tin bắt buộc:**
-- **Problem code**: Mã bài tập (phải unique, ví dụ: `APLUSB`)
-- **Title**: Tên bài tập (ví dụ: "Tổng hai số")
-- **Authors**: **Quan trọng!** Phải thêm bản thân làm tác giả, nếu không sẽ không chỉnh sửa được bài
+1. Vào `/admin/` và mở **Problems**.
+2. Bấm **Add problem**.
+3. Điền các trường. Form admin có thêm vài trường so với form trên site: **creators** (tác giả), **curators**, **publicly visible**, **manually managed**, **allowed languages**, **banned users**, ...
+4. Bấm **Save**, rồi **View on site**.
 
-![Problem Info](https://i.imgur.com/bPlNZUR.png)
+::: warning
+Trong admin, nhớ thêm chính mình vào **creators** hoặc **curators**. Nếu không, bạn sẽ không sửa được bài sau này (trừ khi có quyền `judge.edit_all_problem`).
+:::
 
-### Bước 4: Viết đề bài
+### Cách 3: Nhập gói Codeforces Polygon
 
-LCOJ hỗ trợ Markdown với các tính năng mở rộng:
-- LaTeX cho công thức toán học
-- Syntax highlighting cho code
-- Hình ảnh, bảng biểu
+Nếu bài đã có trên [Polygon](https://polygon.codeforces.com/), bạn có thể nhập vào:
 
-**Ví dụ đề bài:**
+1. Ở trang `/problems/create`, bấm **Import problem from Codeforces Polygon package** (URL: `/problems/import-polygon`). Cần quyền `judge.import_polygon_package`.
+2. Nhập mã bài mới và tải lên file zip **full package** (bản Linux) tải từ Polygon.
+3. Chọn các tùy chọn như **Ignore zero-point batches**, **Ignore zero-point cases**, **Append main solution to tutorial**, và ghép ngôn ngữ đề trên Polygon với ngôn ngữ của site.
+4. Gửi form. Bộ nhập sẽ tạo bài, đề, test data và checker (checker C++ viết bằng testlib, hoặc interactor C++ với bài tương tác).
+
+Để cập nhật một bài đã có từ gói Polygon mới hơn, dùng `/problem/<mã_bài>/update-polygon`.
+
+::: info
+Bộ nhập chuyển đề LaTeX sang Markdown bằng `pandoc`, nên máy chủ phải cài `pandoc` (phiên bản 3.0.0 trở lên).
+:::
+
+## Các thông số của bài {#cac-thong-so-cua-bai}
+
+| Trường | Ý nghĩa |
+|---|---|
+| **Mã bài** | ID duy nhất, dùng trong URL `/problem/<mã>`. Chỉ gồm chữ thường, chữ số và dấu gạch dưới (`^[a-z0-9_]+$`), tối đa 32 ký tự. Ví dụ: `aplusb`. |
+| **Tên bài** | Tiêu đề hiển thị trong danh sách bài, ví dụ "Tổng hai số". |
+| **Giới hạn thời gian** | Tính bằng **giây**, cho phép số lẻ như `1.5`. Nếu không có quyền `judge.high_problem_timelimit` thì không đặt được quá 5 giây. |
+| **Giới hạn bộ nhớ** | Tính bằng **kilobyte**. Mặc định cho bài mới là `262144` (256 MB). |
+| **Điểm** | Số điểm khi giải trọn vẹn bài. |
+| **Cho phép điểm thành phần** | Nếu bật, bài nộp được điểm theo tỉ lệ test vượt qua (xem [Cách tính điểm](#cach-tinh-diem)). Form tạo bài bật sẵn tùy chọn này. |
+| **Dạng bài** / **Nhóm bài** | Dùng để phân loại và lọc trong danh sách bài. |
+| **File đề** | Đề dạng PDF (tùy chọn, cần quyền `judge.upload_file_statement`). |
+| **Nguồn** | Nguồn gốc của bài; hãy ghi rõ nguồn gốc. |
+| **Tester** | Những người được xem bài khi bài còn riêng tư nhưng không được sửa. |
+| **Mô tả** | Đề bài dạng Markdown (xem bên dưới). |
+
+## Viết đề bài
+
+Đề bài viết bằng Markdown, có thêm một số tính năng mở rộng:
+
+- Công thức toán, hiển thị bằng MathJax
+- Khối code có tô màu cú pháp
+- Bảng, hình ảnh và ~~gạch ngang~~
+
+Trình soạn thảo có xem trước trực tiếp, hãy kiểm tra đề hiển thị đúng trước khi lưu.
+
+### Cú pháp công thức toán
+
+| Mục đích | Cú pháp | Ví dụ |
+|---|---|---|
+| Công thức cùng dòng | `~...~` | `~1 \le n \le 10^5~` |
+| Công thức riêng dòng | `$$...$$` | `$$\sum_{i=1}^{n} a_i$$` |
+
+::: warning Không dùng một dấu đô la
+`$a + b$` **không** phải là công thức trên LCOJ; nó sẽ hiện nguyên văn kèm dấu `$`. Luôn dùng `~a + b~` cho công thức cùng dòng.
+:::
+
+### Mẫu đề bài hoàn chỉnh
+
+Chép mẫu này vào ô **Mô tả** rồi thay nội dung. Không cần ghi giới hạn thời gian và bộ nhớ trong đề; chúng đã được hiển thị tự động ở thanh bên của trang bài.
 
 ````markdown
-# Đề bài
+Cho hai số nguyên ~a~ và ~b~. Hãy tính tổng của chúng.
 
-Cho hai số nguyên $a$ và $b$. Hãy tính tổng của chúng.
+## Dữ liệu vào
 
-## Input
+Một dòng duy nhất chứa hai số nguyên ~a~ và ~b~ (~-10^9 \le a, b \le 10^9~).
 
-Một dòng chứa hai số nguyên $a$ và $b$ ($-10^9 \le a, b \le 10^9$).
+## Kết quả
 
-## Output
+In ra một số nguyên duy nhất là giá trị ~a + b~.
 
-In ra một số nguyên duy nhất là $a + b$.
+## Chấm điểm
+
+- Subtask 1 (~30\%~ số điểm): ~0 \le a, b \le 100~.
+- Subtask 2 (~70\%~ số điểm): không có ràng buộc gì thêm.
 
 ## Ví dụ
 
-### Input
+### Dữ liệu vào
+
 ```
 3 5
 ```
 
-### Output
+### Kết quả
+
 ```
 8
 ```
 
-## Giới hạn
+### Giải thích
 
-- Thời gian: 1 giây
-- Bộ nhớ: 256 MB
+Ta có ~3 + 5 = 8~. Tổng quát, đáp án là
+
+$$
+S = a + b.
+$$
 ````
-
-Xem [template đầy đủ](https://raw.githubusercontent.com/luyencode/docs/master/sample_files/problem_markdown_example.md.txt).
-
-### Bước 5: Cấu hình bài tập
-
-**Các tùy chọn quan trọng:**
-
-- **Time limit**: Giới hạn thời gian (giây)
-- **Memory limit**: Giới hạn bộ nhớ (KB)
-- **Points**: Điểm của bài (thường 100)
-- **Partial**: Cho phép điểm thành phần
-- **Group**: Nhóm bài tập
-- **Types**: Loại bài (DP, Graph, Math, ...)
-- **Allowed languages**: Ngôn ngữ được phép
-
-### Bước 6: Lưu và xem
-
-Click _Save_, sau đó click _View on site_ để xem bài tập.
-
-![View on site](https://i.imgur.com/ZgO5xcY.png)
 
 ## Quản lý test data
 
-### Bước 1: Mở trình chỉnh sửa test data
+Test data được quản lý trong trình sửa test trên web tại `/problem/<mã_bài>/test_data` (liên kết **Sửa đổi test** trên trang bài). Khi bạn lưu, site tự động sinh file `init.yml` cho judge.
 
-Trên trang bài tập, click _Edit test data_.
-
-![Edit test data](https://i.imgur.com/eDWEEJk.png)
-
-### Bước 2: Upload test data
-
-Chuẩn bị file zip chứa test data. Quy ước đặt tên:
-
-```
-<problem_code>.<test_number>.in   # File input
-<problem_code>.<test_number>.out  # File output
+```mermaid
+flowchart LR
+  A[Chuẩn bị file test] --> B[Tải zip lên trang Sửa đổi test]
+  B --> C[Bảng test được điền tự động]
+  C --> D[Chỉnh điểm, batch, checker, grader]
+  D --> E[Lưu]
+  E --> F[Site ghi init.yml]
+  F --> G[Judge chấm các bài nộp mới]
 ```
 
-**Ví dụ:** Bài `APLUSB`:
+### Bước 1: Chuẩn bị file zip
+
+Đưa toàn bộ file input và output vào một file zip. Trình sửa test tự nhận ra các kiểu đặt tên sau:
+
+| Kiểu | File input | File output |
+|---|---|---|
+| Thông dụng / Themis | `aplusb.1.in`, `1.inp` | `aplusb.1.out`, `1.ok`, `1.ans` |
+| CMS | `input.1` | `output.1` |
+| Polygon | `01` | `01.a` |
+
+Ví dụ với bài `aplusb`:
 
 ```
-APLUSB.1.in
-APLUSB.1.out
-APLUSB.2.in
-APLUSB.2.out
-APLUSB.3.in
-APLUSB.3.out
+aplusb.1.in
+aplusb.1.out
+aplusb.2.in
+aplusb.2.out
+aplusb.3.in
+aplusb.3.out
 ```
 
-Upload file zip lên hệ thống.
+::: tip
+- Dùng một kiểu đặt tên cho cả file zip. Input và output được sắp xếp tự nhiên (1, 2, 10) rồi ghép cặp theo thứ tự.
+- Mỗi file zip tối đa 100 MB.
+- Nếu không có quyền `judge.create_mass_testcases`, mỗi bài có tối đa 100 test (trình sửa sẽ cảnh báo khi vượt 50).
+:::
 
-![Upload zip](https://i.imgur.com/w5ytsgi.png)
+### Bước 2: Tải file zip lên
 
-### Bước 3: Cấu hình test cases
+1. Trên trang bài, bấm **Sửa đổi test**.
+2. Ở ô **Tập tin dữ liệu nén dạng zip**, chọn file zip. Nếu chỉ có các file rời, bấm **or click here to build zip file** để chọn nhiều file hoặc cả thư mục; trình duyệt sẽ tự nén giúp bạn.
+3. Bảng test được điền tự động. Một thông báo màu vàng (**Các test đã được điền tự động!**) nhắc rằng bảng **chưa được lưu**.
 
-**Các trường quan trọng:**
+### Bước 3: Kiểm tra bảng test
 
-- **Input file**: Đường dẫn file input trong zip
-- **Output file**: Đường dẫn file output trong zip
-- **Points**: Điểm của test case
+Mỗi dòng là một mục:
 
-**Ví dụ cấu hình:**
+| Cột | Ý nghĩa |
+|---|---|
+| **Kiểu** | **Test đơn**, **Bắt đầu nhóm test** hoặc **Hết nhóm test**. |
+| **Tập tin đầu vào** / **Tập tin đầu ra** | Tên file trong zip. Tên không có trong zip sẽ được tô nổi bật. |
+| **Điểm** | Điểm của test đơn, hoặc điểm của cả batch ở dòng **Bắt đầu nhóm test**. |
+| **Pretest?** | Chỉ staff mới thấy. Đánh dấu test là pretest. |
+| **Xoá?** | Xóa dòng khi lưu. |
 
-```
-Test 1: APLUSB.1.in, APLUSB.1.out, 30 điểm
-Test 2: APLUSB.2.in, APLUSB.2.out, 30 điểm
-Test 3: APLUSB.3.in, APLUSB.3.out, 40 điểm
-```
+Để tạo một subtask (batch):
 
-### Tính điểm
-
-Nếu bật _Partial points_:
-
-**Công thức:**
-
-```
-Điểm = (Tổng điểm test đúng / Tổng điểm tất cả test) × Điểm bài
-```
-
-**Ví dụ:**
-
-- Bài 100 điểm
-- 3 test: 1/2/7 điểm
-- Thí sinh đúng test 1 và 2, sai test 3
-- Điểm = (1+2)/(1+2+7) × 100 = 30 điểm
-
-## Batched test cases
-
-Dùng cho bài có subtask. Phải đúng tất cả test trong subtask mới được điểm.
-
-**Cách tạo:**
-
-1. Click _Add batch_
-2. Đặt điểm cho batch
-3. Thêm các test case vào batch
-
-**Ví dụ:**
+1. Thêm dòng **Bắt đầu nhóm test** và đặt điểm cho cả subtask.
+2. Thêm các dòng **Test đơn** của subtask ngay bên dưới (để trống điểm).
+3. Thêm dòng **Hết nhóm test**.
 
 ```
-Batch 1 (30 điểm):
-  - Test 1.1
-  - Test 1.2
-  
-Batch 2 (70 điểm):
-  - Test 2.1
-  - Test 2.2
-  - Test 2.3
+Bắt đầu nhóm test   (30 điểm)
+  Test đơn          aplusb.1.in / aplusb.1.out
+  Test đơn          aplusb.2.in / aplusb.2.out
+Hết nhóm test
+Bắt đầu nhóm test   (70 điểm)
+  Test đơn          aplusb.3.in / aplusb.3.out
+  ...
+Hết nhóm test
 ```
 
-## Checker tùy chỉnh
+Một batch chỉ cho điểm khi **tất cả** test trong batch đều đúng.
 
-Nếu bài có nhiều đáp án đúng, cần dùng custom checker.
+### Bước 4: Chọn checker {#buoc-4-chon-checker}
 
-**Các checker có sẵn:**
+Danh sách **Trình chấm** (checker) gồm:
 
-- `standard`: So sánh chính xác (mặc định)
-- `floats`: Cho phép sai số số thực
-- `sorted`: Bỏ qua thứ tự
-- `identical`: So sánh từng ký tự
+| Lựa chọn | Tên trong init.yml | Khi nào dùng |
+|---|---|---|
+| Mặc định (Standard) | `standard` | Mặc định. So sánh từng token, bỏ qua khoảng trắng. |
+| Số thực (Floats) | `floats` | Output số thực, cho phép sai số. Đặt **precision** (số chữ số thập phân) ở ô bên cạnh. |
+| Số thực (tuyệt đối) | `floatsabs` | Output số thực, chỉ xét sai số tuyệt đối. |
+| Số thực (tương đối) | `floatsrel` | Output số thực, chỉ xét sai số tương đối. |
+| So sánh byte | `identical` | Output phải giống từng byte. |
+| Dòng với dòng | `linecount` | So sánh theo từng dòng. |
+| Trình chấm ngoài | `bridged` | Chương trình checker của bạn (`.cpp`, `.pas` hoặc `.java`), tải lên ở ô **File trình chấm ngoài**. Chọn loại: Testlib, Themis, CMS, COCI, PEG hoặc DMOJ. |
 
-**Cách chọn checker:**
+Với checker testlib, bạn có thể tick thêm **Treat checker points as percentage**. Xem [Checker](/setter/checkers) để biết từng checker hoạt động thế nào và cách tự viết checker.
 
-Trong phần _Checker_, chọn checker phù hợp và cấu hình tham số.
+### Bước 5: Chọn grader
 
-## Generator
+| Lựa chọn | Tác dụng |
+|---|---|
+| **Standard** | Chương trình đọc từ stdin và ghi ra stdout. Đặt **IO Method** là **Sử dụng file** nếu chương trình phải đọc/ghi file có tên cụ thể (ví dụ `post.inp` / `post.out`). |
+| **Interactive** | Tải lên interactor C++ viết bằng testlib. |
+| **Function Signature Grading (IOI-style)** | Tải lên file entry `.cpp` và file header `.h`. Trong **tham số grader**, `{"allow_main": true}` cho phép thí sinh tự viết hàm `main`. |
+| **Output Only** | Thí sinh nộp file output thay vì mã nguồn. |
 
-Nếu có nhiều test, có thể dùng generator thay vì upload file.
+Xem [Grader](/setter/graders) để biết chi tiết.
 
-**Cách dùng:**
+### Bước 6: Lưu và kiểm tra init.yml được sinh ra
 
-1. Upload file generator (C/C++)
-2. Cấu hình tham số cho mỗi test
-3. Hệ thống tự động tạo input/output
+1. Bấm **Lưu**.
+2. Nếu có lỗi (thiếu file, batch chưa có điểm, ...), thông báo lỗi hiện ở đầu trang và `init.yml` **không** được ghi.
+3. Nếu mọi thứ ổn, liên kết **Xem YAML** xuất hiện cạnh tiêu đề (URL: `/problem/<mã_bài>/test_data/init`).
 
-Xem thêm: [Generator](/setter/generators)
+Một file `init.yml` được sinh ra điển hình:
 
-## Nộp bài thử
+```yaml
+archive: aplusb.zip
+checker: standard
+test_cases:
+- in: aplusb.1.in
+  out: aplusb.1.out
+  points: 30
+- batched:
+  - in: aplusb.2.in
+    out: aplusb.2.out
+  - in: aplusb.3.in
+    out: aplusb.3.out
+  points: 70
+```
 
-Sau khi tạo xong test data, quay lại trang bài tập và click _Submit solution_ để thử nộp bài.
+Định dạng file được mô tả trong [Cấu trúc bài tập](/setter/problem-format).
 
-## Cập nhật test data
+### Những gì trình sửa test trên web không làm được
 
-Nếu cần sửa test data:
+Một số tính năng judge hỗ trợ nhưng trình sửa test không có form:
 
-1. Truy cập _Edit test data_
-2. Upload file zip mới hoặc chỉnh sửa cấu hình
-3. Click _Save_
-4. Test data sẽ tự động cập nhật
+- [Generator](/setter/generators)
+- Checker viết bằng Python (`checker.py`)
+- Grader Python tùy chỉnh (`custom_judge`) và bài dạng communication
+- Tự nhận test bằng regex
 
-## Rejudge
+Với các trường hợp này, hãy tự viết `init.yml`:
 
-Sau khi sửa test data, nên rejudge các bài nộp cũ:
+1. Trong admin, bật **manually managed** (quản lý test thủ công) cho bài. Liên kết **Sửa đổi test** sẽ biến mất, nên site không bao giờ ghi đè file của bạn.
+2. Đặt `init.yml` và mọi file mà nó tham chiếu vào thư mục bài, ví dụ `dmoj/problems/<mã_bài>/` khi dùng Docker.
 
-1. Vào trang bài tập
-2. Click _Rejudge all submissions_
-3. Chọn phạm vi rejudge (tất cả hoặc từ thời điểm nào đó)
+## Cách tính điểm {#cach-tinh-diem}
 
-## Tips
+1. Mỗi test (hoặc batch) được điểm nếu đúng. Một batch nhận điểm **nhỏ nhất** trong các test của nó, nên chỉ cần sai một test là batch được 0 điểm.
+2. Điểm của bài nộp:
 
-- **Đặt tên test rõ ràng**: Dễ quản lý và debug
-- **Test đầy đủ**: Bao gồm edge cases, corner cases
-- **Kiểm tra output**: Đảm bảo output chuẩn đúng
-- **Thử nhiều ngôn ngữ**: Test với C++, Python, Java
-- **Đọc kỹ log**: Nếu có lỗi, xem log để biết nguyên nhân
+```
+Điểm = (điểm test đạt được / tổng điểm các test) × điểm của bài
+```
+
+3. Nếu tắt **Cho phép điểm thành phần**, mọi kết quả chưa trọn điểm đều tính là 0, và judge dừng chấm ngay ở test sai đầu tiên.
+
+**Ví dụ:** bài có 100 điểm và ba test lần lượt 1, 2, 7 điểm. Thí sinh đúng test 1 và 2, sai test 3:
+
+```
+Điểm = (1 + 2) / (1 + 2 + 7) × 100 = 30
+```
+
+## Nộp thử
+
+1. Quay lại trang bài và bấm **Gửi bài giải**.
+2. Nộp một lời giải đúng và đảm bảo nó AC ở mọi test.
+3. Nộp thêm vài lời giải sai hoặc chậm để chắc chắn bộ test bắt được chúng.
+
+## Chấm lại và tính lại điểm
+
+Sau khi sửa test data, hãy chấm lại các bài nộp cũ:
+
+1. Trên trang bài, bấm **Quản lí submissions** (URL: `/problem/<mã_bài>/manage/submission`). Liên kết này chỉ hiện với staff có quyền chấm lại bài.
+2. Ở mục **Chấm lại bài nộp**, có thể lọc theo khoảng ID (**Lọc bởi ID:**), ngôn ngữ hoặc kết quả.
+3. Bấm **Chấm lại các bài nộp đã chọn** và xác nhận số lượng bài nộp.
+
+Nút **Tính lại điểm của mọi bài nộp** trên cùng trang tính lại điểm từ kết quả đã có mà không chạy lại code (hữu ích khi đổi điểm của bài).
+
+## Mẹo
+
+- **Đặt tên test rõ ràng** để dễ tìm và debug.
+- **Bao quát trường hợp biên**: giá trị nhỏ nhất, lớn nhất, cấu trúc đặc biệt.
+- **Kiểm tra lại output chuẩn** bằng một lời giải thứ hai độc lập.
+- **Thử nhiều ngôn ngữ** (C++, Python, Java) để chắc chắn giới hạn thời gian hợp lý.
 
 ## Xử lý lỗi thường gặp
 
-**Test data không load:**
-- Kiểm tra đường dẫn file trong zip
-- Kiểm tra quyền thư mục `DMOJ_PROBLEM_DATA_ROOT`
+**Trình sửa test báo lỗi sau khi lưu:**
+- Đọc thông báo ở đầu trang; nó nêu rõ test nào và file nào bị thiếu.
+- Đảm bảo mọi dòng **Bắt đầu nhóm test** đều có điểm và mỗi batch có ít nhất một test.
 
-**Checker không hoạt động:**
-- Kiểm tra cú pháp checker
-- Xem log lỗi trong admin
+**Bài nộp bị Internal Error (IE):**
+- Kiểm tra `init.yml` đã tồn tại (**Xem YAML**).
+- Kiểm tra quyền truy cập thư mục bài (`DMOJ_PROBLEM_DATA_ROOT`).
+- Với custom checker và interactor, kiểm tra file biên dịch được.
 
-**Rejudge không chạy:**
-- Kiểm tra Celery đang chạy Docker: `docker compose ps celery`
-- Xem log Celery Docker: `docker compose logs -f celery`
-- Kiểm tra Celery bare metal: `supervisorctl status celery`
-- Xem log Celery bare metal: `supervisorctl tail -f celery`
+**Chấm lại không chạy:**
+- Chạy trong thư mục `dmoj/`: `docker compose ps celery`, rồi `docker compose logs -f celery`

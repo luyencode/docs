@@ -1,295 +1,230 @@
 # API
 
-LCOJ provides a JSON API for accessing backend data.
+LCOJ exposes two machine-facing interfaces:
 
-## API Tokens
+| Interface | What it is for | Authentication | Enabled by default? |
+|---|---|---|---|
+| [Personal API token](#personal-api-token) | Scripts that act **as a specific user** on regular site pages | `Authorization: Bearer <token>` | Yes |
+| [Contest sync API](#contest-sync-api) | External scoreboards / resolvers that read a contest's problems, ranking and submissions as JSON | `X-Global-API-Key` header (one site-wide key) | No (`VNOJ_ENABLE_SYNC_API = False`) |
 
-### Generate an API token
+::: warning No public data API
+Upstream DMOJ has a public JSON API under `/api/v2/` (`/api/v2/problems`, `/api/v2/users`, `/api/v2/contests`, ...). **LCOJ does not ship these endpoints**: those URLs return 404 on luyencode.net. The only JSON API under `/api/v2/` is the contest sync API described below.
+:::
 
-1. Go to the _Edit profile_ page
-2. Find the API Token section
-3. Click _Generate_ to create a new token
+## Personal API token {#personal-api-token}
 
-### Use an API token
+A personal API token lets a script log in as you without a password or two-factor authentication. The token is sent as an HTTP header, and the request is then handled exactly as if you were logged in on a browser.
 
-Add the following header to every request:
+### Getting a token
+
+| Method | Who | How |
+|---|---|---|
+| Management command | Server administrators | `./scripts/manage.py generate_api_token <username>` (run from `dmoj/`). Prints the token. See [Management commands](/en/reference/management-commands). |
+| HTTP endpoint | The logged-in user | `POST /accounts/api/token/generate/` (needs a logged-in session and a CSRF token). Returns `{"data": {"token": "..."}}`. |
+
+- A token is 48 URL-safe base64 characters. It encodes your user ID plus a random secret; the site stores only an HMAC of the secret, so **a token cannot be shown again**. Store it when you get it.
+- Generating a new token **invalidates the previous one**.
+- To revoke a token: `POST /accounts/api/token/remove/` as the logged-in user.
+
+::: info
+The LCOJ profile editing page does not currently show an API token section, so regular users cannot generate a token from the UI. Ask an administrator if you need one.
+:::
+
+### Using a token
+
+Add this header to every request:
 
 ```http
-Authorization: Bearer <API Token>
+Authorization: Bearer <API token>
 ```
 
-### Common errors
+```bash
+curl -H "Authorization: Bearer $LCOJ_TOKEN" https://luyencode.net/user
+```
 
-- `400 Invalid authorization header` - The header is malformed
-- `401 Invalid token` - The token is invalid
-- `403 Admin inaccessible` - The admin pages cannot be accessed through the API
+The token is checked by `judge.middleware.APIMiddleware`. When valid, the request is authenticated as the token's owner, counts as having passed 2FA, and skips CSRF checks.
 
-## Rate Limiting
+### Errors
 
-**Limit: 90 requests/minute**
+| HTTP status | Body | Cause |
+|---|---|---|
+| `400` | `Invalid authorization header` | The header is not exactly `Bearer ` followed by 48 characters `[A-Za-z0-9_-]` |
+| `401` | `Invalid token` | Unknown user, the user has no token, or the secret does not match (for example, the token was regenerated) |
+| `403` | `Admin inaccessible` | Tokens can never be used for the Django admin (`/admin/`) |
 
-If you exceed it, you will have to solve a captcha. The captcha is cleared automatically after 3 days.
+::: danger Treat the token like a password
+The token bypasses two-factor authentication. Never share it, never commit it to git, and regenerate it if it leaks.
+:::
 
-## Response Format
+## Contest sync API {#contest-sync-api}
 
-Every response has the following structure:
+The sync API lets an external tool (for example, an ICPC-style resolver or a live scoreboard) poll a contest's data. It is read-only and returns plain JSON.
+
+### Enabling it
+
+Both settings live in `dmoj/local_settings.py` (see [Environment configuration](/en/operate/environment)); restart `site` after changing them.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `VNOJ_ENABLE_SYNC_API` | `False` | When `True`, the `/api/v2/sync/...` URLs are registered. When `False` they return 404. |
+| `GLOBAL_API_KEY` | a test value in `settings.py` | Shared secret that every sync request must present. If it is empty/`None`, every request is rejected with 403. |
+
+::: danger Change `GLOBAL_API_KEY` before enabling
+The default value in `dmoj/settings.py` is a public placeholder used by tests. Set a long random key in `local_settings.py` before turning on `VNOJ_ENABLE_SYNC_API`. Anyone who knows the key can read **any** contest by its code, including private and hidden contests: the sync API does not check contest visibility.
+:::
+
+### Authentication
+
+Send the key in a header (preferred) or as a query parameter:
+
+```http
+X-Global-API-Key: <GLOBAL_API_KEY>
+```
+
+```
+/api/v2/sync/contest/<contest_code>?global_api_key=<GLOBAL_API_KEY>
+```
+
+A missing or wrong key returns `403` `api key required`.
+
+### Endpoints
+
+All endpoints are `GET`. `<contest_code>` is the contest key (the code in the contest URL `/contest/<key>`).
+
+| Endpoint | Returns |
+|---|---|
+| `/api/v2/sync/contest/<contest_code>` | Contest timing (object) |
+| `/api/v2/sync/contest/<contest_code>/problems` | Problems in contest order (array) |
+| `/api/v2/sync/contest/<contest_code>/participants` | Current ranking (array) |
+| `/api/v2/sync/contest/<contest_code>/submissions` | Submissions judged since a timestamp (array) |
+
+Timestamps are ISO 8601 strings with a UTC offset, for example `2026-03-01T08:00:00+00:00`.
+
+#### Contest detail
+
+`GET /api/v2/sync/contest/<contest_code>`
 
 ```json
 {
-    "api_version": "2.0",
-    "method": "GET",
-    "fetched": "2024-01-01T00:00:00Z",
-    "data": {},
-    "error": null
+  "code": "icpc2026",
+  "start_time": "2026-03-01T08:00:00+00:00",
+  "end_time": "2026-03-01T13:00:00+00:00",
+  "frozen_at": "2026-03-01T12:00:00+00:00"
 }
 ```
 
-A response contains either `data` or `error`, never both.
+| Field | Description |
+|---|---|
+| `code` | Contest key |
+| `start_time`, `end_time` | Contest window |
+| `frozen_at` | `end_time` minus the contest's _frozen last minutes_; `null` when the contest has no freeze |
 
-### Error format
+#### Problems
+
+`GET /api/v2/sync/contest/<contest_code>/problems`
+
+```json
+[
+  {"code": "sum2", "contest": "icpc2026"},
+  {"code": "maxpath", "contest": "icpc2026"}
+]
+```
+
+Problems are sorted by their order in the contest. `code` is the problem code.
+
+#### Participants (ranking)
+
+`GET /api/v2/sync/contest/<contest_code>/participants`
+
+```json
+[
+  {"user": "alice", "contest": "icpc2026", "rank": 1},
+  {"user": "bob", "contest": "icpc2026", "rank": 1},
+  {"user": "carol", "contest": "icpc2026", "rank": 3}
+]
+```
+
+- Includes only **live** participations (no virtual participants or spectators) that are not disqualified.
+- Sorted by score (descending), then cumulative time, then the format's tie-breaker. Equal (score, time, tie-breaker) share a rank; the next rank skips (1, 1, 3).
+- While the scoreboard is frozen (only for the `icpc` and `vnoj` formats with _frozen last minutes_ > 0, from `frozen_at` onwards, including after the contest ends), the ranking uses the **frozen** score and time. See [Contest formats](/en/organize/contest-formats).
+
+#### Submissions
+
+`GET /api/v2/sync/contest/<contest_code>/submissions?from_timestamp=...`
+
+| Query parameter | Required | Default | Description |
+|---|---|---|---|
+| `from_timestamp` | Yes | — | ISO 8601 time. Returns submissions with a judge time `>=` this value. A time without an offset is treated as UTC. URL-encode `+` as `%2B`. |
+| `limit` | No | `2000` | Maximum number of rows; must be a positive integer, capped at 2000 |
+| `status` | No | `final` | `final` skips submissions still queued/processing/grading (`QU`, `P`, `G`); `all` includes them |
+
+```json
+[
+  {
+    "id": "123456",
+    "submittedAt": "2026-03-01T08:15:02+00:00",
+    "judgedAt": "2026-03-01T08:15:04+00:00",
+    "author": "alice",
+    "submissionStatus": "AC",
+    "contest_code": "icpc2026",
+    "problem_code": "sum2"
+  }
+]
+```
+
+| Field | Description |
+|---|---|
+| `id` | Submission ID, **as a string** |
+| `submittedAt` | Submission time |
+| `judgedAt` | Judge time |
+| `author` | Username |
+| `submissionStatus` | Result code (`AC`, `WA`, `TLE`, ...), or the status code if there is no result yet. See [Status codes](/en/reference/status-codes). |
+| `contest_code`, `problem_code` | Contest key and problem code |
+
+Rows are sorted by judge time, then ID. To poll incrementally, pass the last `judgedAt` you received as the next `from_timestamp` and de-duplicate by `id` (the boundary row is returned again because the filter is `>=`). Rejudged submissions reappear with a new judge time.
+
+::: warning Freeze is not applied to submissions
+The submissions endpoint returns real verdicts even while the scoreboard is frozen. Keep the API key away from anything that is shown to contestants.
+:::
+
+### Errors
+
+Successful sync responses are the bare object or array shown above. Errors are wrapped:
 
 ```json
 {
-    "error": {
-        "code": 404,
-        "message": "Not found"
-    }
+  "api_version": "2.0",
+  "method": "get",
+  "fetched": "2026-03-01T09:00:00.123456+00:00",
+  "error": {"code": 400, "message": "invalid filter value type"}
 }
 ```
 
-### Data format
+| HTTP status | `message` | Cause |
+|---|---|---|
+| `400` | `invalid filter value type` | Missing or unparseable `from_timestamp`, bad `limit`, or `status` other than `final`/`all` |
+| `403` | `api key required` | Missing or wrong key, or `GLOBAL_API_KEY` is not set |
+| `404` | `page/object not found` | No contest with this code |
 
-**Single object:**
-
-```json
-{
-    "data": {
-        "object": {}
-    }
-}
-```
-
-**List of objects:**
-
-```json
-{
-    "data": {
-        "current_object_count": 10,
-        "objects_per_page": 50,
-        "total_objects": 100,
-        "page_index": 1,
-        "total_pages": 2,
-        "objects": []
-    }
-}
-```
-
-## Filtering
-
-Two kinds of filters are supported:
-
-**Basic filter:** Filter on a single value
-```
-/api/v2/problems?partial=True
-```
-
-**List filter:** Filter on multiple values
-```
-/api/v2/problems?organization=1&organization=2&type=Implementation
-```
-
-## Endpoints
-
-### Contests
-
-**`GET /api/v2/contests`**
-
-Get the list of contests.
-
-**Filters:**
-- `is_rated` (boolean)
-- `tag` (list)
-- `organization` (list)
-
-**Response:**
-```json
-{
-    "key": "contest_key",
-    "name": "Contest Name",
-    "start_time": "2024-01-01T00:00:00Z",
-    "end_time": "2024-01-01T05:00:00Z",
-    "is_rated": true,
-    "tags": ["seasonal"]
-}
-```
-
-**`GET /api/v2/contest/<key>`**
-
-Get contest details, including the ranking.
-
-### Problems
-
-**`GET /api/v2/problems`**
-
-Get the list of problems.
-
-**Filters:**
-- `partial` (boolean)
-- `group` (list)
-- `type` (list)
-- `organization` (list)
-- `search` (text)
-
-**Response:**
-```json
-{
-    "code": "APLUSB",
-    "name": "A Plus B",
-    "types": ["Uncategorized"],
-    "group": "Intro",
-    "points": 100,
-    "partial": true,
-    "is_public": true
-}
-```
-
-**`GET /api/v2/problem/<code>`**
-
-Get problem details.
-
-### Users
-
-**`GET /api/v2/users`**
-
-Get the list of users.
-
-**Filters:**
-- `organization` (list)
-
-**Response:**
-```json
-{
-    "id": 1,
-    "username": "user123",
-    "points": 1500,
-    "performance_points": 1200,
-    "problem_count": 50,
-    "rank": "Expert",
-    "rating": 1800
-}
-```
-
-**`GET /api/v2/user/<username>`**
-
-Get user details, including solved problems and contest history.
-
-### Submissions
-
-**`GET /api/v2/submissions`**
-
-Get the list of submissions.
-
-**Filters:**
-- `user` (username)
-- `problem` (code)
-- `language` (list)
-- `result` (list)
-
-**Response:**
-```json
-{
-    "id": 123456,
-    "problem": "APLUSB",
-    "user": "user123",
-    "date": "2024-01-01T00:00:00Z",
-    "language": "CPP17",
-    "time": 0.1,
-    "memory": 2048,
-    "points": 100,
-    "result": "AC"
-}
-```
-
-**`GET /api/v2/submission/<id>`**
-
-Get submission details, including the result of each test case.
-
-### Organizations
-
-**`GET /api/v2/organizations`**
-
-Get the list of organizations.
-
-**Filters:**
-- `is_open` (boolean)
-
-### Languages
-
-**`GET /api/v2/languages`**
-
-Get the list of programming languages.
-
-**Filters:**
-- `common_name` (text)
-
-### Judges
-
-**`GET /api/v2/judges`**
-
-Get the list of judge servers and their status.
-
-## Usage Examples
-
-### Python
+### Example
 
 ```python
 import requests
 
-API_TOKEN = "your_token_here"
-headers = {"Authorization": f"Bearer {API_TOKEN}"}
+BASE = "https://luyencode.net/api/v2/sync/contest/icpc2026"
+HEADERS = {"X-Global-API-Key": "<your key>"}
 
-# Get the list of problems
-response = requests.get(
-    "https://luyencode.net/api/v2/problems",
-    headers=headers
-)
-problems = response.json()["data"]["objects"]
-
-# Get problem details
-response = requests.get(
-    "https://luyencode.net/api/v2/problem/APLUSB",
-    headers=headers
-)
-problem = response.json()["data"]["object"]
+contest = requests.get(BASE, headers=HEADERS).json()
+ranking = requests.get(f"{BASE}/participants", headers=HEADERS).json()
+subs = requests.get(
+    f"{BASE}/submissions",
+    headers=HEADERS,
+    params={"from_timestamp": contest["start_time"], "status": "final"},
+).json()
+print(len(subs), "judged submissions")
 ```
-
-### JavaScript
-
-```javascript
-const API_TOKEN = "your_token_here";
-const headers = {
-    "Authorization": `Bearer ${API_TOKEN}`
-};
-
-// Get the list of problems
-fetch("https://luyencode.net/api/v2/problems", { headers })
-    .then(res => res.json())
-    .then(data => {
-        const problems = data.data.objects;
-        console.log(problems);
-    });
-```
-
-### cURL
 
 ```bash
-curl -H "Authorization: Bearer your_token_here" \
-     https://luyencode.net/api/v2/problems
+curl -H "X-Global-API-Key: $LCOJ_SYNC_KEY" \
+  "https://luyencode.net/api/v2/sync/contest/icpc2026/submissions?from_timestamp=2026-03-01T08:00:00Z&limit=500"
 ```
-
-## Notes
-
-- Do not share your API token with anyone
-- Store your token securely and never commit it to git
-- Respect the rate limit
-- The API may change; check `api_version`

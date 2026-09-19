@@ -1,175 +1,146 @@
 # User Data Download
 
-LCOJ lets users download their own data, including comments and submissions.
+::: info Do you need this?
+This feature lets each user download a ZIP file with the **source code of their submissions** and **their comments**.
 
-This feature is disabled by default. To enable it, configure it in `local_settings.py`.
+- **LCOJ ships with this feature enabled**, with nginx and the Docker volume already configured. You don't need to do anything to make it work.
+- Read this page if you want to **change the rate limit**, **turn the feature off**, **clean up old files**, or troubleshoot user reports.
+:::
 
-## Configuration
+## Status in LCOJ
 
-### With Docker (recommended)
+| Component | Value in the shipped config |
+|---|---|
+| `DMOJ_USER_DATA_DOWNLOAD` | `True` (the default in `dmoj/settings.py` is `False`) |
+| `DMOJ_USER_DATA_CACHE` | `'/userdatacache'` |
+| `DMOJ_USER_DATA_INTERNAL` | `'/userdatacache'` |
+| `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT` | `datetime.timedelta(days=1)` |
+| `userdatacache` volume | Mounted into `site`, `celery`, and `nginx` at `/userdatacache/` |
+| nginx | Already has `location /userdatacache { internal; root /; }` |
 
-The cache directory is already set up in the `userdatacache` Docker volume.
+## How it works
 
-Just add the following to `environment/site.env`:
-
-```env
-DMOJ_USER_DATA_DOWNLOAD=True
-DMOJ_USER_DATA_CACHE=/userdatacache/
-DMOJ_USER_DATA_INTERNAL=/userdatacache
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant S as site
+  participant C as celery
+  participant N as nginx
+  U->>S: POST /data/prepare/ (choose data)
+  S->>C: prepare_user_data task
+  S-->>U: Progress page
+  C->>C: Write /userdatacache/ID.zip
+  U->>S: GET /data/download/
+  S-->>N: X-Accel-Redirect /userdatacache/ID.zip
+  N-->>U: ZIP file
 ```
 
-Restart the services:
+1. The ZIP file is built by **Celery**, not by `site`. That's why `celery` also needs access to the cache directory.
+2. Each user has only **one file**, named `<profile id>.zip`. A new request overwrites the previous file.
+3. The nginx location is marked `internal`, so nobody can fetch files directly via `/userdatacache/...`. Files are only served through `/data/download/`, which requires login and only returns the requesting user's own file.
 
-```sh
-docker compose restart site celery
+## Guide for users
+
+1. Sign in and open **Edit profile** (`/edit/profile/`).
+2. Click the **Download your data** link. It leads to `/data/prepare/`.
+3. Choose what to download:
+   - **Download comments?**: your comments.
+   - **Download submissions?**: your submissions. You can filter by problem code (a glob such as `APLUS*`; default `*`) and by result (AC, WA, ...; leave empty to include everything).
+4. Submit the form and wait for the progress page to finish.
+5. Click the download button. The file is named `<username>-data.zip`.
+
+::: tip Rate limit
+After each request, a user has to wait `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT` (1 day) before preparing a new file. An already prepared file can be downloaded again at any time. If the file is removed from the cache, the user may prepare a new one immediately.
+:::
+
+## ZIP contents
+
+```text
+<username>-data.zip
+├── submissions/
+│   ├── info.json          # details for every submission, keyed by id
+│   ├── 123456.cpp         # source code, extension depends on the language
+│   └── ...
+└── comments/
+    ├── info.json          # details for every comment, keyed by id
+    ├── 789.txt            # comment body
+    └── ...
 ```
 
-### With bare metal
+Each entry in `submissions/info.json`:
 
-Configure it in `local_settings.py`:
-
-```python
-DMOJ_USER_DATA_DOWNLOAD = True
-DMOJ_USER_DATA_CACHE = '/home/dmoj-uwsgi/userdatacache'
-DMOJ_USER_DATA_INTERNAL = '/userdatacache'
-DMOJ_USER_DATA_DOWNLOAD_RATELIMIT = datetime.timedelta(days=1)
-```
-
-### Configure Nginx (if needed)
-
-**With Docker:** The Nginx config is already set up; no changes needed.
-
-**With bare metal:** Add the following to your nginx config:
-
-```nginx
-location /userdatacache {
-    internal;
-    root /home/dmoj-uwsgi/;
+```json
+{
+    "123456": {
+        "problem": "APLUSB",
+        "date": "2026-01-01T00:00:00+00:00",
+        "time": 0.01,
+        "memory": 2048.0,
+        "language": "CPP17",
+        "status": "D",
+        "result": "AC",
+        "case_points": 100.0,
+        "case_total": 100.0
+    }
 }
 ```
 
-### Restart
+Each entry in `comments/info.json` has `date`, `related_object` (`problem`, `contest`, `blog post`, or `problem editorial`), `page`, and `score`.
 
-**With Docker:**
+## Changing the configuration
 
-```sh
-docker compose restart site celery nginx
-```
+These settings live in `dmoj/config/local_settings.py`. The site reads the copy at `dmoj/repo/dmoj/local_settings.py` (copied by `./scripts/initialize`). Edit the file in `config/` and copy it again, or edit both. `local_settings.py` does **not** read these settings from environment variables. See [Environment and configuration](/en/operate/environment).
 
-**With bare metal:**
+| Goal | Change |
+|---|---|
+| Allow a new file every 7 days | `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT = datetime.timedelta(days=7)` |
+| Turn the feature off | `DMOJ_USER_DATA_DOWNLOAD = False` (the link disappears and `/data/...` returns 404) |
 
-**Docker:**
-
-```sh
-docker compose restart site nginx
-```
-
-**Bare metal:**
+After editing, restart both `site` and `celery` (celery builds the files, so it needs the new config too):
 
 ```sh
-supervisorctl restart site
-service nginx reload
+cd dmoj
+docker compose restart site celery
 ```
+
+::: warning Don't change the paths unless you have to
+`/userdatacache` must match the volume in `docker-compose.yml` and the location in `nginx.conf`. If you change `DMOJ_USER_DATA_CACHE` or `DMOJ_USER_DATA_INTERNAL`, update both of those as well, then run `docker compose up -d site celery nginx`.
+:::
 
 ## Cleaning up old files
 
-Data files are not deleted automatically. Clean up old files periodically.
+LCOJ **does not delete** ZIP files automatically. Each user has only one file, so storage doesn't grow without bound, but files stay in the volume after users download them. Clean up periodically.
 
-### With Docker
-
-```sh
-# Run manually
-docker compose exec site find /userdatacache/ -type f -mtime +2 -delete
-
-# Or create a cron job on the host
-0 */4 * * * docker compose -f /path/to/lcoj-docker/dmoj/docker-compose.yml exec -T site find /userdatacache/ -type f -mtime +2 -delete
-```
-
-### With bare metal
+Run it manually (from the `dmoj/` directory):
 
 ```sh
-crontab -e
+docker compose exec -T site find /userdatacache/ -type f -name '*.zip' -mtime +2 -delete
 ```
 
-Add:
+Or add a cron job on the host (`crontab -e`), adjusting the path:
 
-```
-0 */4 * * * find /home/dmoj-uwsgi/userdatacache/ -type f -mtime +2 -delete
-```
-
-**Explanation:**
-- `0 */4 * * *`: Runs at minute 0 every 4 hours
-- `find ... -mtime +2`: Finds files older than 2 days
-- `-delete`: Deletes the files found
-
-**Note:** Adjust the schedule to match `RATELIMIT`.
-
-## Usage
-
-Once configured, users can:
-
-1. Open the _Edit profile_ page
-2. Find the _Data download_ section
-3. Choose the data to download (comments, submissions)
-4. Click _Request download_
-5. Wait for the system to generate the file (this may take a few minutes)
-6. Download the file
-
-## Data format
-
-### Comments (comments.json)
-
-```json
-[
-    {
-        "id": 123,
-        "page": "problem/APLUSB",
-        "time": "2024-01-01T00:00:00Z",
-        "score": 5,
-        "body": "Comment content"
-    }
-]
+```cron
+0 */4 * * * cd /path/to/lcoj-docker/dmoj && docker compose exec -T site find /userdatacache/ -type f -name '*.zip' -mtime +2 -delete
 ```
 
-### Submissions (submissions.json)
+- `0 */4 * * *`: runs at minute 0, every 4 hours.
+- `-mtime +2`: only deletes files older than about 2 days.
 
-```json
-[
-    {
-        "id": 123456,
-        "problem": "APLUSB",
-        "date": "2024-01-01T00:00:00Z",
-        "language": "CPP17",
-        "result": "AC",
-        "points": 100,
-        "time": 0.1,
-        "memory": 2048,
-        "source": "// Source code"
-    }
-]
-```
+::: tip Choosing a retention time
+Keep files **longer** than `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT`. Since users can prepare a new file as soon as theirs is deleted, deleting too early defeats the rate limit.
+:::
 
 ## Troubleshooting
 
-**The file is not generated:**
-- Check the cache directory permissions
-- Check Celery (Docker): `docker compose ps celery`
-- Check the logs (Docker): `docker compose logs -f celery`
-- Check Celery (bare metal): `supervisorctl status celery`
-- Check the logs (bare metal): `supervisorctl tail -f celery`
+| Symptom | Cause | Fix |
+|---|---|---|
+| No "Download your data" link | Feature disabled, or the account is muted (muted users get 404) | Check `DMOJ_USER_DATA_DOWNLOAD` and the mute status |
+| Progress page never finishes | Celery isn't running | `docker compose ps celery`, `docker compose logs -f celery` |
+| Task fails with `No such file or directory` | Celery can't see `/userdatacache` | Make sure the `userdatacache` volume is mounted into `celery` |
+| `/data/download/` returns 404 | The file hasn't been prepared or was cleaned up | Prepare it again from `/data/prepare/` |
+| Download is empty or nginx returns 404 | nginx can't see the file | Make sure the volume is mounted into `nginx` and the `/userdatacache` location exists in `nginx.conf` |
+| User is told to wait | `DMOJ_USER_DATA_DOWNLOAD_RATELIMIT` hasn't elapsed | Wait, or download the previously prepared file |
 
-**The file cannot be downloaded:**
-- Check the nginx config
-- Check the `DMOJ_USER_DATA_INTERNAL` path
-- Check the nginx logs: `tail -f /var/log/nginx/error.log`
-
-**Rate limit errors:**
-- Users must wait for the period configured in `RATELIMIT`
-- The default is 1 day
-
-## Security
-
-- Only the owning user can download their data file
-- Files have random, hard-to-guess names
-- Clean up old files regularly
-- Do not keep files on the server for too long
+::: tip Need help?
+Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

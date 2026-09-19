@@ -1,146 +1,124 @@
-# Chống spam với reCAPTCHA
+# Chống spam đăng ký với reCAPTCHA
 
-Nếu website chạy lâu, bot spam sẽ tự động đăng ký tài khoản. reCAPTCHA giúp ngăn chặn điều này.
+::: info Bạn có cần trang này không?
+reCAPTCHA thêm ô "I'm not a robot" vào **form đăng ký bằng tên đăng nhập và mật khẩu**, giúp chặn bot tạo tài khoản rác.
 
-## Lấy API key
+- **LCOJ hiện không cần reCAPTCHA.** Cấu hình đi kèm đặt `OAUTH_ONLY = True`, nên form đăng ký truyền thống bị ẩn và người dùng chỉ đăng ký qua OAuth (Google). Google đã xác thực tài khoản thay bạn.
+- Chỉ đọc tiếp nếu bạn **tắt `OAUTH_ONLY`** để mở lại đăng ký bằng mật khẩu.
+:::
 
-### Bước 1: Đăng ký reCAPTCHA
+## Trạng thái trong LCOJ
 
-1. Truy cập [reCAPTCHA admin](https://www.google.com/recaptcha/admin)
-2. Đăng nhập bằng tài khoản Google
-3. Click _Create_ (+)
+| Thành phần | Trạng thái |
+|---|---|
+| `OAUTH_ONLY` trong `dmoj/config/local_settings.py` | `True`: form đăng ký truyền thống bị ẩn |
+| Gói Python `django-recaptcha2` | **Chưa cài**: không có trong `requirements.txt` hay `additional_requirements.txt` |
+| `RECAPTCHA_PUBLIC_KEY`, `RECAPTCHA_PRIVATE_KEY` | **Không khai báo** |
+| Kết quả | reCAPTCHA **tắt** |
 
-### Bước 2: Cấu hình
+## LCOJ tích hợp reCAPTCHA thế nào
 
-- **Label**: Tên website (ví dụ: LCOJ)
-- **reCAPTCHA type**: Chọn _reCAPTCHA v2_ > _"I'm not a robot" Checkbox_
-- **Domains**: Nhập domain của bạn (ví dụ: `luyencode.net`)
-- Chấp nhận điều khoản
-- Click _Submit_
+Code nằm ở `judge/utils/recaptcha.py` và `judge/views/register.py` trong `dmoj/repo`:
 
-### Bước 3: Lấy keys
+1. LCOJ thử import `snowpenguin.django.recaptcha2`. Module này thuộc gói PyPI **`django-recaptcha2`**.
+2. Nếu import được **và** settings có thuộc tính `RECAPTCHA_PRIVATE_KEY`, form đăng ký có thêm trường `captcha` (widget reCAPTCHA **v2 checkbox**).
+3. Nếu thiếu một trong hai điều kiện, form không có captcha và không báo lỗi gì.
 
-Sau khi tạo, bạn sẽ nhận được:
-- **Site key**: Key công khai
-- **Secret key**: Key bí mật
+::: warning Không nhầm hai gói
+- Code LCOJ dùng **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), chỉ hỗ trợ reCAPTCHA v2.
+- Gói **`django-recaptcha`** (module `django_recaptcha`, có reCAPTCHA v3) **không** được code LCOJ dùng. Cài gói này không làm hiện captcha.
+:::
 
-## Cài đặt
+::: details Ghi chú về `OAUTH_ONLY`
+`OAUTH_ONLY` chỉ được dùng trong template `registration/registration_form.html` để ẩn các ô nhập liệu. View `/accounts/register/` không tự kiểm tra `OAUTH_ONLY`.
+:::
 
-### Với Docker (khuyến nghị)
+## Bật reCAPTCHA (chỉ khi đã tắt `OAUTH_ONLY`)
 
-**Bước 1:** Thêm vào `environment/site.env`:
+::: warning Chưa được kiểm thử trên LCOJ
+`django-recaptcha2` (bản mới nhất 1.4.1) chỉ công bố hỗ trợ tới Django 2.1, còn LCOJ chạy Django 4.2. Hãy thử trên máy dev trước khi bật trên production.
+:::
 
-```env
-RECAPTCHA_PUBLIC_KEY=your_site_key_here
-RECAPTCHA_PRIVATE_KEY=your_secret_key_here
+### Bước 1: Lấy key từ Google
+
+1. Vào [reCAPTCHA admin](https://www.google.com/recaptcha/admin) và đăng nhập tài khoản Google.
+2. Tạo site mới:
+   - **Label**: `LCOJ`
+   - **Loại**: reCAPTCHA **v2**, chọn _"I'm not a robot" Checkbox_
+   - **Domains**: `luyencode.net` (thêm domain dev nếu cần)
+3. Lưu lại **Site key** (công khai) và **Secret key** (bí mật).
+
+### Bước 2: Cài gói Python
+
+Thêm một dòng vào `dmoj/repo/additional_requirements.txt`:
+
+```text
+django-recaptcha2
 ```
 
-**Bước 2:** Restart site:
+Rồi build lại image (từ thư mục `dmoj/`):
 
 ```sh
-cd lcoj-docker/dmoj
-docker compose restart site
+docker compose up -d --build base site celery
 ```
 
-### Với bare metal
+### Bước 3: Đưa key vào cấu hình
 
-**Bước 1:** Cài đặt thư viện:
+`local_settings.py` **không** tự đọc `RECAPTCHA_*` từ biến môi trường. Để không ghi secret vào file, hãy đọc từ env một cách tường minh.
+
+1. Thêm vào `dmoj/environment/site.env`:
+
+   ```env
+   RECAPTCHA_PUBLIC_KEY=<site key>
+   RECAPTCHA_PRIVATE_KEY=<secret key>
+   ```
+
+2. Thêm vào `dmoj/config/local_settings.py`, rồi chép sang `dmoj/repo/dmoj/local_settings.py` (file site thực sự đọc):
+
+   ```python
+   if os.environ.get('RECAPTCHA_PRIVATE_KEY'):
+       INSTALLED_APPS += ('snowpenguin.django.recaptcha2',)
+       RECAPTCHA_PUBLIC_KEY = os.environ['RECAPTCHA_PUBLIC_KEY']
+       RECAPTCHA_PRIVATE_KEY = os.environ['RECAPTCHA_PRIVATE_KEY']
+   ```
+
+   - Khối `if` quan trọng: LCOJ bật captcha ngay khi `RECAPTCHA_PRIVATE_KEY` **tồn tại**, kể cả khi giá trị rỗng.
+   - `INSTALLED_APPS` cần app này để tìm template `snowpenguin/recaptcha/recaptcha_init.html`.
+
+3. Đặt `OAUTH_ONLY = False` nếu muốn mở lại form đăng ký bằng mật khẩu.
+
+Xem thêm [Biến môi trường và cấu hình](/operate/environment).
+
+### Bước 4: Khởi động lại
+
+`docker compose restart` **không** đọc lại `site.env`. Dùng `up -d` để tạo lại container:
 
 ```sh
-source lcojsite/bin/activate
-pip3 install django-recaptcha2
+cd dmoj
+docker compose up -d site celery
 ```
 
-**Bước 2:** Thêm vào `local_settings.py`:
+### Bước 5: Kiểm tra
 
-```python
-# reCAPTCHA keys
-RECAPTCHA_PUBLIC_KEY = 'your_site_key_here'
-RECAPTCHA_PRIVATE_KEY = 'your_secret_key_here'
+1. Mở `https://luyencode.net/accounts/register/` trong cửa sổ ẩn danh.
+2. Cuối form có ô "I'm not a robot".
+3. Thử đăng ký một tài khoản test.
 
-# Thêm vào INSTALLED_APPS
-INSTALLED_APPS += (
-    'snowpenguin.django.recaptcha2',
-)
-```
+## Xử lý sự cố
 
-**Bước 3:** Khởi động lại:
-
-```sh
-supervisorctl restart site
-```
-
-## Kiểm tra
-
-1. Truy cập trang đăng ký
-2. Bạn sẽ thấy checkbox "I'm not a robot"
-3. Thử đăng ký để kiểm tra
-
-## Tùy chọn nâng cao
-
-### reCAPTCHA v3
-
-reCAPTCHA v3 không cần checkbox, tự động phát hiện bot.
-
-**Cài đặt:**
-
-```sh
-pip3 install django-recaptcha
-```
-
-**Cấu hình:**
-
-```python
-RECAPTCHA_PUBLIC_KEY = 'your_v3_site_key'
-RECAPTCHA_PRIVATE_KEY = 'your_v3_secret_key'
-RECAPTCHA_REQUIRED_SCORE = 0.5  # Điểm tối thiểu (0-1)
-
-INSTALLED_APPS += (
-    'django_recaptcha',
-)
-```
-
-### Tùy chỉnh theme
-
-```python
-RECAPTCHA_THEME = 'dark'  # Hoặc 'light'
-```
-
-### Test mode
-
-Để test không cần internet:
-
-```python
-RECAPTCHA_TESTING = True  # Chỉ dùng khi development
-```
-
-## Xử lý lỗi
-
-**reCAPTCHA không hiển thị:**
-- Kiểm tra domain trong reCAPTCHA admin
-- Kiểm tra `RECAPTCHA_PUBLIC_KEY`
-- Xem console browser có lỗi không
-
-**Luôn báo lỗi:**
-- Kiểm tra `RECAPTCHA_PRIVATE_KEY`
-- Kiểm tra server có kết nối internet
-- Xem log Docker: `docker compose logs -f site`
-- Xem log bare metal: `supervisorctl tail -f site`
-
-**Bị block khi test:**
-- Dùng `RECAPTCHA_TESTING = True` khi development
-- Hoặc thêm localhost vào domains trong reCAPTCHA admin
+| Triệu chứng | Nguyên nhân | Cách xử lý |
+|---|---|---|
+| Không thấy ô captcha | `OAUTH_ONLY = True` (form bị ẩn), chưa cài `django-recaptcha2`, hoặc thiếu `RECAPTCHA_PRIVATE_KEY` | Kiểm tra từng điều kiện ở trên |
+| Lỗi 500 `TemplateDoesNotExist` | Thiếu `'snowpenguin.django.recaptcha2'` trong `INSTALLED_APPS` | Thêm vào như Bước 3 |
+| Lỗi import khi khởi động `site` | Gói không tương thích Django 4.2 | Gỡ khỏi `additional_requirements.txt`, build lại, giữ `OAUTH_ONLY = True` |
+| Google báo "Invalid domain for site key" | Domain chưa khai báo trong reCAPTCHA admin | Thêm domain rồi thử lại |
+| Luôn báo captcha sai | Sai secret key, hoặc container không ra được internet | Kiểm tra `site.env`, xem `docker compose logs -f site` |
 
 ## Bảo mật
 
-- Không commit keys vào git
-- Lưu keys trong biến môi trường hoặc file riêng
-- Định kỳ rotate keys
-- Monitor số lượng đăng ký để phát hiện spam
+- Không commit secret key vào git. Để trong `dmoj/environment/site.env` (đã được gitignore).
+- Theo dõi số tài khoản mới để phát hiện spam sớm.
 
-## Thống kê
-
-Xem thống kê reCAPTCHA tại [reCAPTCHA admin](https://www.google.com/recaptcha/admin):
-- Số request
-- Tỷ lệ bot
-- Tỷ lệ thành công
+::: tip Cần hỗ trợ?
+Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

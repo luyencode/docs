@@ -1,302 +1,225 @@
 # Cập nhật LCOJ
 
-LCOJ thường xuyên được cập nhật với các tính năng mới và sửa lỗi. Đây là hướng dẫn cập nhật hệ thống Docker.
+Trang này hướng dẫn đưa bản cài Docker lên phiên bản mới: lấy code, build lại khi cần, chạy migration và khởi động lại đúng service.
 
-**Cảnh báo:** Luôn backup dữ liệu trước khi cập nhật!
+::: warning Luôn sao lưu trước
+Trước khi cập nhật, hãy [sao lưu cơ sở dữ liệu](/operate/operations#backup). Code cũ có thể lấy lại bằng Git, nhưng migration đã chạy thì không tự đảo ngược được.
+:::
 
-## Backup trước khi cập nhật
+## Hai repo cần cập nhật
 
-### Backup database
+Bản cài gồm hai repo Git lồng nhau:
+
+| Thư mục | Repo | Chứa |
+|---|---|---|
+| `lcoj-docker/` | [lcoj-docker](https://github.com/luyencode/lcoj-docker) | `docker-compose.yml`, Dockerfile, script, cấu hình mẫu, nginx |
+| `lcoj-docker/dmoj/repo/` | [lcoj-site](https://github.com/luyencode/lcoj-site) (submodule) | Toàn bộ code Django, template, CSS/JS, WebSocket |
+
+### Submodule và "detached HEAD"
+
+Repo ngoài không lưu nhánh của submodule, nó chỉ ghim `dmoj/repo` vào **một commit cụ thể**. Vì vậy:
+
+- `git submodule update` checkout đúng commit được ghim, nên `dmoj/repo` rơi vào trạng thái **detached HEAD** (không nằm trên nhánh nào). `git pull` bên trong sẽ báo lỗi cho đến khi bạn checkout một nhánh.
+- `.gitmodules` không khai báo `branch`, nên `git submodule update --remote` sẽ lấy nhánh mặc định của lcoj-site (`master`), **không phải** nhánh production.
+- luyencode.net chạy nhánh **`prod/luyencode`** của lcoj-site.
+
+Kiểm tra trạng thái hiện tại:
 
 ```sh
-docker exec lcoj_mysql mysqldump -u root -p<password> lcoj | gzip > backup_$(date +%Y%m%d).sql.gz
+git -C repo status | head -1   # "On branch prod/luyencode" hoặc "HEAD detached at ..."
 ```
 
-### Backup media và problems
+Nếu đang detached HEAD và muốn theo nhánh production:
 
 ```sh
-tar -czf media_backup_$(date +%Y%m%d).tar.gz dmoj/media/
-tar -czf problems_backup_$(date +%Y%m%d).tar.gz dmoj/problems/
+git -C repo fetch origin
+git -C repo checkout prod/luyencode
 ```
 
 ## Các bước cập nhật
 
-### Bước 1: Tải mã nguồn mới
+Chạy mọi lệnh trong `lcoj-docker/dmoj/`.
+
+1. **Ghi lại commit hiện tại** của cả hai repo để biết những gì thay đổi và để rollback nếu cần:
+
+   ```sh
+   OLD=$(git -C repo rev-parse HEAD); echo $OLD
+   OLD_DOCKER=$(git rev-parse HEAD); echo $OLD_DOCKER
+   ```
+
+2. **Cập nhật repo ngoài** (Dockerfile, script, cấu hình mẫu):
+
+   ```sh
+   git pull --ff-only
+   ```
+
+3. **Cập nhật code site.** Chọn một trong hai cách:
+
+   ::: code-group
+
+   ```sh [Theo nhánh production (luyencode.net)]
+   git -C repo fetch origin
+   git -C repo checkout prod/luyencode
+   git -C repo pull --ff-only origin prod/luyencode
+   ```
+
+   ```sh [Theo commit repo ngoài ghim]
+   git submodule update --init --recursive
+   # repo/ sẽ ở trạng thái detached HEAD, điều này là bình thường
+   ```
+
+   :::
+
+4. **Xem những gì đã thay đổi:**
+
+   ```sh
+   git -C repo diff --stat $OLD HEAD
+   git diff --stat $OLD_DOCKER HEAD -- .   # thay đổi trong lcoj-docker/dmoj
+   ```
+
+5. **Làm theo bảng dưới đây** tùy phần nào thay đổi.
+
+### Việc cần làm theo từng loại thay đổi
+
+| Thay đổi | Việc cần làm |
+|---|---|
+| `requirements.txt`, `additional_requirements.txt`, `package.json`, `package-lock.json` | Build lại image `base` rồi các image dựa trên nó (xem [bên dưới](#rebuild)) |
+| `dmoj/base/Dockerfile`, `dmoj/site/Dockerfile`, `dmoj/celery/Dockerfile`, `dmoj/bridged/Dockerfile`, `dmoj/wsevent/Dockerfile` | `docker compose build <service>` rồi `docker compose up -d` |
+| Model mới / file trong `*/migrations/` | `./scripts/migrate` |
+| SCSS, JS, ảnh trong `resources/`, file dịch trong `locale/` | `./scripts/copy_static` |
+| Code Python, template | `docker compose restart site celery bridged` |
+| `websocket/*.js` | `docker compose restart wsevent` |
+| `docker-compose.yml`, `environment/*.env.example` | So sánh với file `.env` của bạn, thêm biến mới, rồi `docker compose up -d` |
+| `config/local_settings.py`, `config/uwsgi.ini`, `config/config.js` | Tự chép phần thay đổi sang bản trong `repo/` (xem cảnh báo dưới), rồi restart service tương ứng |
+| `nginx/conf.d/nginx.conf` | `docker compose restart nginx` |
+
+Code **không** cần build lại image vì thư mục `./repo` được mount thẳng vào container. Chỉ khởi động lại là đủ.
+
+::: warning Cấu hình trong repo/ không tự cập nhật
+`repo/dmoj/local_settings.py`, `repo/uwsgi.ini` và `repo/websocket/config.js` được `.gitignore` bỏ qua trong lcoj-site, nên `git pull` không đụng tới chúng. Nếu bản mẫu trong `config/` thay đổi, hãy so sánh (`diff config/local_settings.py repo/dmoj/local_settings.py`) rồi sửa bằng tay. Chạy lại `./scripts/initialize` sẽ ghi đè mất các chỉnh sửa riêng của bạn.
+:::
+
+### Build lại khi thư viện thay đổi {#rebuild}
+
+Python, Node.js và toàn bộ thư viện nằm trong image `lcoj/lcoj-base`. Image `site`, `celery`, `bridged` được build từ image này, còn `wsevent` tự cài `package.json` riêng. Nếu chỉ build lại `site`, thư viện mới **không** được cài.
 
 ```sh
-cd lcoj-docker/dmoj
-git pull origin master
-git submodule update --init --recursive
-```
-
-**Lưu ý:** `git submodule update` rất quan trọng để cập nhật code trong `repo/`.
-
-### Bước 2: Kiểm tra thay đổi
-
-```sh
-git log --oneline -10
-git diff HEAD~1 docker-compose.yml
-```
-
-Xem có thay đổi gì trong docker-compose.yml hoặc environment files không.
-
-### Bước 3: Cập nhật environment (nếu cần)
-
-Nếu có thêm biến môi trường mới, cập nhật file `environment/*.env`.
-
-So sánh với file example:
-
-```sh
-diff environment/site.env environment/site.env.example
-```
-
-### Bước 4: Rebuild images
-
-```sh
-docker compose build
-```
-
-Hoặc rebuild chỉ services cần thiết:
-
-```sh
+docker compose build base
 docker compose build site celery bridged wsevent
+docker compose up -d
 ```
 
-### Bước 5: Chạy migrations
+Nếu nghi ngờ Docker dùng cache cũ, thêm `--no-cache` cho lệnh build `base`.
+
+### Kết thúc cập nhật
+
+Nếu không chắc phần nào thay đổi, cứ chạy đủ các bước sau, tất cả đều an toàn khi chạy lại:
 
 ```sh
 ./scripts/migrate
-```
-
-Kiểm tra không có lỗi:
-
-```sh
-./scripts/manage.py check
-```
-
-### Bước 6: Cập nhật static files
-
-```sh
 ./scripts/copy_static
+docker compose restart site celery bridged wsevent
+docker compose ps
 ```
 
-### Bước 7: Restart services
+## Script cập nhật mẫu
 
-```sh
-docker compose up -d --no-deps site celery bridged wsevent
-```
-
-**Giải thích flags:**
-- `--no-deps`: Không restart dependencies (db, redis)
-- Chỉ restart các services có code thay đổi
-
-## Script tự động
-
-Bạn có thể tạo script để tự động hóa quá trình cập nhật:
-
-**File: `update.sh`**
+Script dưới đây làm theo đúng các bước trên cho nhánh `prod/luyencode`. Lưu thành `dmoj/update.sh` (tên `*.sh` trong `dmoj/` đã được `.gitignore` bỏ qua) rồi `chmod +x`.
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"                 # thư mục dmoj/
+export COMPOSE_EXEC_FLAGS=-T         # các script trong scripts/ chạy được khi không có terminal
+BRANCH=prod/luyencode
+STAMP=$(date +%F_%H%M%S)
 
-set -e  # Exit on error
+echo "1. Sao lưu cơ sở dữ liệu"
+mkdir -p backups
+docker compose exec -T db sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mariadb-dump -u root --single-transaction "$MYSQL_DATABASE"' \
+  | gzip > "backups/db_before_update_$STAMP.sql.gz"
 
-echo "=== Bắt đầu cập nhật LCOJ ==="
-echo
+echo "2. Lấy code mới"
+OLD=$(git -C repo rev-parse HEAD)
+git pull --ff-only
+git -C repo fetch origin
+git -C repo checkout "$BRANCH"
+git -C repo pull --ff-only origin "$BRANCH"
+NEW=$(git -C repo rev-parse HEAD)
 
-# Backup database
-echo "1. Backup database..."
-docker exec lcoj_mysql mysqldump -u root -p${MYSQL_ROOT_PASSWORD} lcoj | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+if [ "$OLD" = "$NEW" ]; then
+  echo "Code site không đổi."
+else
+  echo "Cập nhật $OLD -> $NEW"
+  CHANGED=$(git -C repo diff --name-only "$OLD" "$NEW")
 
-# Backup media
-echo "2. Backup media files..."
-tar -czf media_backup_$(date +%Y%m%d_%H%M%S).tar.gz dmoj/media/
+  if echo "$CHANGED" | grep -qE '^(requirements\.txt|additional_requirements\.txt|package(-lock)?\.json)$'; then
+    echo "3. Thư viện thay đổi: build lại image"
+    docker compose build base
+    docker compose build site celery bridged wsevent
+  fi
+fi
 
-# Pull new code
-echo "3. Tải mã nguồn mới..."
-git pull origin master
-git submodule update --init --recursive
+echo "4. Khởi động (tạo lại container nếu image hoặc cấu hình đổi)"
+docker compose up -d
 
-# Rebuild images
-echo "4. Rebuild Docker images..."
-docker compose build site celery bridged wsevent
-
-# Run migrations
-echo "5. Chạy migrations..."
+echo "5. Migration và static"
 ./scripts/migrate
-
-# Update static files
-echo "6. Cập nhật static files..."
 ./scripts/copy_static
 
-# Restart services
-echo "7. Restart services..."
-docker compose up -d --no-deps site celery bridged wsevent
-
-# Check status
-echo "8. Kiểm tra status..."
+echo "6. Khởi động lại để nạp code mới"
+docker compose restart site celery bridged wsevent
 docker compose ps
 
-echo
-echo "=== Cập nhật hoàn tất! ==="
-echo "Kiểm tra logs: docker compose logs -f site"
+echo "Xong. Theo dõi log: docker compose logs -f site"
 ```
 
-Cấp quyền thực thi:
+Script không tự so sánh `config/` với các file cấu hình trong `repo/`. Hãy xem phần diff ở bước 4 phía trên sau mỗi lần cập nhật.
 
-```sh
-chmod +x update.sh
-```
+## Kiểm tra sau khi cập nhật
 
-Chạy script:
-
-```sh
-cd lcoj-docker/dmoj
-./update.sh
-```
-
-## Xử lý lỗi
-
-### Lỗi migration
-
-Nếu gặp lỗi khi chạy `migrate`:
-
-```sh
-# Xem các migration chưa chạy
-./scripts/manage.py showmigrations
-
-# Chạy migration cụ thể
-./scripts/manage.py migrate <app_name> <migration_name>
-
-# Fake migration (nếu đã chạy thủ công)
-./scripts/manage.py migrate --fake <app_name> <migration_name>
-```
-
-### Lỗi static files
-
-Nếu static files không load:
-
-```sh
-# Xóa static files cũ
-docker compose exec site rm -rf /assets/*
-
-# Thu thập lại
-./scripts/copy_static
-
-# Restart nginx
-docker compose restart nginx
-```
-
-### Lỗi dependencies
-
-Nếu có lỗi về thư viện Python:
-
-```sh
-# Rebuild image từ đầu (không dùng cache)
-docker compose build --no-cache site celery
-
-# Restart services
-docker compose up -d site celery
-```
-
-### Container không start
-
-```sh
-# Xem logs chi tiết
-docker compose logs --tail=100 site
-
-# Xem exit code
-docker inspect lcoj_site | grep ExitCode
-
-# Thử start với logs realtime
-docker compose up site
-```
+1. `docker compose ps`: mọi service (trừ `base`) đều **Up**.
+2. `docker compose logs --tail=50 site celery bridged`: không có traceback.
+3. Mở trang web, đăng nhập, xem một bài tập, nộp thử một bài.
+4. Trong `docker compose logs bridged`, thấy máy chấm kết nối lại.
 
 ## Rollback
 
-Nếu cập nhật gặp vấn đề, có thể rollback:
+::: danger
+Quay lại code cũ **không** đảo ngược migration đã chạy. Nếu bản mới có migration, cách an toàn nhất là khôi phục bản sao lưu cơ sở dữ liệu tạo trước khi cập nhật.
+:::
 
-### Rollback code
+1. Dừng các service ghi dữ liệu:
 
-```sh
-# Quay lại commit trước
-git reset --hard HEAD~1
-git submodule update --init --recursive
+   ```sh
+   docker compose stop site celery bridged
+   ```
 
-# Hoặc quay lại commit cụ thể
-git reset --hard <commit_hash>
-git submodule update --init --recursive
+2. Đưa code về commit cũ (`$OLD` ghi lại ở bước 1):
 
-# Rebuild images
-docker compose build site celery bridged wsevent
+   ```sh
+   git -C repo checkout <OLD>
+   ```
 
-# Restart services
-docker compose up -d --no-deps site celery bridged wsevent
-```
+3. Nếu có migration mới, [khôi phục cơ sở dữ liệu](/operate/operations#restore) từ bản sao lưu trước khi cập nhật.
+4. Nếu thư viện đã thay đổi, build lại như ở [phần trên](#rebuild).
+5. Khởi động lại:
 
-### Restore database
+   ```sh
+   docker compose up -d
+   ./scripts/copy_static
+   docker compose restart site celery bridged wsevent
+   ```
 
-```sh
-# Stop site để tránh conflict
-docker compose stop site celery
+Khi đã sửa xong lỗi, quay lại nhánh bằng `git -C repo checkout prod/luyencode`.
 
-# Restore từ backup
-gunzip < backup_20240101_120000.sql.gz | docker exec -i lcoj_mysql mysql -u root -p<password> lcoj
+## Lời khuyên
 
-# Start lại
-docker compose start site celery
-```
+- Cập nhật vào giờ ít người dùng, tránh lúc đang có kỳ thi.
+- Báo trước cho người dùng. Trong lúc `site` dừng, nginx hiển thị trang `502.html` (xem [Trang bảo trì](/operate/operations#maintenance)).
+- Nếu có thể, thử bản mới trên một máy thử nghiệm trước.
 
-### Restore media files
-
-```sh
-tar -xzf media_backup_20240101_120000.tar.gz
-docker compose restart site nginx
-```
-
-## Kiểm tra sau cập nhật
-
-### Kiểm tra services
-
-```sh
-# Xem status
-docker compose ps
-
-# Xem logs
-docker compose logs -f --tail=50 site
-docker compose logs -f --tail=50 celery
-```
-
-### Kiểm tra chức năng
-
-- Truy cập website, kiểm tra giao diện
-- Đăng nhập tài khoản admin
-- Thử nộp bài
-- Kiểm tra trang admin
-- Test judge bridge: `docker compose logs bridged`
-
-### Kiểm tra performance
-
-```sh
-# Resource usage
-docker stats
-
-# Response time
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost
-```
-
-**File: `curl-format.txt`**
-
-```
-time_namelookup:  %{time_namelookup}\n
-time_connect:  %{time_connect}\n
-time_starttransfer:  %{time_starttransfer}\n
-time_total:  %{time_total}\n
-```
-
-## Lưu ý
-
-- Nên cập nhật vào lúc ít người dùng
-- Thông báo trước cho người dùng về thời gian bảo trì
-- Luôn backup trước khi cập nhật
-- Test trên môi trường development trước khi cập nhật production
+::: tip Cần hỗ trợ?
+Tạo issue tại [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), hoặc liên hệ qua [behitek.com](https://behitek.com) và [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

@@ -1,78 +1,99 @@
 # Installing LCOJ with Docker
 
-This guide walks you through installing LCOJ with Docker, the recommended and simplest approach.
+This page walks you through a fresh LCOJ install with [lcoj-docker](https://github.com/luyencode/lcoj-docker), the same setup that runs luyencode.net. Everything (web app, database, cache, judge bridge, WebSocket server) runs under Docker Compose, so you don't need Python or MariaDB on the host.
 
-**Repository:** [lcoj-docker](https://github.com/luyencode/lcoj-docker)
+::: info Judges are installed separately
+This Compose stack does **not** include a judge. It only runs `bridged`, which judges connect to. Once the site is up, see [Judge Setup](/en/operate/judge-setup).
+:::
 
-## System requirements
+## Requirements
 
-### Minimum hardware
+| | Minimum | Recommended |
+|---|---|---|
+| CPU | 2 cores | 4+ cores |
+| RAM | 4 GB | 8 GB+ |
+| Disk | 20 GB free | 50 GB+ SSD (test data grows over time) |
+| OS | 64-bit Linux (Ubuntu 22.04+ is easiest) | |
 
-- **CPU:** 2 cores
-- **RAM:** 4GB
-- **Disk:** 20GB free
-- **OS:** Linux (Ubuntu 20.04+ recommended)
+Software: **Docker** with the **Docker Compose v2** plugin (the `docker compose` command, not `docker-compose`) and **Git**.
 
-### Recommended hardware
+The diagram below shows the services you'll bring up. See [Architecture](/en/operate/architecture) for details on each one.
 
-- **CPU:** 4+ cores
-- **RAM:** 8GB+
-- **Disk:** 50GB+ SSD
-- **Network:** 100Mbps+
-
-### Software
-
-- Docker 20.10+
-- Docker Compose 2.0+
-- Git
+```mermaid
+flowchart LR
+  U[Browser] -->|HTTP, NGINX_PORT| N[nginx]
+  N -->|uwsgi :8000| S[site]
+  N -->|/event/, /channels/| W[wsevent]
+  S --> DB[(db - MariaDB)]
+  S --> R[(redis)]
+  C[celery] --> R
+  C --> DB
+  J[Judge] -->|TCP 9999| B[bridged]
+  S -->|9998| B
+  B --> DB
+```
 
 ## Step 1: Install Docker
 
-### Ubuntu/Debian
+On Ubuntu/Debian:
 
 ```sh
-# Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Add your user to the docker group
+# Let the current user run docker without sudo
 sudo usermod -aG docker $USER
-
-# Log out and log back in for the change to take effect
+# Log out and back in for the group change to take effect
 ```
 
-### Verify
+Verify:
 
 ```sh
 docker --version
 docker compose version
 ```
 
-## Step 2: Clone the repository
+## Step 2: Get the source
 
 ```sh
 git clone --recursive https://github.com/luyencode/lcoj-docker.git
 cd lcoj-docker/dmoj
 ```
 
-**Note:** The `--recursive` flag is essential: it clones the submodules as well.
+`--recursive` is required: the Django code lives in the `dmoj/repo` submodule (the [lcoj-site](https://github.com/luyencode/lcoj-site) repo). If you forgot it, run `git submodule update --init --recursive`.
 
-## Step 3: Initialize
+::: tip
+From here on, **run every command from the `dmoj/` directory**. The scripts in `scripts/` and all `docker compose` commands expect it.
+:::
 
-Run the initialization script:
+## Step 3: Run the init script
 
 ```sh
 ./scripts/initialize
 ```
 
-This script:
-- Creates the required directories
-- Copies the sample configuration files
-- Sets permissions
+The script does exactly two things:
+
+1. Creates the `problems/` (test data) and `media/` (user uploads) directories.
+2. Copies the config templates from `config/` into the source tree:
+
+| Source | Destination | Used by |
+|---|---|---|
+| `config/local_settings.py` | `repo/dmoj/local_settings.py` | Django settings |
+| `config/uwsgi.ini` | `repo/uwsgi.ini` | uWSGI (worker count, etc.) |
+| `config/config.js` | `repo/websocket/config.js` | WebSocket server |
+
+::: warning
+Re-running `initialize` **overwrites** the three destination files above. Back them up first if you've edited them.
+:::
+
+See [Helper Scripts](/en/operate/scripts) for the other scripts.
 
 ## Step 4: Configure
 
 ### 4.1. Create the environment files
+
+The templates ship in `environment/`:
 
 ```sh
 cp environment/mysql-admin.env.example environment/mysql-admin.env
@@ -80,448 +101,228 @@ cp environment/mysql.env.example environment/mysql.env
 cp environment/site.env.example environment/site.env
 ```
 
-### 4.2. Configure MySQL
+The `*.env` files are excluded by `.gitignore`, so they never get committed.
 
-**File: `environment/mysql.env`**
+### 4.2. Database
 
-```env
-MYSQL_DATABASE=lcoj
-MYSQL_USER=lcoj
-MYSQL_PASSWORD=<strong_password>
-```
+These two files configure MariaDB. `site`, `celery` and `bridged` also read `mysql.env` to connect, so do **not** repeat the `MYSQL_*` variables in `site.env`.
 
-**File: `environment/mysql-admin.env`**
+::: code-group
 
-```env
-MYSQL_ROOT_PASSWORD=<strong_root_password>
-```
-
-**Note:** Replace `<strong_password>` with an actual password!
-
-### 4.3. Configure the site
-
-**File: `environment/site.env`**
-
-```env
-# Database
+```env [environment/mysql.env]
 MYSQL_HOST=db
-MYSQL_DATABASE=lcoj
-MYSQL_USER=lcoj
-MYSQL_PASSWORD=<same_as_mysql.env>
-
-# Site
-SITE_NAME=LCOJ
-SITE_LONG_NAME=LuyenCode Online Judge
-SITE_ADMIN_EMAIL=admin@luyencode.net
-
-# Secret key (generate a new one)
-SECRET_KEY=<long_random_secret_key>
-
-# Host
-HOST=luyencode.net
-
-# Debug (MUST BE CHANGED TO False IN PRODUCTION)
-DEBUG=True
+MYSQL_DATABASE=dmoj
+MYSQL_USER=dmoj
+MYSQL_PASSWORD=<strong password>
 ```
 
-**Generate a SECRET_KEY:**
+```env [environment/mysql-admin.env]
+MYSQL_ROOT_PASSWORD=<a different root password>
+```
+
+:::
+
+MariaDB only creates the database and user from these variables **on first start**, while the `database/` directory is still empty. Changing the password later has to be done in SQL; see [Operations](/en/operate/operations#change-db-password).
+
+### 4.3. Site
+
+A minimal `environment/site.env` for an install served at `luyencode.net`:
+
+```env
+HOST=luyencode.net
+SITE_FULL_URL=https://luyencode.net/
+MEDIA_URL=https://luyencode.net/
+
+DEBUG=0
+SECRET_KEY=<long random string>
+
+EVENT_DAEMON_POST=ws://wsevent:15101/
+REDIS_CACHING_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/1
+CELERY_RESULT_BACKEND=redis://redis:6379/1
+BRIDGED_HOST=bridged
+
+# Google sign-in (required for new users to register, see 4.4)
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY=<client id>
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=<client secret>
+```
+
+Common pitfalls:
+
+- `DEBUG` is on only when the value is exactly `1`. `True` counts as off. Production should always use `0`.
+- `HOST` is the bare domain (no `https://`) and becomes `ALLOWED_HOSTS`. For a local test, use `localhost` and set both URLs to `http://localhost:8071/`.
+- `SITE_NAME`, `SITE_LONG_NAME` and `SITE_ADMIN_EMAIL` are **not** environment variables. They're hardcoded in `local_settings.py`.
+- The Redis, Celery, WebSocket and bridge values above match the service names in `docker-compose.yml`. Leave them as-is unless you've changed the stack.
+
+Generate a `SECRET_KEY`:
 
 ```sh
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
-### 4.4. Configure Nginx
+For the full list of variables (including `MOSS_API_KEY` and `NGINX_PORT`), see [Environment Variables](/en/operate/environment).
 
-**File: `nginx/conf.d/nginx.conf`**
+::: warning NGINX_PORT is not read from site.env
+`docker-compose.yml` publishes nginx on `${NGINX_PORT:-8071}`. Compose substitutes that variable from your shell or from a `dmoj/.env` file, **not** from `environment/site.env`. To change the port, create `dmoj/.env` containing `NGINX_PORT=8080` (or `export NGINX_PORT=8080` before running commands), then run `docker compose up -d nginx`. If nothing is set, the port is **8071**.
+:::
 
-Change `server_name`:
+### 4.4. Google sign-in (OAuth)
+
+LCOJ's `local_settings.py` sets `OAUTH_ONLY = True`. That hides the password-based sign-up form, so new users can only register with Google. The username/password **login** form is still there, so admin accounts created from the command line can log in normally.
+
+To get the keys:
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an **OAuth client ID** of type *Web application*.
+2. Add the **Authorized redirect URI** `https://luyencode.net/complete/google-oauth2/` (use your own domain).
+3. Put the *Client ID* and *Client secret* into `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` and `SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET` in `site.env`.
+
+### 4.5. Nginx
+
+In `nginx/conf.d/nginx.conf`, set `server_name` to your domain:
 
 ```nginx
 server {
-    listen 80;
-    server_name luyencode.net;  # Change to your domain
-    
+    listen       80;
+    server_name  luyencode.net;  # change to your domain
     # ... leave the rest unchanged
 }
 ```
 
-## Step 5: Build the Docker images
+The containerized nginx only listens for HTTP on port 80. HTTPS is handled in front of it; see [HTTPS](#https).
+
+## Step 5: Build the images
+
+The `lcoj/lcoj-base` image holds Python, Node.js and all dependencies (`requirements.txt`, `package.json`). The `site`, `celery` and `bridged` images are built **on top of** it, so build `base` first:
 
 ```sh
+docker compose build base
 docker compose build
 ```
 
-This takes 10–20 minutes, depending on your network speed and machine.
+The first build takes roughly 10–20 minutes depending on your network.
 
-## Step 6: Start the services
+## Step 6: Initialize the database and static files
 
-### 6.1. Start the database and cache
+1. Start the services you need:
 
-```sh
-docker compose up -d db redis
-```
+   ```sh
+   docker compose up -d site db redis celery
+   ```
 
-Wait about 10 seconds for the database to finish starting up.
+   On first start MariaDB needs some time to create the database. Watch `docker compose logs -f db` until you see `ready for connections`.
 
-### 6.2. Start the site and Celery
+2. Create the tables:
 
-```sh
-docker compose up -d site celery
-```
+   ```sh
+   ./scripts/migrate
+   ```
 
-### 6.3. Create the database schema
+3. Build the CSS and collect static files (compiles SCSS, runs `collectstatic`, compiles translations, copies everything to the `assets` volume nginx serves):
 
-```sh
-./scripts/migrate
-```
+   ```sh
+   ./scripts/copy_static
+   ```
 
-### 6.4. Generate static files
+4. Load the initial data:
 
-```sh
-./scripts/copy_static
-```
+   ```sh
+   ./scripts/manage.py loaddata navbar
+   ./scripts/manage.py loaddata language_small
+   ./scripts/manage.py loaddata demo
+   ```
 
-### 6.5. Load sample data
+   | Fixture | Contents |
+   |---|---|
+   | `navbar` | Default navigation menu |
+   | `language_small` | A handful of common languages (use `language_all` for the full set) |
+   | `demo` | Sample data, **including an `admin` account with password `admin`** |
 
-```sh
-./scripts/manage.py loaddata navbar
-./scripts/manage.py loaddata language_small
-./scripts/manage.py loaddata demo
-```
+   ::: danger Change the admin password
+   The `demo` fixture creates the superuser `admin` / `admin`. On a public server, change its password or delete it right away, or skip the `demo` fixture.
+   :::
 
-**Warning:** `demo` creates an admin account with username and password `admin`. Change it immediately after logging in!
+5. Create your own admin account:
 
-### 6.6. Create a superuser
+   ```sh
+   ./scripts/manage.py createsuperuser
+   ```
 
-```sh
-./scripts/manage.py createsuperuser
-```
+   Log in at `/accounts/login/` with that username and password. Google isn't needed.
 
-Follow the prompts to create your admin account.
-
-## Step 7: Start all services
+## Step 7: Start everything
 
 ```sh
 docker compose up -d
-```
-
-Check that all containers are running:
-
-```sh
 docker compose ps
 ```
 
-You should see:
+The `lcoj_site`, `lcoj_celery`, `lcoj_bridged`, `lcoj_wsevent`, `lcoj_mysql`, `lcoj_redis` and `lcoj_nginx` containers should all be **Up**. The `base` service only exists to build the shared image and exits right after starting, which is expected.
 
-```
-NAME              STATUS
-lcoj_bridged      Up
-lcoj_celery       Up
-lcoj_mysql        Up
-lcoj_nginx        Up
-lcoj_redis        Up
-lcoj_site         Up
-lcoj_wsevent      Up
-```
-
-## Step 8: Verify
-
-Open `http://localhost` (or your domain) to verify the installation.
-
-You should see the LCOJ home page!
-
-## Directory structure
-
-```
-dmoj/
-├── base/              # Base Docker image
-├── bridged/           # Bridge service
-├── celery/            # Celery worker
-├── config/            # Config files
-├── database/          # MySQL data (created automatically)
-├── environment/       # Environment variables
-├── media/             # User uploads
-├── nginx/             # Nginx config
-├── problems/          # Problem data
-├── repo/              # Site source code (submodule)
-├── scripts/           # Helper scripts
-├── site/              # Site Docker image
-├── wsevent/           # WebSocket event server
-└── docker-compose.yml # Docker Compose config
-```
-
-## Services
-
-| Service | Container | Port | Description |
-|---------|-----------|------|-------|
-| nginx | lcoj_nginx | 80 | Web server |
-| site | lcoj_site | - | Django application |
-| celery | lcoj_celery | - | Background tasks |
-| bridged | lcoj_bridged | 9998, 9999 | Judge bridge |
-| wsevent | lcoj_wsevent | 15100-15102 | WebSocket events |
-| db | lcoj_mysql | 3306 | MariaDB database |
-| redis | lcoj_redis | 6379 | Cache & message broker |
-
-## Managing services
-
-### View logs
+Check it:
 
 ```sh
-# All services
-docker compose logs -f
-
-# A specific service
-docker compose logs -f site
-docker compose logs -f celery
-docker compose logs -f nginx
+curl -I http://localhost:8071/
 ```
 
-### Restart a service
+Open `http://<server-ip>:8071/` in a browser to see the LCOJ home page. If you loaded `demo`, go to **Admin → Sites** and change the default domain (`localhost:8081`) to your real one.
 
-```sh
-docker compose restart site
-docker compose restart celery
-```
+## Ports
 
-### Stop everything
+| Service | Container | Port | Published on the host? |
+|---|---|---|---|
+| nginx | `lcoj_nginx` | `${NGINX_PORT:-8071}` → 80 | Yes |
+| bridged | `lcoj_bridged` | 9999 (judges connect), 9998 (site-to-bridge) | Yes |
+| site | `lcoj_site` | 8000 (uwsgi) | No |
+| wsevent | `lcoj_wsevent` | 15100, 15101, 15102 | No, reached through nginx `/event/` and `/channels/` |
+| db | `lcoj_mysql` | 3306 | No |
+| redis | `lcoj_redis` | 6379 | No |
+| celery | `lcoj_celery` | — | No |
 
-```sh
-docker compose down
-```
+::: warning Firewall
+Only judges need port 9999. Port 9998 doesn't need to be reachable from the Internet. Note that Docker-published ports **bypass `ufw` rules**, so filter them with your cloud provider's firewall or the iptables `DOCKER-USER` chain.
+:::
 
-### Start again
+## HTTPS
 
-```sh
-docker compose up -d
-```
+The nginx container serves plain HTTP only. To get HTTPS, put a TLS layer in front of `NGINX_PORT`.
 
-## Updating
+### What luyencode.net uses: Cloudflare Tunnel
 
-### Update the code
+luyencode.net runs behind [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/). `cloudflared` runs on the server, connects out to Cloudflare and forwards requests to nginx. The server doesn't open ports 80/443 and you don't manage certificates yourself.
 
-```sh
-cd lcoj-docker/dmoj
-git pull
-git submodule update --init --recursive
-```
+1. Install `cloudflared` and create a tunnel following Cloudflare's docs.
+2. Add a *Public hostname* `luyencode.net` pointing to the service `http://localhost:8071` (your `NGINX_PORT`).
+3. In `site.env`, make `SITE_FULL_URL` and `MEDIA_URL` use `https://`, then run `docker compose up -d` so the containers pick up the new values.
 
-### Rebuild and restart
+WebSockets (`/event/`) work through Cloudflare Tunnel with no extra configuration.
 
-```sh
-docker compose up -d --build site celery bridged wsevent
-```
+### Alternative: a TLS reverse proxy
 
-### Run migrations
-
-```sh
-./scripts/migrate
-```
-
-### Update static files
-
-```sh
-./scripts/copy_static
-```
-
-## Backup
-
-### Back up the database
-
-```sh
-docker exec lcoj_mysql mysqldump -u root -p<root_password> lcoj > backup_$(date +%Y%m%d).sql
-```
-
-### Back up media files
-
-```sh
-tar -czf media_backup_$(date +%Y%m%d).tar.gz dmoj/media/
-```
-
-### Back up problems
-
-```sh
-tar -czf problems_backup_$(date +%Y%m%d).tar.gz dmoj/problems/
-```
-
-## Restore
-
-### Restore the database
-
-```sh
-docker exec -i lcoj_mysql mysql -u root -p<root_password> lcoj < backup_20240101.sql
-```
-
-### Restore media
-
-```sh
-tar -xzf media_backup_20240101.tar.gz
-```
-
-## Monitoring
-
-### Check resource usage
-
-```sh
-docker stats
-```
-
-### Check disk usage
-
-```sh
-docker system df
-```
-
-### Follow logs in real time
-
-```sh
-# Site logs
-docker compose logs -f --tail=100 site
-
-# Celery logs
-docker compose logs -f --tail=100 celery
-
-# Nginx access logs
-docker compose exec nginx tail -f /var/log/nginx/access.log
-```
-
-## Troubleshooting
-
-### Container won't start
-
-```sh
-# View logs
-docker compose logs <service_name>
-
-# View details
-docker inspect <container_name>
-```
-
-### Database connection error
-
-```sh
-# Check that MySQL is running
-docker compose ps db
-
-# Check the logs
-docker compose logs db
-
-# Restart the database
-docker compose restart db
-```
-
-### Static files not loading
-
-```sh
-# Re-run copy_static
-./scripts/copy_static
-
-# Restart nginx
-docker compose restart nginx
-```
-
-### Out of memory
-
-```sh
-# Check memory usage
-docker stats
-
-# Raise the memory limit in docker-compose.yml
-# Add to the relevant service:
-deploy:
-  resources:
-    limits:
-      memory: 2G
-```
-
-### Disk full
-
-```sh
-# Remove unused images
-docker image prune -a
-
-# Remove unused volumes
-docker volume prune
-
-# Remove unused containers
-docker container prune
-```
-
-## Production checklist
-
-Before deploying to production:
-
-- [ ] Set `DEBUG=False` in `site.env`
-- [ ] Change the default `admin` password
-- [ ] Configure HTTPS (SSL certificate)
-- [ ] Set up automated backups
-- [ ] Configure the firewall
-- [ ] Set up monitoring (Prometheus, Grafana)
-- [ ] Configure log rotation
-- [ ] Test disaster recovery
-- [ ] Document your custom changes
-
-## Configuring HTTPS
-
-### With Let's Encrypt
-
-```sh
-# Install certbot
-apt install certbot python3-certbot-nginx
-
-# Obtain a certificate
-certbot --nginx -d luyencode.net
-
-# Auto-renew
-certbot renew --dry-run
-```
-
-### Update the nginx config
-
-Certbot updates the nginx config automatically. Then run:
-
-```sh
-docker compose restart nginx
-```
+Any reverse proxy on the host (Caddy, host-level Nginx with certbot, etc.) can terminate HTTPS on port 443 and forward to `http://127.0.0.1:8071`. Make sure it forwards the `Upgrade`/`Connection` headers so the `/event/` WebSocket works. Don't point `certbot --nginx` at the containerized nginx: its config lives inside Docker and it has no port 443.
 
 ## Performance tuning
 
-### Increase the number of Celery workers
+- **uWSGI workers** (web requests): change `workers = 8` in `repo/uwsgi.ini` (the template is `config/uwsgi.ini`), then `docker compose restart site`. Each worker may use up to 512 MB of RAM before it's recycled (`reload-on-rss = 512M`).
+- **Celery concurrency**: `--concurrency=2` is set in the `ENTRYPOINT` of `celery/Dockerfile`. Change it there, then run `docker compose up -d --build celery`.
 
-**File: `celery/Dockerfile`**
+## Go-live checklist
 
-```dockerfile
-CMD celery -A dmoj_celery worker -l info --concurrency=4
-```
-
-### Increase the number of uWSGI workers
-
-**File: `site/Dockerfile`**
-
-```dockerfile
-CMD uwsgi --ini uwsgi.ini --processes=4
-```
-
-### Configure Redis persistence
-
-**File: `docker-compose.yml`**
-
-```yaml
-redis:
-  command: redis-server --appendonly yes
-  volumes:
-    - redis-data:/data
-```
+- [ ] `DEBUG=0`, a random `SECRET_KEY`, strong MariaDB passwords
+- [ ] The `demo` fixture's `admin` account has a new password or is deleted
+- [ ] HTTPS works and `SITE_FULL_URL`/`MEDIA_URL` use `https://`
+- [ ] Google sign-in works
+- [ ] The firewall only exposes the ports you need
+- [ ] [Scheduled backups](/en/operate/operations#backup) are set up
+- [ ] [At least one judge is connected](/en/operate/judge-setup)
 
 ## See also
 
-- [Management Commands](/en/reference/management-commands)
-- [Updating the system](/en/operate/updating)
-- [Setting up a judge](/en/operate/judge-setup)
-- [Managing problems](/en/setter/managing-problems)
+- [Environment Variables](/en/operate/environment)
+- [Helper Scripts](/en/operate/scripts)
+- [Day-to-day Operations](/en/operate/operations)
+- [Updating LCOJ](/en/operate/updating)
+- [Judge Setup](/en/operate/judge-setup)
 
-## Support
-
-If you run into problems:
-1. Check the logs: `docker compose logs -f`
-2. Open an issue on [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)
-3. Contact support at [https://luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he)
+::: tip Need help?
+Open an issue on [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), or reach us via [behitek.com](https://behitek.com) or [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

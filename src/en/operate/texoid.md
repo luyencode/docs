@@ -1,212 +1,125 @@
-# Rendering LaTeX Diagrams
+# TikZ Diagrams (Texoid)
 
-LCOJ can render TikZ/PGF diagrams in problem statements, which lets you draw graphs, geometric figures, and complex diagrams.
+::: info Do you need this?
+Texoid is a DMOJ service that compiles LaTeX documents (such as TikZ drawings) into SVG/PNG images.
 
-**Note:** 
-- This feature is optional and advanced
-- This guide covers bare metal installs
-- With Docker, you need to set up Texoid separately
-- If you only need math formulas, use [Mathoid](/en/operate/mathoid)
+- **LCOJ does not currently use Texoid when rendering statements.** Installing Texoid and setting `TEXOID_URL` will **not** make TikZ render.
+- LCOJ works fine without Texoid. For illustrations (graphs, trees, geometry), **draw them as images and embed them in the statement** (see [Recommended alternative](#recommended-alternative)).
+- Regular math is already handled by MathJax; see [Math formulas](/en/operate/mathoid).
+:::
 
-## Installing Texoid
+## Status in LCOJ
 
-Texoid renders TikZ diagrams as images.
+| Component | Status |
+|---|---|
+| `TEXOID_URL` in `dmoj/config/local_settings.py` | **Not set** (disabled) |
+| Texoid service in `docker-compose.yml` | **Not present** |
+| Code that calls Texoid while rendering Markdown | **None**: `judge/jinja2/markdown/__init__.py` imports `TexoidRenderer` but never calls it |
 
-### Step 1: Install LaTeX
+## What happens if you write TikZ in a statement?
 
-```sh
-apt update
-apt install texlive-full
+The Markdown renderer only recognizes `~...~` and `$$...$$` and hands them to MathJax in the browser. A block like:
+
+```markdown
+$$tikz
+\begin{tikzpicture}
+\draw (0,0) -- (2,0) -- (2,2) -- cycle;
+\end{tikzpicture}
+$$
 ```
 
-**Note:** `texlive-full` is very large (~5GB). For a lighter install:
+is treated as **display math** and sent to MathJax. MathJax doesn't understand `tikzpicture`, so readers see an error or raw text. **Don't use this syntax.**
 
-```sh
-apt install texlive-latex-base texlive-latex-extra texlive-pictures
+## Recommended alternative
+
+1. Draw the figure with a tool you like: TikZ on [Overleaf](https://www.overleaf.com/), [draw.io](https://app.diagrams.net/), [Graphviz](https://graphviz.org/), and so on.
+2. Export it as **SVG** or **PNG**.
+3. In the statement editor, use the image button to upload it. LCOJ accepts `.jpg`, `.png`, `.gif`, and `.svg`. Images are stored in `media/martor/` and served under `/martor/...`.
+4. Or embed it with Markdown:
+
+   ```markdown
+   ![Directed graph with 3 vertices](/martor/image-name.svg)
+   ```
+
+::: tip
+SVG stays sharp when zoomed and is usually smaller than PNG. Prefer SVG for graphs and geometry.
+:::
+
+## For developers: running Texoid (optional)
+
+You only need this section if you plan to **wire** `TexoidRenderer` back into the Markdown renderer. Do it on a development machine, not in production.
+
+### Step 1: Build an image
+
+Texoid is on PyPI (`pip install texoid`). Without Docker mode it needs `latex`, `dvisvgm`, and ImageMagick's `convert`. Example `dmoj/addons/texoid/Dockerfile` (a sample, not tested on LCOJ):
+
+```dockerfile
+FROM python:3.11-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends texlive-latex-base texlive-binaries imagemagick && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir texoid
+USER nobody
+EXPOSE 8888
+CMD ["texoid", "--port=8888", "--address=0.0.0.0"]
 ```
 
-### Step 2: Clone Texoid
+::: warning
+- Texoid listens on `localhost` by default, so `--address=0.0.0.0` is required inside a container.
+- Texoid also has a `--docker` mode (it uses the `texbox` image to isolate LaTeX), but that mode needs access to the Docker daemon. Don't mount the Docker socket into the container.
+- To draw TikZ you also need a TeX package that includes TikZ (for example `texlive-pictures`).
+:::
 
-```sh
-git clone https://github.com/DMOJ/texoid.git
-cd texoid
+### Step 2: Add it to Compose
+
+Create `dmoj/docker-compose.override.yml` (Compose merges it automatically when run from `dmoj/`):
+
+```yaml
+services:
+  texoid:
+    build: ./addons/texoid
+    restart: unless-stopped
+    networks: [site]   # lets the site container reach http://texoid:8888
 ```
 
-### Step 3: Install dependencies
+### Step 3: Configure settings
 
-```sh
-python3 -m venv env
-source env/bin/activate
-pip install -e .
-```
-
-### Step 4: Run Texoid
-
-```sh
-env/bin/texoid --port=8886
-```
-
-## Configuring LCOJ
-
-Add the following to `local_settings.py`:
+Add to your settings file (see [Environment and configuration](/en/operate/environment)):
 
 ```python
-# Texoid URL
-TEXOID_URL = 'http://localhost:8886'
-
-# Cache directory
-TEXOID_CACHE_ROOT = '/home/lcoj/texoid_cache'
-
-# Cache URL
-TEXOID_CACHE_URL = '//luyencode.net/texoid/'
+TEXOID_URL = 'http://texoid:8888/'
+TEXOID_CACHE_ROOT = '/cache/texoid/'   # a directory the site can write to
+TEXOID_CACHE_URL = '/texoid/'          # public URL for that directory (needs an nginx location)
 ```
 
-### Configure Nginx
+Defaults in `dmoj/settings.py`: `TEXOID_GZIP = False`, `TEXOID_META_CACHE = 'default'`, `TEXOID_META_CACHE_TTL = 86400`. Note that the code checks `hasattr(settings, 'TEXOID_URL')`, so to disable it you must **remove** the `TEXOID_URL` line entirely, not set it to `None`.
 
-```nginx
-location /texoid/ {
-    alias /home/lcoj/texoid_cache/;
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-}
-```
-
-### Create the cache directory
+### Step 4: Start it
 
 ```sh
-mkdir -p /home/lcoj/texoid_cache
-chown www-data:www-data /home/lcoj/texoid_cache
-chmod 755 /home/lcoj/texoid_cache
+cd dmoj
+docker compose up -d --build texoid
+docker compose restart site
 ```
 
-### Restart
-
-**Docker:**
+Test it from the `site` container:
 
 ```sh
-docker compose restart site nginx
+docker compose exec site curl -s -H 'Content-Type: application/x-tex' \
+  --data-raw '\documentclass{standalone}\begin{document}$E=mc^2$\end{document}' http://texoid:8888/
 ```
 
-**Bare metal:**
-
-```sh
-supervisorctl restart site
-service nginx reload
-```
-
-## Usage
-
-### Basic syntax
-
-Use `$$tikz...$$` to draw a diagram:
-
-```markdown
-$$tikz
-\begin{tikzpicture}
-\draw (0,0) -- (2,0) -- (2,2) -- (0,2) -- cycle;
-\end{tikzpicture}
-$$
-```
-
-### Example: Drawing a graph
-
-```markdown
-$$tikz
-\begin{tikzpicture}[node distance=2cm]
-\node[circle,draw] (1) {1};
-\node[circle,draw] (2) [right of=1] {2};
-\node[circle,draw] (3) [below of=1] {3};
-\draw[->] (1) -- (2);
-\draw[->] (1) -- (3);
-\draw[->] (2) -- (3);
-\end{tikzpicture}
-$$
-```
-
-### Example: Drawing a tree
-
-```markdown
-$$tikz
-\begin{tikzpicture}[level distance=1.5cm,
-  level 1/.style={sibling distance=3cm},
-  level 2/.style={sibling distance=1.5cm}]
-\node[circle,draw] {1}
-  child {node[circle,draw] {2}
-    child {node[circle,draw] {4}}
-    child {node[circle,draw] {5}}
-  }
-  child {node[circle,draw] {3}
-    child {node[circle,draw] {6}}
-    child {node[circle,draw] {7}}
-  };
-\end{tikzpicture}
-$$
-```
-
-### Example: Geometry
-
-```markdown
-$$tikz
-\begin{tikzpicture}
-\coordinate (A) at (0,0);
-\coordinate (B) at (4,0);
-\coordinate (C) at (2,3);
-\draw (A) -- (B) -- (C) -- cycle;
-\node[below left] at (A) {A};
-\node[below right] at (B) {B};
-\node[above] at (C) {C};
-\end{tikzpicture}
-$$
-```
-
-## Running with Supervisor
-
-Create the file `/etc/supervisor/conf.d/texoid.conf`:
-
-```ini
-[program:texoid]
-command=/path/to/texoid/env/bin/texoid --port=8886
-directory=/path/to/texoid
-user=texoid
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/texoid.log
-```
-
-Start it:
-
-```sh
-supervisorctl update
-supervisorctl start texoid
-```
+A working setup returns JSON with `"success": true`.
 
 ## Troubleshooting
 
-**Diagrams do not render:**
-- Check that Texoid is running
-- Check that LaTeX is installed: `pdflatex --version`
-- Check the Texoid logs
+| Symptom | Cause | Fix |
+|---|---|---|
+| A `$$tikz ... $$` block shows an error or raw text | LCOJ doesn't render TikZ | Convert the figure to an SVG/PNG image |
+| `TEXOID_URL` is set but nothing changes | Texoid isn't wired into the renderer | Expected with the current code; not a configuration error |
+| `curl` to Texoid says `Connection refused` | Texoid only listens on `localhost` | Add `--address=0.0.0.0` |
+| Texoid returns `"success": false` | LaTeX error or missing TeX package | Read the `error` field and install the missing TeX packages |
 
-**Compilation errors:**
-- Check your TikZ syntax
-- Test it on [Overleaf](https://www.overleaf.com/)
-- Install any missing LaTeX packages
-
-**Timeouts:**
-- Complex diagrams can take a while to render
-- Increase the timeout in the Texoid config
-- Simplify the diagram
-
-## TikZ learning resources
-
-- [TikZ Tutorial](https://www.overleaf.com/learn/latex/TikZ_package)
-- [TikZ Examples](https://texample.net/tikz/examples/)
-- [PGF Manual](http://mirrors.ctan.org/graphics/pgf/base/doc/pgfmanual.pdf)
-
-## Notes
-
-- TikZ is complex and takes time to learn
-- For simple figures, use regular images instead
-- Caching speeds up loading
-- Avoid overly complex diagrams
+::: tip Need help?
+Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

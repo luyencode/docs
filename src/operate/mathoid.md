@@ -1,238 +1,143 @@
-# Hiển thị công thức toán học LaTeX
+# Công thức toán học (MathJax và Mathoid)
 
-LCOJ hỗ trợ hiển thị công thức toán học LaTeX trong đề bài, giúp trình bày công thức đẹp và chuyên nghiệp.
+::: info Bạn có cần trang này không?
+Trang này giải thích **cách LCOJ hiển thị công thức toán** trong đề bài, blog, bình luận và **vì sao bạn không cần cài Mathoid**.
 
-**Lưu ý:** 
-- Tính năng này tùy chọn, không bắt buộc
-- Hướng dẫn này cho bare metal install
-- Với Docker, cần setup Mathoid riêng trên host hoặc container khác
+- LCOJ hiển thị công thức **ngay khi cài xong**, bằng MathJax chạy trong trình duyệt. Không cần dịch vụ nào thêm.
+- Mathoid là dịch vụ render công thức phía server từ DMOJ. Với mã nguồn LCOJ hiện tại, nó **không được dùng khi render Markdown**. Bật nó lên còn có thể làm công thức **không hiển thị** (xem [bên dưới](#mathoid-trong-lcoj-hien-tai)).
 
-## Cài đặt Mathoid
+Nếu bạn là người ra đề, chỉ cần đọc phần [Cú pháp viết công thức](#cu-phap-viet-cong-thuc).
+:::
 
-Mathoid là dịch vụ render công thức LaTeX thành hình ảnh.
+## Trạng thái trong LCOJ
 
-### Bước 1: Cài đặt Node.js
+| Thành phần | Trạng thái trong cấu hình đi kèm (`dmoj/config/local_settings.py`) |
+|---|---|
+| MathJax 3.2.0 (trong trình duyệt) | **Đang bật**, file tĩnh nằm ở `/static/vnoj/mathjax/3.2.0/` |
+| Mathoid (`MATHOID_URL`) | **Tắt**: không khai báo, dùng mặc định `False` của `dmoj/settings.py` |
+| Dịch vụ Mathoid trong `docker-compose.yml` | **Không có** |
 
-```sh
-curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-apt install nodejs
+## Cách LCOJ hiển thị công thức
+
+```mermaid
+flowchart LR
+  A["Markdown đề bài<br/>~a+b~ hoặc $$...$$"] --> B["markdown2 (extra 'latex')<br/>giữ nguyên công thức"]
+  B --> C["HTML gửi về trình duyệt"]
+  C --> D["MathJax 3 (mathjax_config.js)<br/>render công thức"]
 ```
 
-### Bước 2: Cài đặt Mathoid
+1. Server dùng thư viện `markdown2` (bản fork của VNOI) với extra `latex`. Extra này nhận diện `~...~` và `$$...$$` để **giữ nguyên** công thức, không để Markdown làm hỏng các ký tự như `_`, `*`, `\`.
+2. HTML được gửi về trình duyệt kèm công thức gốc.
+3. MathJax (cấu hình trong `resources/mathjax_config.js`) render công thức ngay trên trình duyệt.
 
-```sh
-git clone https://github.com/wikimedia/mathoid.git
-cd mathoid
-npm install
-```
+## Cú pháp viết công thức
 
-### Bước 3: Chạy Mathoid
+| Loại | Cú pháp | Ghi chú |
+|---|---|---|
+| Công thức trong dòng (inline) | `~...~` | Cách chính, nên dùng |
+| Công thức riêng dòng (display) | `$$...$$` | Căn giữa, cỡ lớn |
+| Inline (cách khác) | `\(...\)` | MathJax hỗ trợ, nhưng Markdown có thể nuốt dấu `\`, nên ưu tiên `~...~` |
 
-```sh
-node server.js
-```
+::: warning Dấu `$` đơn KHÔNG phải công thức
+`$a+b$` sẽ hiển thị nguyên văn là `$a+b$`. Dùng `~a+b~` cho công thức trong dòng và `$$...$$` cho công thức riêng dòng.
+:::
 
-Mặc định Mathoid chạy trên `localhost:10044`.
-
-## Cấu hình LCOJ
-
-Thêm vào `local_settings.py`:
-
-```python
-# URL của Mathoid
-MATHOID_URL = 'http://localhost:10044'
-
-# Thư mục cache hình ảnh công thức
-# Cần có quyền ghi cho cả Mathoid và nginx
-MATHOID_CACHE_ROOT = '/home/lcoj/mathoid_cache'
-
-# URL để truy cập cache qua web
-# Ví dụ: /home/lcoj/mathoid_cache/abc.png -> luyencode.net/mathoid/abc.png
-MATHOID_CACHE_URL = '//luyencode.net/mathoid/'
-```
-
-### Cấu hình Nginx
-
-Thêm vào file nginx config:
-
-```nginx
-location /mathoid/ {
-    alias /home/lcoj/mathoid_cache/;
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-}
-```
-
-### Tạo thư mục cache
-
-```sh
-mkdir -p /home/lcoj/mathoid_cache
-chown www-data:www-data /home/lcoj/mathoid_cache
-chmod 755 /home/lcoj/mathoid_cache
-```
-
-### Khởi động lại
-
-**Docker:**
-
-```sh
-docker compose restart site nginx
-```
-
-**Bare metal:**
-
-```sh
-supervisorctl restart site
-service nginx reload
-```
-
-## Sử dụng trong đề bài
-
-### Inline math (trong dòng)
-
-Dùng `~...~` cho công thức nhỏ trong dòng:
+### Công thức trong dòng
 
 ```markdown
 Cho hai số nguyên ~a~ và ~b~ ~(1 \le a, b \le 10^9)~.
 ```
 
-Hiển thị: Cho hai số nguyên *a* và *b* (1 ≤ a, b ≤ 10⁹).
-
-### Display math (công thức lớn)
-
-Dùng `$...$` cho công thức lớn, riêng dòng:
+### Công thức riêng dòng
 
 ```markdown
 Dãy Fibonacci được định nghĩa:
 
-$F(n) = \begin{cases} 
-0, & \text{if } n = 0 \\ 
-1, & \text{if } n = 1 \\ 
-F(n-2) + F(n-1), & \text{if } n \ge 2 
-\end{cases}$
+$$F(n) = \begin{cases}
+0, & n = 0 \\
+1, & n = 1 \\
+F(n-1) + F(n-2), & n \ge 2
+\end{cases}$$
 ```
 
 ### Ví dụ đầy đủ
 
 ```markdown
-# Dãy Fibonacci
+Cho số nguyên ~N~ ~(1 \le N \le 10^{18})~, tìm số Fibonacci thứ ~N~
+modulo ~10^9 + 7~.
 
-Dãy Fibonacci là dãy số nổi tiếng được định nghĩa:
+$$F(n) = F(n-1) + F(n-2)$$
 
-$F(n) = \begin{cases} 
-0, & \text{nếu } n = 0 \\ 
-1, & \text{nếu } n = 1 \\ 
-F(n-2) + F(n-1), & \text{nếu } n \ge 2 
-\end{cases}$
-
-Cho số nguyên ~N~ ~(1 \le N \le 10^{19})~, tìm số Fibonacci thứ ~N~, 
-modulo ~1\,000\,000\,007~ ~(= 10^9 + 7)~.
-
-**Lưu ý:** Với 30% số điểm, đảm bảo ~1 \le N \le 1\,000\,000~.
+**Lưu ý:** Với ~30\%~ số điểm, ~N \le 10^6~.
 ```
 
-## Các ký hiệu LaTeX thường dùng
+### Ký hiệu thường dùng
 
-### Toán tử
+| Mục đích | Viết | Mục đích | Viết |
+|---|---|---|---|
+| Nhỏ hơn hoặc bằng | `~a \le b~` | Phân số | `~\frac{a}{b}~` |
+| Lớn hơn hoặc bằng | `~a \ge b~` | Mũ, chỉ số | `~a^{10}~`, `~a_{i,j}~` |
+| Khác | `~a \ne b~` | Tổng | `~\sum_{i=1}^{n} a_i~` |
+| Nhân | `~a \times b~` | Tích | `~\prod_{i=1}^{n} a_i~` |
+| Đồng dư | `~a \equiv b \pmod{m}~` | Căn | `~\sqrt{x}~`, `~\sqrt[3]{x}~` |
+| Làm tròn xuống/lên | `~\lfloor x \rfloor~`, `~\lceil x \rceil~` | Logarit | `~\log n~` |
 
-```latex
-~a + b~          # Cộng
-~a - b~          # Trừ
-~a \times b~     # Nhân
-~a \div b~       # Chia
-~a \le b~        # Nhỏ hơn hoặc bằng
-~a \ge b~        # Lớn hơn hoặc bằng
-~a \ne b~        # Khác
-~a \equiv b~     # Đồng dư
-```
+::: tip Tô màu
+Cấu hình MathJax của LCOJ nạp gói `color`, nên bạn có thể viết `~\color{red}{x}~`.
+:::
 
-### Phân số
+## Mathoid trong LCOJ hiện tại
 
-```latex
-~\frac{a}{b}~    # Phân số a/b
-```
+Mathoid ([mã nguồn upstream](https://gitlab.wikimedia.org/repos/mediawiki/services/mathoid), trước đây ở `github.com/wikimedia/mathoid`) là dịch vụ Node.js của Wikimedia, render TeX thành SVG/MathML. DMOJ từng dùng nó để render công thức phía server.
 
-### Mũ và chỉ số
+Trong mã nguồn LCOJ (`dmoj/repo`):
 
-```latex
-~a^2~            # a mũ 2
-~a_i~            # a chỉ số i
-~a^{10}~         # a mũ 10
-~a_{i,j}~        # a chỉ số i,j
-```
+- `judge/utils/mathoid.py` (lớp `MathoidMathParser`) vẫn còn, nhưng **không có chỗ nào gọi tới** khi render Markdown.
+- `MATHOID_URL` chỉ còn ảnh hưởng tới hai việc:
+  1. Hiện lựa chọn **Math engine** trong trang sửa hồ sơ.
+  2. Khi người dùng để engine là `auto` (mặc định) và trình duyệt hỗ trợ MathML, engine chuyển thành `mml`. Lúc đó trang **không nạp MathJax** (`REQUIRE_JAX` là `False`), trong khi server cũng không render công thức. Kết quả: công thức hiện ra dạng thô `~...~`.
 
-### Tổng và tích
+::: danger Không bật Mathoid trên production
+Với mã nguồn hiện tại, đặt `MATHOID_URL` **không** giúp công thức đẹp hơn mà còn có thể làm công thức mất hiển thị với nhiều trình duyệt. Hãy giữ nguyên cấu hình mặc định.
+:::
 
-```latex
-~\sum_{i=1}^{n} a_i~     # Tổng
-~\prod_{i=1}^{n} a_i~    # Tích
-```
+### Nếu bạn phát triển lại tính năng này (tùy chọn, dành cho lập trình viên)
 
-### Căn
+Chỉ làm trên máy dev, sau khi đã nối `MathoidMathParser` vào bộ render Markdown.
 
-```latex
-~\sqrt{x}~       # Căn bậc 2
-~\sqrt[3]{x}~    # Căn bậc 3
-```
+1. Tự build image Mathoid từ mã nguồn upstream theo README của họ. Mathoid lắng nghe cổng **10044** theo `config.dev.yaml`. LCOJ không cung cấp sẵn image này.
+2. Thêm service vào `dmoj/docker-compose.override.yml` (Compose tự gộp file này với `docker-compose.yml` khi chạy trong `dmoj/`) và cho nó vào network `site` để container `site` gọi được:
 
-### Ký hiệu đặc biệt
+   ```yaml
+   services:
+     mathoid:
+       image: my-mathoid:latest   # image bạn tự build
+       restart: unless-stopped
+       networks: [site]
+   ```
 
-```latex
-~\infty~         # Vô cùng
-~\pi~            # Pi
-~\log n~         # Logarit
-~\ln n~          # Logarit tự nhiên
-~\lfloor x \rfloor~  # Làm tròn xuống
-~\lceil x \rceil~    # Làm tròn lên
-```
+3. Khai báo trong file settings (xem [Biến môi trường và cấu hình](/operate/environment)):
 
-## Xử lý lỗi
+   ```python
+   MATHOID_URL = 'http://mathoid:10044/'
+   MATHOID_CACHE_ROOT = '/cache/mathoid/'   # thư mục mà site ghi được
+   MATHOID_CACHE_URL = '/mathoid/'          # URL public của thư mục trên (cần thêm location nginx)
+   ```
 
-**Công thức không hiển thị:**
-- Kiểm tra Mathoid đang chạy: `curl http://localhost:10044`
-- Kiểm tra cấu hình `MATHOID_URL`
-- Xem log Mathoid
+4. Chạy `docker compose up -d mathoid` rồi `docker compose restart site`.
 
-**Hình ảnh không load:**
-- Kiểm tra cấu hình nginx
-- Kiểm tra quyền thư mục cache
-- Kiểm tra `MATHOID_CACHE_URL`
+Các setting còn lại và giá trị mặc định (trong `dmoj/settings.py`): `MATHOID_GZIP = False`, `MATHOID_MML_CACHE = None`, `MATHOID_CSS_CACHE = 'default'`, `MATHOID_DEFAULT_TYPE = 'auto'`, `MATHOID_MML_CACHE_TTL = 86400`.
 
-**Công thức bị lỗi:**
-- Kiểm tra cú pháp LaTeX
-- Test trên [LaTeX editor online](https://www.codecogs.com/latex/eqneditor.php)
+## Xử lý sự cố
 
-## Tối ưu
+| Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
+|---|---|---|
+| Hiện nguyên `$a+b$` | Dùng dấu `$` đơn | Đổi thành `~a+b~` |
+| Hiện nguyên `~a+b~` trên mọi trang | MathJax không tải được | Mở DevTools, kiểm tra `/static/vnoj/mathjax/3.2.0/es5/tex-chtml.min.js`; nếu 404 thì chạy `./scripts/copy_static` rồi `docker compose restart nginx` |
+| Hiện nguyên `~a+b~` sau khi đặt `MATHOID_URL` | Engine chuyển sang `mml`, MathJax không được nạp | Bỏ `MATHOID_URL`, rồi `docker compose restart site` |
+| Công thức báo lỗi đỏ | Sai cú pháp LaTeX | Thử công thức trên một trình soạn LaTeX trực tuyến |
+| Đổi cấu hình mà đề bài cũ vẫn hiển thị như trước | HTML đề bài được cache tới 1 ngày | Lưu lại đề bài (cache được xóa khi lưu), hoặc chờ cache hết hạn |
 
-### Cache
-
-Mathoid tự động cache công thức đã render. Không cần xóa cache thủ công.
-
-### Performance
-
-Nếu có nhiều công thức, nên:
-- Tăng bộ nhớ cho Mathoid
-- Dùng CDN cho thư mục cache
-- Tối ưu nginx cache
-
-## Chạy Mathoid với Supervisor
-
-Tạo file `/etc/supervisor/conf.d/mathoid.conf`:
-
-```ini
-[program:mathoid]
-command=/usr/bin/node /path/to/mathoid/server.js
-directory=/path/to/mathoid
-user=mathoid
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/mathoid.log
-```
-
-Khởi động:
-
-```sh
-supervisorctl update
-supervisorctl start mathoid
-```
+::: tip Cần hỗ trợ?
+Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

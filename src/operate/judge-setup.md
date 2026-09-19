@@ -1,219 +1,260 @@
-# Cài đặt Judge
+# Cài đặt judge
 
-Hướng dẫn này giúp bạn cài đặt judge (hệ thống chấm bài) và kết nối với website. Hệ thống chỉ hỗ trợ Linux (bao gồm WSL), không hỗ trợ Windows.
+Judge (máy chấm) là chương trình nhận bài nộp, biên dịch, chạy với từng test rồi gửi kết quả về website. Trong LCOJ, judge **không nằm trong Docker Compose**: mỗi judge là một container riêng, tự kết nối tới dịch vụ `bridged` qua cổng `9999`.
 
-**Yêu cầu:** Bạn cần đã cài đặt website và bridge đang chạy.
+Trang này hướng dẫn đăng ký judge trên website, chạy judge bằng Docker, chạy nhiều judge cùng lúc và kiểm tra judge đã kết nối.
 
-## Cấu hình trên Website
+::: info Trước khi bắt đầu
+- Đã cài xong website theo [Cài đặt với Docker](/operate/installation) và dịch vụ `bridged` đang chạy.
+- Máy chạy judge dùng **Linux** (sandbox của judge cần kernel Linux) và đã cài Docker.
+- Bạn có tài khoản quản trị (superuser) trên website.
+:::
 
-### Bước 1: Thêm judge mới
+## Judge kết nối vào hệ thống như thế nào
 
-Truy cập trang quản trị tại `/admin/judge/` và thêm judge mới:
-- Đặt tên cho judge
-- Tạo mã xác thực (authentication key) - có thể dùng nút `Regenerate` để tự động tạo
+```mermaid
+flowchart LR
+    subgraph host["Máy chủ (thư mục lcoj-docker/dmoj)"]
+        problems[("problems/<br/>dữ liệu bài + judge_*.yml")]
+        subgraph compose["Docker Compose"]
+            site[site]
+            bridged["bridged<br/>:9998 (site) / :9999 (judge)"]
+        end
+        j1["judge_1<br/>vnoj/judge-tier3"]
+        j2["judge_2<br/>vnoj/judge-tier3"]
+    end
+    site -->|gửi bài nộp :9998| bridged
+    j1 -->|"localhost:9999"| bridged
+    j2 -->|"localhost:9999"| bridged
+    problems -.->|mount /problems| site
+    problems -.->|mount /problems| bridged
+    problems -.->|mount /problems| j1
+    problems -.->|mount /problems| j2
+```
 
-### Bước 2: Kiểm tra địa chỉ kết nối
+Những điểm cần nhớ (lấy từ `dmoj/docker-compose.yml` và `dmoj/config/local_settings.py`):
 
-Trong file `local_settings.py`, tìm `BRIDGED_JUDGE_ADDRESS`. Đây là địa chỉ judge sẽ kết nối đến:
-- Mặc định: `localhost:9999`
-- Nếu judge chạy trên máy khác, đổi `localhost` thành địa chỉ IP thực
-- **Quan trọng:** Đảm bảo port này đã được mở
+- `bridged` mở cổng `9999` ra máy chủ (`ports: 9999:9999`). Judge chạy với `--network host` nên chỉ cần kết nối tới `localhost:9999`.
+- Thư mục `dmoj/problems` được mount vào `site` và `bridged` tại `/problems` (`DMOJ_PROBLEM_DATA_ROOT = '/problems/'`). Judge cũng mount **đúng thư mục này** vào `/problems`. Nhờ vậy, khi bạn tải test lên website, judge thấy ngay dữ liệu mới.
+- Judge đăng nhập vào bridge bằng **tên** và **khóa xác thực** (auth key). Hai giá trị này phải khớp với bản ghi judge trên website.
 
-### Bước 3: Kiểm tra bridge đang chạy
+## Chọn Docker image
 
-Chạy lệnh sau để kiểm tra:
+LCOJ dùng image **`vnoj/judge-tier3`**, là image judge của dự án upstream [VNOJ](https://github.com/VNOI-Admin/judge-server). Các image được chia theo "tier" (mức độ đầy đủ ngôn ngữ):
+
+| Image | Nội dung |
+|---|---|
+| `vnoj/judge-tier1` | Bộ ngôn ngữ cơ bản: C/C++ (GCC), Python 2/3, Java, Pascal |
+| `vnoj/judge-tier2` | Tier 1 cộng thêm một số ngôn ngữ phổ biến khác |
+| `vnoj/judge-tier3` | Đầy đủ nhất, gần như mọi runtime mà judge hỗ trợ. **LCOJ dùng image này** |
+
+Nội dung chính xác của từng tier được định nghĩa trong image nền `vnoj/runtimes-tier1/2/3` (xem các `Dockerfile` trong `judge-server/.docker/`). Danh sách ngôn ngữ **thực tế** trên site của bạn là những gì judge báo lên, xem [Ngôn ngữ được hỗ trợ](/reference/languages).
+
+::: tip Tự build image (không bắt buộc)
+Nếu muốn dùng mã judge của LCOJ ([luyencode/judge-server](https://github.com/luyencode/judge-server)) thay vì bản upstream:
 
 ```sh
-supervisorctl status
-```
-
-Bạn sẽ thấy dòng tương tự:
-```
-bridged RUNNING pid <pid>, uptime <uptime>
-```
-
-## Cài đặt Judge
-
-Chúng tôi khuyên dùng Docker để cài đặt judge vì đơn giản và dễ quản lý.
-
-### Sử dụng Docker Image có sẵn
-
-LCOJ sử dụng Docker image `tier3` với số lượng ngôn ngữ lập trình hỗ trợ nhiều nhất:
-- Python 2/3
-- C/C++ (GCC)
-- Java 8
-- Pascal
-- Và một số ngôn ngữ khác
-
-Xem danh sách đầy đủ tại [trang runtimes](https://luyencode.net/runtimes).
-
-### Build từ mã nguồn
-
-Nếu muốn tự build Docker image:
-
-```sh
-git clone --recursive https://github.com/luyencode/judge-server.git
-cd judge/.docker
+git clone https://github.com/luyencode/judge-server.git
+cd judge-server/.docker
 make judge-tier3
 ```
 
-### Chạy Judge
+`Makefile` gắn tag `vnoj/judge-tier3` và `vnoj/judge-tier3:latest`, nên các lệnh bên dưới giữ nguyên. `Dockerfile` của tier3 tải mã nguồn từ `luyencode/judge-server` theo biến `GIT_TAG` (mặc định `master`), ví dụ `make judge-tier3 GIT_TAG=master TAG=latest`.
+:::
 
-#### Chuẩn bị
+## Bước 1: Đăng ký judge trên website
 
-Tạo file cấu hình `judge.yml`:
+Mỗi judge cần một bản ghi trên website gồm **tên** và **khóa xác thực**. Chọn một trong hai cách.
+
+### Cách A: Qua trang quản trị
+
+1. Đăng nhập bằng tài khoản superuser, mở `https://luyencode.net/admin/judge/judge/` (thay tên miền bằng site của bạn).
+2. Bấm **Add judge** (Thêm judge).
+3. Điền **Name**, ví dụ `judge1`. Nên đặt kiểu hostname: chữ, số, dấu gạch ngang, không dấu cách.
+4. Ở ô **Authentication key**, bấm **Regenerate** để trình duyệt tạo một khóa ngẫu nhiên, rồi sao chép khóa này lại.
+5. Bấm **Save**.
+
+### Cách B: Bằng management command
+
+Chạy trong thư mục `dmoj/`:
+
+```sh
+./scripts/manage.py addjudge <name> <key>
+```
+
+Lệnh `addjudge` nhận hai tham số: tên judge và khóa xác thực. Bạn tự tạo khóa, ví dụ bằng `openssl rand -base64 48`.
+
+::: warning Giữ bí mật khóa xác thực
+Ai có tên và khóa đều có thể kết nối vào bridge như một judge hợp lệ. Không đưa khóa lên Git, không dán vào issue hay tài liệu.
+:::
+
+::: info Trường "tier" trong trang quản trị
+Bản ghi judge có trường **Judge tier** (mặc định `1`). Đây là mức ưu tiên dự phòng: bridge chỉ giao bài cho các judge đang online có tier **nhỏ nhất**. Trường này không liên quan tới tên image `judge-tier3`. Nếu không cần cơ chế dự phòng, cứ để mọi judge ở tier `1`.
+:::
+
+## Bước 2: Tạo file cấu hình
+
+Đặt file cấu hình ngay trong thư mục `dmoj/problems`, để judge đọc được qua đường dẫn `/problems/...` trong container. Ví dụ tạo `dmoj/problems/judge_judge1.yml`:
 
 ```yaml
-id: <tên judge>
-key: <mã xác thực>
+# Trùng với tên judge trên website
+id: "judge1"
+# Khóa xác thực tạo ở Bước 1
+key: "<key>"
+# Thư mục chứa bài: mọi thư mục khớp glob và có file init.yml là một bài
 problem_storage_globs:
   - /problems/*
 ```
 
-**Lưu ý:** 
-- `id` phải trùng với tên judge đã tạo trên website
-- `key` phải trùng với mã xác thực đã tạo trên website
-- Thư mục `/problems` chứa dữ liệu bài tập
+Không cần khai báo ngôn ngữ: image Docker đã tự dò các runtime lúc build. Giải thích chi tiết từng khóa có tại [Cấu hình judge](/operate/judge-configuration).
 
-#### Khởi động judge
+::: tip
+File `judge_*.yml` nằm cạnh các thư mục bài nhưng không bị nhận nhầm thành bài, vì judge chỉ coi một thư mục là bài khi bên trong có `init.yml`.
+:::
+
+## Bước 3: Chạy judge
+
+Chạy trong thư mục `dmoj/` để `$PWD/problems` trỏ đúng tới thư mục bài dùng chung:
 
 ```sh
+cd lcoj-docker/dmoj
+
 docker run \
-    --name judge \
-    --network="host" \
-    -v /mnt/problems:/problems \
+    --name judge_judge1 \
+    --network=host \
+    -v "$PWD/problems":/problems \
     --cap-add=SYS_PTRACE \
     -d \
     --restart=always \
-    luyencode/judge-tier3:latest \
-    run -p 9999 -c /problems/judge.yml localhost -A 0.0.0.0 -a 12345
+    vnoj/judge-tier3 \
+    run -p 9999 -c /problems/judge_judge1.yml -a 12345 \
+    localhost judge1 "<key>"
 ```
 
-**Giải thích các tham số:**
-- `--name judge`: Tên container
-- `-v /mnt/problems:/problems`: Gắn thư mục bài tập từ máy host vào container
-- `-p 9999`: Port kết nối đến bridge (phải trùng với `BRIDGED_JUDGE_ADDRESS`)
-- `-a 12345`: Port API của judge
+Tham số của `docker run`:
 
-**Lưu ý về port:**
-- Nếu đã đổi port trong `BRIDGED_JUDGE_ADDRESS`, cần đổi `-p 9999` cho khớp
-- Nếu chạy nhiều judge, mỗi judge cần:
-  - Tên container khác nhau (`--name`)
-  - File cấu hình riêng (`judge.yml`)
-  - Port API khác nhau (`-a`)
+| Tham số | Ý nghĩa |
+|---|---|
+| `--name judge_judge1` | Tên container, mỗi judge một tên |
+| `--network=host` | Dùng mạng của máy chủ, để `localhost:9999` trỏ tới cổng mà `bridged` đã mở |
+| `-v "$PWD/problems":/problems` | Mount thư mục bài dùng chung (cùng thư mục mà `site` và `bridged` dùng) |
+| `--cap-add=SYS_PTRACE` | Bắt buộc: sandbox của judge dùng `ptrace` để giám sát chương trình của thí sinh |
+| `-d`, `--restart=always` | Chạy nền và tự khởi động lại khi máy chủ reboot hoặc judge bị lỗi |
+| `vnoj/judge-tier3` | Image judge |
 
-### Chạy nhiều Judge
+Phần sau tên image là tham số của judge. Từ khóa `run` chạy lệnh `dmoj` (script `entry` của image cũng nhận `cli` và `test`). Tham số của `dmoj` lấy từ `dmoj/judgeenv.py`:
 
-Để tăng khả năng xử lý, bạn có thể chạy nhiều judge cùng lúc:
+| Tham số | Ý nghĩa |
+|---|---|
+| `-p 9999` | Cổng của bridge (mặc định `9999`) |
+| `-c /problems/judge_judge1.yml` | Đường dẫn file cấu hình **bên trong container** |
+| `-a 12345` | Cổng API nội bộ của judge. Khi đã có `-a`, API chỉ lắng nghe trên `127.0.0.1`. Nếu bỏ `-a`, image Docker mặc định mở API trên `0.0.0.0:15001` |
+| `localhost` | Địa chỉ bridge (tham số vị trí `server_host`, bắt buộc) |
+| `judge1` | Tên judge (tùy chọn). Nếu có, ghi đè `id` trong file cấu hình |
+| `"<key>"` | Khóa xác thực (tùy chọn). Nếu có, ghi đè `key` trong file cấu hình |
 
-**Judge 1:**
-```sh
-docker run --name judge1 -v /mnt/problems:/problems --cap-add=SYS_PTRACE -d --restart=always --network="host" luyencode/judge-tier3:latest run -p 9999 -c /problems/judge1.yml localhost -A 0.0.0.0 -a 12345
-```
+Tên và khóa có thể để trong file cấu hình **hoặc** truyền trên dòng lệnh. Nếu đã khai báo trong file, bạn có thể bỏ hai tham số cuối. Nên đặt khóa trong ngoặc kép, vì khóa sinh bằng **Regenerate** có thể chứa `+`, `/`, `=`.
 
-**Judge 2:**
-```sh
-docker run --name judge2 -v /mnt/problems:/problems --cap-add=SYS_PTRACE -d --restart=always --network="host" luyencode/judge-tier3:latest run -p 9999 -c /problems/judge2.yml localhost -A 0.0.0.0 -a 12346
-```
+::: details Judge chạy ở máy khác
+Judge không nhất thiết phải chạy trên máy chủ website. Khi chạy ở máy khác:
 
-Mỗi judge cần có file cấu hình riêng (`judge1.yml`, `judge2.yml`) với `id` khác nhau.
+1. Thay `localhost` bằng IP hoặc tên miền của máy chủ website.
+2. Máy judge cần có bản sao dữ liệu bài ở `/problems` (ví dụ đồng bộ `dmoj/problems` bằng `rsync` hoặc dùng ổ mạng), vì judge đọc test từ ổ đĩa của chính nó.
+3. Chỉ mở cổng `9999` trên firewall cho IP của các máy judge.
+:::
 
-## Kiểm tra
+::: warning Cổng 9998
+`docker-compose.yml` cũng mở cổng `9998` ra máy chủ. Cổng này dành cho `site` gửi lệnh tới `bridged` và **không cần** truy cập từ bên ngoài. Hãy chặn `9998` (và `9999` nếu không có judge ở máy khác) trên firewall của máy chủ.
+:::
 
-Sau khi khởi động judge, kiểm tra trên trang quản trị website (`/admin/judge/`). Judge sẽ hiển thị trạng thái "online" nếu kết nối thành công.
+## Chạy nhiều judge
 
-## Xử lý lỗi thường gặp
+Mỗi judge xử lý một bài nộp tại một thời điểm. Muốn chấm nhanh hơn thì chạy thêm judge. Mỗi judge cần:
 
-**Judge không kết nối được:**
-- Kiểm tra bridge đang chạy
-- Kiểm tra port đã mở
-- Kiểm tra `id` và `key` trong `judge.yml` khớp với website
+1. **Một bản ghi riêng trên website** (tên và khóa khác nhau), tạo như Bước 1.
+2. **Một file cấu hình riêng** trong `dmoj/problems`, ví dụ `judge_judge2.yml` với `id: "judge2"`.
+3. **Một container riêng** với `--name` khác nhau.
+4. **Một cổng API `-a` khác nhau**, vì mọi judge đều dùng mạng của máy chủ.
 
-**Judge bị disconnect liên tục:**
-- Kiểm tra kết nối mạng
-- Kiểm tra log của judge: `docker logs judge`
-
-**Judge không nhận bộ test cho bài tập mới:**
-
-Đây là lỗi phổ biến nhất, thường do đường dẫn đến thư mục problems không chính xác.
-
-**Nguyên nhân:**
-- Đường dẫn mount volume không đúng
-- Thư mục problems trống hoặc không có quyền truy cập
-- Cấu trúc thư mục bài tập không đúng
-
-**Cách kiểm tra:**
-
-1. Kiểm tra thư mục problems trong container:
+Ví dụ judge thứ hai:
 
 ```sh
-docker exec judge ls -la /problems
+docker run \
+    --name judge_judge2 \
+    --network=host \
+    -v "$PWD/problems":/problems \
+    --cap-add=SYS_PTRACE \
+    -d \
+    --restart=always \
+    vnoj/judge-tier3 \
+    run -p 9999 -c /problems/judge_judge2.yml -a 12346 \
+    localhost judge2 "<key2>"
 ```
 
-Bạn sẽ thấy danh sách các thư mục bài tập. Ví dụ:
-```
-drwxr-xr-x 2 root root 4096 Jan 01 00:00 aplusb
-drwxr-xr-x 2 root root 4096 Jan 01 00:00 hello
--rw-r--r-- 1 root root  123 Jan 01 00:00 judge.yml
-```
+::: tip Nên chạy bao nhiêu judge?
+Mỗi judge dùng khoảng một nhân CPU khi chấm. Một quy tắc đơn giản là số judge không vượt quá số nhân CPU trừ đi một hai nhân dành cho website và cơ sở dữ liệu. Chạy quá nhiều judge trên cùng máy làm thời gian chạy đo được kém ổn định.
+:::
 
-2. Kiểm tra cấu trúc bài tập cụ thể:
+## Kiểm tra judge đã kết nối
+
+1. **Xem log của judge:**
+
+   ```sh
+   docker logs -f judge_judge1
+   ```
+
+   Judge tự kiểm tra (self-test) từng ngôn ngữ, in `Running live judge...`, rồi báo kết nối thành công bằng dòng dạng `Judge "judge1" online: [localhost]:9999`.
+
+2. **Xem log của bridge** (trong thư mục `dmoj/`):
+
+   ```sh
+   docker compose logs -f bridged
+   ```
+
+   Khi judge đăng nhập thành công sẽ có dòng `Judge authenticated: ...`. Nếu sai khóa sẽ có `Judge authentication failure: ...`.
+
+3. **Xem trên website:**
+   - Trang `/status/` liệt kê các judge đang online cùng runtime của chúng. Quản trị viên thấy cả judge offline.
+   - Trang `/admin/judge/judge/` có cột **Online**, ping, tải hệ thống và IP kết nối gần nhất.
+
+4. **Nộp thử một bài đã có dữ liệu test** và xem kết quả trả về. Bài `aplusb` trong fixture `demo` chỉ có đề, bạn cần tải test lên trước (xem [Quản lý bài tập](/setter/managing-problems)).
+
+## Quản lý judge hằng ngày
+
+| Việc cần làm | Cách làm |
+|---|---|
+| Xem log | `docker logs -f judge_judge1` |
+| Khởi động lại (sau khi sửa file cấu hình) | `docker restart judge_judge1` |
+| Dừng hẳn và xóa container | `docker rm -f judge_judge1` |
+| Cập nhật image | `docker pull vnoj/judge-tier3` (hoặc build lại), sau đó xóa rồi chạy lại container |
+| Tạm ngừng giao bài cho một judge | Trang quản trị judge → nút **Disable** |
+| Chặn judge không cho kết nối | Trang quản trị judge → đánh dấu **Block judge** |
+
+::: info
+Website không cho xóa hay đổi tên một judge **đang online**. Hãy dừng container trước.
+:::
+
+## Xử lý sự cố
+
+| Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
+|---|---|---|
+| Log judge lặp lại `Attempting reconnection in ...` | Không tới được bridge | Chạy `docker compose ps bridged` trong `dmoj/` để chắc bridge đang chạy. Kiểm tra judge có `--network=host` và `-p 9999` |
+| Bridge báo `Judge authentication failure` | Tên hoặc khóa không khớp | So lại `id`/`key` (hoặc tham số dòng lệnh) với bản ghi ở `/admin/judge/judge/`. Kiểm tra judge chưa bị **Block** |
+| Judge thoát ngay với `no problems available to grade` | Thiếu `problem_storage_globs` | Thêm `problem_storage_globs` vào file cấu hình |
+| Judge online nhưng bài báo **No judge is available for this problem** | Judge không thấy thư mục bài, hoặc không có ngôn ngữ mà bài cho phép | Kiểm tra `docker exec judge_judge1 ls /problems/<mã bài>` có `init.yml`. Kiểm tra ngôn ngữ trong `/status/` |
+| Judge thứ hai không chạy được | Trùng cổng API | Dùng `-a` khác nhau cho từng judge |
+| Judge không đọc được test | Sai quyền đọc | Trong container, judge chạy bằng user `judge` (không phải root). Cấp quyền đọc: `chmod -R a+rX dmoj/problems` |
+| Bài bị **IE** hàng loạt | Lỗi cấu hình bài hoặc judge gặp sự cố | Xem `docker logs judge_judge1` và thông báo lỗi trên trang bài nộp |
+
+Kiểm tra nhanh dữ liệu một bài từ phía judge:
 
 ```sh
-docker exec judge ls -la /problems/aplusb
+docker exec judge_judge1 ls -la /problems/aplusb
+docker exec judge_judge1 cat /problems/aplusb/init.yml
 ```
 
-Phải có các file:
-```
--rw-r--r-- 1 root root  100 Jan 01 00:00 init.yml
--rw-r--r-- 1 root root   10 Jan 01 00:00 1.in
--rw-r--r-- 1 root root   10 Jan 01 00:00 1.out
-```
-
-3. Kiểm tra quyền truy cập:
-
-```sh
-docker exec judge cat /problems/aplusb/init.yml
-```
-
-Nếu thấy lỗi "Permission denied", cần sửa quyền:
-
-```sh
-sudo chmod -R 755 /mnt/problems
-```
-
-**Cách sửa:**
-
-Nếu thư mục trống hoặc không đúng, kiểm tra lại lệnh `docker run`:
-
-```sh
-# Sai - mount sai thư mục
-docker run -v /wrong/path:/problems ...
-
-# Đúng - mount đúng thư mục chứa bài tập
-docker run -v /mnt/problems:/problems ...
-```
-
-Sau khi sửa, restart judge:
-
-```sh
-docker stop judge
-docker rm judge
-# Chạy lại lệnh docker run với đường dẫn đúng
-```
-
-**Kiểm tra judge đã nhận bài tập:**
-
-Xem log của judge:
-
-```sh
-docker logs judge | grep "problem"
-```
-
-Bạn sẽ thấy các dòng tương tự:
-```
-[INFO] Loaded problem: aplusb
-[INFO] Loaded problem: hello
-```
-
-Nếu không thấy, judge chưa nhận được bài tập.
+::: tip Cần hỗ trợ?
+- Tạo issue tại [GitHub Issues](https://github.com/luyencode/lcoj-docker/issues)
+- Tham khảo thêm tại [behitek.com](https://behitek.com)
+- LCOJ hỗ trợ cài đặt miễn phí: [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he)
+:::

@@ -1,191 +1,141 @@
 # Contest Data Download
 
-LCOJ lets contest authors download contest data, including contestants' submissions.
+After a contest ends, its organizers can download **the source code of contestants' submissions** as a ZIP file, for example to archive it, re-judge it offline or check for cheating.
 
-This feature is disabled by default. To enable it, configure it in `local_settings.py`.
+## Who can use it?
 
-## Configuration
+You must be logged in and able to edit the contest, meaning one of:
 
-### With Docker (recommended)
+| Case | Requirement |
+|---|---|
+| Contest author or curator | Has the `judge.edit_own_contest` permission |
+| Administrator | Has the `judge.edit_all_contest` permission |
 
-The cache directory is already set up in the `contestdatacache` Docker volume.
+See also [Permissions](/en/admin/permissions).
 
-Add the following to `environment/site.env`:
+In addition:
 
-```env
-DMOJ_CONTEST_DATA_DOWNLOAD=True
-DMOJ_CONTEST_DATA_CACHE=/contestdatacache/
-DMOJ_CONTEST_DATA_INTERNAL=/contestdatacache
+- The contest must have **ended**. Before that, the page says *"Please wait until the contest has ended to download data."*
+- The feature must be enabled (`DMOJ_CONTEST_DATA_DOWNLOAD = True`). When it is off, the URLs below return 404.
+
+## How to download
+
+```mermaid
+flowchart LR
+    A["Contest page<br/>Download data button"] --> B["Pick filters<br/>Prepare download"]
+    B --> C["Celery builds the ZIP<br/>(progress bar)"]
+    C --> D["Download prepared data"]
 ```
 
-Restart:
+1. Open the contest page. Users who can edit the contest see a **Download data** button on it.
+2. The **Download contest data** page (`/contest/<contest key>/data/prepare/`) has these options:
+   - **Download submissions?** (checked by default): must be checked.
+   - **Filter by problem code glob:** a glob on problem codes, `*` (everything) by default. For example, `LC*` only includes problems whose code starts with `LC`.
+   - **Filter by result:** result codes (AC, WA…). *Leave empty to include all submissions.*
+3. Click **Prepare download**. You are taken to a progress page while Celery builds the archive.
+4. When it is done, click **Download prepared data** (`/contest/<contest key>/data/download/`). The file is named `<contest key>-data.zip`.
 
-```sh
-docker compose restart site celery nginx
+::: warning Result filter
+In the current code, **Filter by result** filters the contest submission table, which has no `result` field, so the task may fail when you use it. If the task fails, leave the result filter empty.
+:::
+
+## Rate limit
+
+Each **contest** (not each user) can prepare new data once per `DMOJ_CONTEST_DATA_DOWNLOAD_RATELIMIT` (1 day by default). You can prepare again sooner if the previous ZIP file is no longer on disk. You cannot start a new task while one is still running.
+
+While you wait, the page still lets you download the previously prepared file.
+
+## What's in the ZIP
+
+The archive only contains the **source code** of submissions from **official** participants (no virtual participants or spectators). There is no CSV, scoreboard or score data.
+
+```
+<contest key>-data.zip
+├── alice/
+│   ├── APLUSB.cpp               ← alice's highest-scoring submission for APLUSB
+│   ├── SORTING.py
+│   └── $History/
+│       ├── APLUSB_123457.cpp    ← other submissions: <problem code>_<submission ID>.<ext>
+│       └── APLUSB_123460.py
+└── bob/
+    └── APLUSB.java
 ```
 
-### With bare metal
+| Rule | Details |
+|---|---|
+| Top-level folder | The contestant's username |
+| `<problem code>.<ext>` | The highest-scoring submission for that problem (ties go to the lowest submission ID) |
+| `$History/<problem code>_<ID>.<ext>` | Every other submission for that problem |
+| File extension | The extension of the chosen language (e.g. `cpp`, `py`, `java`) |
+| File-upload languages | For languages that submit a file, LCOJ puts the original uploaded file in the ZIP |
 
-Configure it in `local_settings.py`:
+## Configuration (for operators)
+
+The settings live in the site's `dmoj/local_settings.py` (with Docker, `dmoj/repo/dmoj/local_settings.py`, copied from `dmoj/config/local_settings.py` by `./scripts/initialize`). They are **not** read from environment variables, so putting them in `environment/site.env` has no effect.
+
+| Setting | Default in `settings.py` | Value in LCOJ's Docker config | Meaning |
+|---|---|---|---|
+| `DMOJ_CONTEST_DATA_DOWNLOAD` | `False` | `True` | Turns the feature on or off |
+| `DMOJ_CONTEST_DATA_CACHE` | `''` | `'/contestdatacache'` | Directory for the ZIP files, one `<contest ID>.zip` per contest |
+| `DMOJ_CONTEST_DATA_INTERNAL` | `''` | `'/contestdatacache'` | nginx internal path used for `X-Accel-Redirect` |
+| `DMOJ_CONTEST_DATA_DOWNLOAD_RATELIMIT` | `timedelta(days=1)` | `timedelta(days=1)` | Minimum time between two preparations for the same contest |
 
 ```python
+# dmoj/local_settings.py
 DMOJ_CONTEST_DATA_DOWNLOAD = True
-DMOJ_CONTEST_DATA_CACHE = '/home/dmoj-uwsgi/contestdatacache'
+DMOJ_CONTEST_DATA_CACHE = '/contestdatacache'
 DMOJ_CONTEST_DATA_INTERNAL = '/contestdatacache'
 DMOJ_CONTEST_DATA_DOWNLOAD_RATELIMIT = datetime.timedelta(days=1)
 ```
 
-Configure nginx and create the cache directory the same way as for user_data_download.
+In `docker-compose.yml`, the `contestdatacache` volume is mounted at `/contestdatacache/` in all three of `site`, `celery` (which writes the file) and `nginx` (which serves it). nginx already has an internal location:
+
+```nginx
+location /contestdatacache {
+    internal;
+    root /;
+}
+```
+
+When the site runs behind nginx, Django only returns an `X-Accel-Redirect` header and nginx sends the file directly. Otherwise, Django reads and returns the file itself.
+
+After editing `local_settings.py`, restart site and celery (run from `dmoj/`):
+
+```sh
+docker compose restart site celery
+```
 
 ## Cleaning up old files
 
-### With Docker
+Each contest has only one ZIP file (a new preparation overwrites the old one), but LCOJ does **not** delete these files. You can periodically remove files older than 2 days:
+
+::: warning
+This command permanently deletes prepared ZIP files. Organizers will have to prepare them again if needed.
+:::
 
 ```sh
-# Run manually
+# Run from dmoj/
 docker compose exec site find /contestdatacache/ -type f -mtime +2 -delete
+```
 
-# Cron job
+Example cron entry that runs every 4 hours:
+
+```
 0 */4 * * * docker compose -f /path/to/lcoj-docker/dmoj/docker-compose.yml exec -T site find /contestdatacache/ -type f -mtime +2 -delete
-```
-
-### With bare metal
-
-```
-0 */4 * * * find /home/dmoj-uwsgi/contestdatacache/ -type f -mtime +2 -delete
-```
-
-## Usage
-
-### Access
-
-Only the following users can download contest data:
-- The contest's organizers
-- Admins with the `edit_all_contest` permission
-
-### How to download
-
-1. Open the contest management page (admin)
-2. Select the contest whose data you want to download
-3. Click _Download contest data_
-4. Choose the data type:
-   - All submissions
-   - Last submissions only
-   - AC submissions only
-5. Click _Request download_
-6. Wait for the system to generate the file
-7. Download the file
-
-## Data format
-
-### Submissions (submissions.csv)
-
-A CSV file with submission details:
-
-```csv
-ID,User,Problem,Date,Language,Result,Points,Time,Memory
-123456,user1,APLUSB,2024-01-01 00:00:00,CPP17,AC,100,0.1,2048
-123457,user2,APLUSB,2024-01-01 00:01:00,PYTHON3,WA,0,0.2,4096
-```
-
-### Submissions with source code (submissions_with_source.zip)
-
-A zip file containing:
-- `submissions.csv`: Submission details
-- `sources/`: Directory containing the source code
-  - `123456_user1_APLUSB.cpp`
-  - `123457_user2_APLUSB.py`
-
-### Scoreboard (scoreboard.csv)
-
-The contest ranking:
-
-```csv
-Rank,User,Score,Time,Problem1,Problem2,Problem3
-1,user1,300,120,100,100,100
-2,user2,200,150,100,100,0
-```
-
-## Download options
-
-### Filter by time
-
-Download only submissions within a time range:
-
-```python
-# In the admin, select:
-Start time: 2024-01-01 00:00:00
-End time: 2024-01-01 23:59:59
-```
-
-### Filter by user
-
-Download only submissions from specific users:
-
-```python
-# Enter a list of usernames, one user per line
-user1
-user2
-user3
-```
-
-### Filter by problem
-
-Download only submissions for specific problems:
-
-```python
-# Enter a list of problem codes, one problem per line
-APLUSB
-SORTING
-GRAPH
 ```
 
 ## Troubleshooting
 
-**The file is not generated:**
-- Check the cache directory permissions
-- Check Celery (Docker): `docker compose ps celery`
-- Check the logs (Docker): `docker compose logs -f celery`
-- Check Celery (bare metal): `supervisorctl status celery`
-- Check the logs (bare metal): `supervisorctl tail -f celery`
+| Symptom | Cause / fix |
+|---|---|
+| No **Download data** button | The feature is off, or you cannot edit the contest. |
+| 403 page saying to wait until the contest ends | The contest has not ended yet. |
+| Progress bar does not move | Check `docker compose ps celery` and `docker compose logs -f celery`. |
+| Task fails right after starting | Try leaving **Filter by result** empty (see the warning above); check write permissions on the cache directory. |
+| Download returns 404 | The ZIP has not been built yet or was cleaned up; prepare it again. |
 
-**The file is too large:**
-- Filter by time or by problem
-- Download the data in separate parts
-- Increase the Celery timeout
+## Security and privacy
 
-**Rate limit errors:**
-- Each contest can only be downloaded once per `RATELIMIT` period
-- The default is 1 day
-- Admins can delete old files to download again sooner
-
-## Data analysis
-
-### Python
-
-```python
-import pandas as pd
-
-# Read the CSV file
-df = pd.read_csv('submissions.csv')
-
-# Per-user statistics
-user_stats = df.groupby('User').agg({
-    'ID': 'count',
-    'Points': 'sum'
-}).rename(columns={'ID': 'Submissions', 'Points': 'Total Points'})
-
-print(user_stats)
-```
-
-### Excel
-
-Open the CSV file in Excel to analyze it and create charts.
-
-## Security
-
-- Only organizers and admins can download the data
-- Files have random, hard-to-guess names
-- Clean up old files regularly
-- Do not share files containing contestants' source code
-- Respect contestants' privacy
+- The ZIP contains contestants' source code. Do not share it publicly without their consent.
+- The file can only be downloaded through the Django URL (which checks permissions); the nginx location is `internal`, so it cannot be accessed directly.
+- Users download their own personal data with a separate feature, see [User Data Download](/en/operate/user-data-download).

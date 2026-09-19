@@ -1,255 +1,188 @@
-# Tạo PDF cho đề bài
+# Xuất đề bài ra PDF (Pdfoid)
 
-LCOJ hỗ trợ xuất đề bài ra file PDF, hữu ích cho kỳ thi onsite khi thí sinh nhận đề bài giấy.
+::: info Bạn có cần trang này không?
+Pdfoid là dịch vụ của DMOJ, dùng Chromium chạy ngầm (headless) để chuyển HTML đề bài thành file PDF trên server.
 
-**Lưu ý:** 
-- Tính năng này tùy chọn, không bắt buộc
-- Hướng dẫn này cho bare metal install
-- Với Docker, cần setup Pdfoid riêng trên host hoặc container khác
+- **LCOJ chạy tốt khi không có Pdfoid.** Nút **Xem dạng PDF** trên trang đề bài khi đó mở bản in `/problem/<mã>/raw` rồi gọi hộp thoại in của trình duyệt, người dùng chọn "Lưu dưới dạng PDF".
+- Chỉ cài Pdfoid khi bạn cần **link PDF cố định** (`/problem/<mã>/pdf`) do server tạo, ví dụ để phát đề hoặc in hàng loạt cho kỳ thi offline.
+- Nếu bạn đã có sẵn file PDF đề bài, không cần Pdfoid: dùng trường tải lên file PDF đề (`statement_file`) khi sửa bài.
+:::
 
-## Cài đặt Pdfoid
+## Trạng thái trong LCOJ
 
-Pdfoid là dịch vụ chuyển đổi HTML thành PDF.
+| Thành phần | Trạng thái trong cấu hình đi kèm |
+|---|---|
+| `DMOJ_PDF_PDFOID_URL` | **Tắt**: chỉ có dòng ví dụ bị comment trong `dmoj/config/local_settings.py` |
+| `DMOJ_PDF_PROBLEM_CACHE`, `DMOJ_PDF_PROBLEM_INTERNAL` | **Tắt**: bị comment |
+| Dịch vụ Pdfoid trong `docker-compose.yml` | **Không có** |
+| Nút "Xem dạng PDF" | Dùng chế độ in của trình duyệt |
 
-### Bước 1: Cài đặt dependencies
+## Cách hoạt động
 
-```sh
-apt update
-apt install chromium-driver exiftool
+```mermaid
+sequenceDiagram
+  participant U as Người dùng
+  participant S as site (Django)
+  participant P as pdfoid (Chromium)
+  U->>S: GET /problem/APLUSB/pdf
+  alt Đã có file trong DMOJ_PDF_PROBLEM_CACHE
+    S-->>U: Trả file PDF (qua nginx X-Accel-Redirect nếu cấu hình)
+  else Chưa có
+    S->>P: POST html + title, chờ class "math-loaded" tối đa 15 giây
+    P->>P: Mở HTML, tải MathJax từ URL của site, in ra PDF
+    P-->>S: PDF (base64)
+    S-->>U: File PDF
+  end
 ```
 
-### Bước 2: Clone Pdfoid
+Một số điểm cần biết:
 
-```sh
-git clone https://github.com/DMOJ/pdfoid.git
-cd pdfoid
+- HTML gửi sang Pdfoid là template `problem/raw.html`. Template này tải MathJax **qua URL đầy đủ của site** (ví dụ `https://luyencode.net/static/...`), nên container Pdfoid **phải truy cập được website của bạn**.
+- Nếu đặt `DMOJ_PDF_PROBLEM_CACHE`, file PDF được lưu với tên `<MÃ>.<ngôn ngữ>.pdf` và **tự bị xóa khi bài được lưu lại**. Lần xem sau sẽ render lại.
+- Việc render diễn ra ngay trong request của uWSGI (không qua Celery).
+
+## Cài đặt (tùy chọn)
+
+Pdfoid không có trong `docker-compose.yml`. Bạn chạy nó thành một container riêng, cùng network `site` với container `site`.
+
+### Bước 1: Tạo image Pdfoid
+
+Pdfoid không có trên PyPI, cài trực tiếp từ [github.com/DMOJ/pdfoid](https://github.com/DMOJ/pdfoid). Nó cần Chromium, ChromeDriver và exiftool, đọc đường dẫn từ biến `CHROME_PATH`, `CHROMEDRIVER_PATH`, `EXIFTOOL_PATH`.
+
+Tạo `dmoj/addons/pdfoid/Dockerfile` (mẫu, chưa được kiểm thử trên LCOJ):
+
+```dockerfile
+FROM python:3.11-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        chromium chromium-driver libimage-exiftool-perl \
+        fonts-dejavu fonts-liberation git && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir git+https://github.com/DMOJ/pdfoid.git && \
+    useradd -m pdfoid
+ENV CHROME_PATH=/usr/bin/chromium \
+    CHROMEDRIVER_PATH=/usr/bin/chromedriver \
+    EXIFTOOL_PATH=/usr/bin/exiftool
+USER pdfoid
+EXPOSE 8888
+CMD ["pdfoid", "--port=8888", "--address=0.0.0.0"]
 ```
 
-### Bước 3: Tạo virtual environment
+::: warning
+Pdfoid mặc định chỉ nghe trên `localhost`. Trong container bắt buộc phải có `--address=0.0.0.0`.
+:::
 
-```sh
-python3 -m venv env
-source env/bin/activate
-pip install -e .
+### Bước 2: Thêm service vào Compose
+
+Tạo (hoặc bổ sung) `dmoj/docker-compose.override.yml`. Compose tự gộp file này với `docker-compose.yml` khi bạn chạy lệnh trong thư mục `dmoj/`.
+
+```yaml
+services:
+  pdfoid:
+    build: ./addons/pdfoid
+    restart: unless-stopped
+    networks: [site]
 ```
 
-### Bước 4: Chạy Pdfoid
+### Bước 3: Khai báo settings
 
-```sh
-export CHROME_PATH=/usr/bin/chromium
-export CHROMEDRIVER_PATH=/usr/bin/chromedriver
-export EXIFTOOL_PATH=/usr/bin/exiftool
-env/bin/pdfoid --port=8888
-```
-
-Nếu các chương trình đã có trong `$PATH`, không cần export.
-
-## Cấu hình LCOJ
-
-Thêm vào `local_settings.py`:
+Site đọc cấu hình từ `dmoj/repo/dmoj/local_settings.py`. File này được `./scripts/initialize` chép từ `dmoj/config/local_settings.py`. Hãy sửa file trong `config/` rồi chép lại (hoặc sửa cả hai), xem [Biến môi trường và cấu hình](/operate/environment).
 
 ```python
-# URL của Pdfoid
-DMOJ_PDF_PDFOID_URL = 'http://localhost:8888'
-
-# Timeout (giây)
-DMOJ_PDF_PROBLEM_TIMEOUT = 30
+DMOJ_PDF_PDFOID_URL = 'http://pdfoid:8888/'
 ```
 
-### Khởi động lại
-
-**Docker:**
+### Bước 4: Khởi động
 
 ```sh
+cd dmoj
+docker compose up -d --build pdfoid
 docker compose restart site
 ```
 
-**Bare metal:**
+### Bước 5: Kiểm tra
 
-```sh
-supervisorctl restart site
-```
+1. Mở một bài bất kỳ, ví dụ `https://luyencode.net/problem/APLUSB`.
+2. Nút **Xem dạng PDF** giờ trỏ tới `/problem/APLUSB/pdf`.
+3. Bấm vào, sau vài giây trình duyệt hiển thị file PDF.
+
+## Bật cache PDF (khuyến nghị khi đã dùng Pdfoid)
+
+Không có cache, mỗi lượt xem PDF đều khởi động một Chromium mới. Để cache:
+
+1. Thêm một volume dùng chung cho `site` và `nginx` trong `dmoj/docker-compose.override.yml`:
+
+   ```yaml
+   services:
+     site:
+       volumes:
+         - pdfcache:/pdfcache/
+     nginx:
+       volumes:
+         - pdfcache:/pdfcache/
+   volumes:
+     pdfcache:
+   ```
+
+2. Thêm location nội bộ vào `dmoj/nginx/conf.d/nginx.conf`, giống cách `/userdatacache` đang làm:
+
+   ```nginx
+   location /pdfcache {
+       internal;
+       root /;
+   }
+   ```
+
+3. Khai báo settings:
+
+   ```python
+   DMOJ_PDF_PROBLEM_CACHE = '/pdfcache'      # thư mục phải tồn tại và site ghi được
+   DMOJ_PDF_PROBLEM_INTERNAL = '/pdfcache'   # đường dẫn nginx dùng cho X-Accel-Redirect
+   ```
+
+4. Tạo lại container `site` và `nginx` để gắn volume mới (nginx cũng đọc lại cấu hình khi được tạo lại):
+
+   ```sh
+   docker compose up -d site nginx
+   ```
+
+## Các setting có thật
+
+| Setting | Mặc định (`dmoj/settings.py`) | Ý nghĩa |
+|---|---|---|
+| `DMOJ_PDF_PDFOID_URL` | `None` | URL của Pdfoid. Khác `None` thì bật tính năng |
+| `DMOJ_PDF_PROBLEM_CACHE` | `None` | Thư mục cache PDF (tùy chọn) |
+| `DMOJ_PDF_PROBLEM_INTERNAL` | `None` | Đường dẫn nội bộ nginx trỏ tới thư mục cache (tùy chọn) |
+
+::: warning Các setting không tồn tại
+Tài liệu cũ có nhắc `DMOJ_PDF_PROBLEM_TIMEOUT`, `DMOJ_PDF_PROBLEM_EXTRA_CSS`, `DMOJ_PDF_PROBLEM_HEADER`, `DMOJ_PDF_PROBLEM_FOOTER`, `DMOJ_PDF_PROBLEM_CACHE_TIME`, `DMOJ_PDF_PROBLEM_COMPRESS`, `DMOJ_PDF_PDFOID_URLS`. LCOJ **không đọc** các setting này. Thời gian chờ MathJax (15 giây) được viết cứng trong `judge/utils/pdfoid.py`.
+:::
 
 ## Sử dụng
 
-### Tạo PDF cho bài tập
+| Cách | Ví dụ |
+|---|---|
+| Theo ngôn ngữ giao diện hiện tại | `https://luyencode.net/problem/APLUSB/pdf` |
+| Chỉ định ngôn ngữ (`vi` hoặc `en`) | `https://luyencode.net/problem/APLUSB/pdf/vi` |
+| Lệnh quản trị, ghi ra `APLUSB.pdf` trong `dmoj/repo/` | `./scripts/manage.py render_pdf APLUSB -l vi` |
 
-Truy cập: `https://luyencode.net/problem/<problem_code>/pdf`
+::: tip
+Trang PDF kiểm tra quyền xem bài giống trang đề: ai không có quyền xem bài sẽ nhận lỗi 404.
+:::
 
-Ví dụ: `https://luyencode.net/problem/APLUSB/pdf`
+## Xử lý sự cố
 
-### Tạo PDF cho nhiều bài
+| Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
+|---|---|---|
+| `/problem/<mã>/pdf` trả 404 | `DMOJ_PDF_PDFOID_URL` chưa đặt, hoặc chưa restart `site` | Kiểm tra settings, chạy `docker compose restart site` |
+| Lỗi 500, log `site` có `ConnectionError` | Site không gọi được Pdfoid | `docker compose ps pdfoid`; kiểm tra service ở network `site` và nghe `0.0.0.0` |
+| Log có `PDF rendering timed out` | Chromium không tải được MathJax từ URL site trong 15 giây | Kiểm tra container Pdfoid truy cập được website (DNS, internet, Cloudflare) |
+| Log Pdfoid báo Chromium không khởi động (sandbox) | Hạn chế của Docker với sandbox Chromium | Chạy bằng user thường (như Dockerfile trên); nếu vẫn lỗi, xem tài liệu Chromium về sandbox trong container |
+| Chữ tiếng Việt lỗi font | Thiếu font trong image | Cài thêm font (`fonts-dejavu`, `fonts-noto`) rồi build lại |
+| Sửa đề mà PDF cũ vẫn còn | File cache chỉ bị xóa khi bài được lưu | Lưu lại bài, hoặc xóa file `<MÃ>.<ngôn ngữ>.pdf` trong thư mục cache |
 
-Tạo PDF cho tất cả bài trong contest:
+Xem log: `docker compose logs -f pdfoid` và `docker compose logs -f site` (logger `judge.problem.pdf`).
 
-1. Vào trang contest
-2. Click _Download problems as PDF_
-3. Chọn bài muốn tải
-4. Click _Generate PDF_
-
-## Chạy Pdfoid với Supervisor
-
-Tạo file `/etc/supervisor/conf.d/pdfoid.conf`:
-
-```ini
-[program:pdfoid]
-command=/path/to/pdfoid/env/bin/pdfoid --port=8888
-directory=/path/to/pdfoid
-user=pdfoid
-environment=CHROME_PATH="/usr/bin/chromium",CHROMEDRIVER_PATH="/usr/bin/chromedriver",EXIFTOOL_PATH="/usr/bin/exiftool"
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/pdfoid.log
-```
-
-Khởi động:
-
-```sh
-supervisorctl update
-supervisorctl start pdfoid
-```
-
-## Tùy chỉnh PDF
-
-### CSS tùy chỉnh
-
-Thêm CSS riêng cho PDF trong `local_settings.py`:
-
-```python
-DMOJ_PDF_PROBLEM_EXTRA_CSS = """
-@page {
-    size: A4;
-    margin: 2cm;
-}
-body {
-    font-family: "Times New Roman", serif;
-    font-size: 12pt;
-}
-"""
-```
-
-### Header/Footer
-
-```python
-DMOJ_PDF_PROBLEM_HEADER = """
-<div style="text-align: center; font-size: 10pt;">
-    LuyenCode Online Judge
-</div>
-"""
-
-DMOJ_PDF_PROBLEM_FOOTER = """
-<div style="text-align: center; font-size: 10pt;">
-    Trang <span class="pageNumber"></span> / <span class="totalPages"></span>
-</div>
-"""
-```
-
-## Xử lý lỗi
-
-**PDF không tạo được:**
-- Kiểm tra Pdfoid đang chạy: `curl http://localhost:8888`
-- Kiểm tra Chrome/Chromium đã cài đặt
-- Xem log Pdfoid Docker: `docker compose logs -f pdfoid` (nếu chạy trong Docker)
-- Xem log Pdfoid bare metal: `supervisorctl tail -f pdfoid`
-
-**PDF bị lỗi font:**
-- Cài đặt font cần thiết:
-```sh
-apt install fonts-liberation fonts-dejavu
-```
-
-**Timeout:**
-- Tăng `DMOJ_PDF_PROBLEM_TIMEOUT`
-- Kiểm tra server có đủ RAM
-
-**Hình ảnh không hiển thị:**
-- Đảm bảo hình ảnh có URL đầy đủ (không dùng relative path)
-- Kiểm tra hình ảnh accessible từ server
-
-## Tối ưu
-
-### Cache PDF
-
-Để tránh tạo lại PDF nhiều lần:
-
-```python
-DMOJ_PDF_PROBLEM_CACHE = '/home/lcoj/pdf_cache'
-DMOJ_PDF_PROBLEM_CACHE_TIME = 3600  # 1 giờ
-```
-
-Tạo thư mục:
-
-```sh
-mkdir -p /home/lcoj/pdf_cache
-chown www-data:www-data /home/lcoj/pdf_cache
-```
-
-### Giảm kích thước PDF
-
-```python
-DMOJ_PDF_PROBLEM_COMPRESS = True
-```
-
-### Parallel processing
-
-Nếu cần tạo nhiều PDF cùng lúc, chạy nhiều instance Pdfoid:
-
-```sh
-# Instance 1
-env/bin/pdfoid --port=8888
-
-# Instance 2
-env/bin/pdfoid --port=8889
-```
-
-Cấu hình load balancer trong `local_settings.py`:
-
-```python
-DMOJ_PDF_PDFOID_URLS = [
-    'http://localhost:8888',
-    'http://localhost:8889',
-]
-```
-
-## In PDF
-
-### Cài đặt in
-
-Khi in PDF, nên:
-- Chọn khổ giấy A4
-- Margin: 2cm mỗi cạnh
-- In 2 mặt để tiết kiệm giấy
-- Kiểm tra preview trước khi in
-
-### Số lượng
-
-Tính số bản in cần thiết:
-- Số thí sinh × Số bài
-- Thêm 10% dự phòng
-- Thêm bản cho giám khảo
-
-## Ví dụ workflow
-
-### Chuẩn bị kỳ thi onsite
-
-1. Tạo contest với các bài tập
-2. Kiểm tra đề bài hiển thị đúng
-3. Tạo PDF cho từng bài
-4. Review PDF
-5. In PDF
-6. Đóng gói đề bài
-
-### Script tự động
-
-```bash
-#!/bin/bash
-CONTEST="contest_key"
-PROBLEMS=("APLUSB" "SORTING" "GRAPH")
-
-for problem in "${PROBLEMS[@]}"; do
-    curl "https://luyencode.net/problem/$problem/pdf" \
-         -o "${problem}.pdf"
-    echo "Downloaded $problem.pdf"
-done
-```
+::: tip Cần hỗ trợ?
+Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

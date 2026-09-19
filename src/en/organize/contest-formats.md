@@ -1,115 +1,179 @@
 # Contest Formats
 
-LCOJ supports 6 contest formats: Default, IOI, Legacy IOI, ECOO, AtCoder, and ICPC.
+A contest format decides **how points are calculated** and **how ties are broken** on the scoreboard. LCOJ ships 7 formats, inherited from DMOJ and VNOJ.
 
-## Default
+## Which format should I pick?
 
-The standard and simplest format.
+| Key (`format_name`) | Display name | Score per problem | Tie-break | Default penalty | Scoreboard freeze | Problem labels | Good for |
+|---|---|---|---|---|---|---|---|
+| `default` | Default | Best score | Sum of **last** submission times on scored problems | None | No | 1, 2, 3… | Practice rounds, simple contests |
+| `ioi` | IOI (pre-2016) | Best score of a single submission | Optional (default: no tie-break) | None | No | 1, 2, 3… | Old-style IOI, problems without subtasks |
+| `ioi16` | IOI | Sum of the best score of **each subtask** across all submissions | Optional (default: no tie-break) | None | No | 1, 2, 3… | Olympiad-style contests with subtasks |
+| `ecoo` | ECOO | **Last** submission's score + bonuses | Optional (default: no tie-break) | None (bonuses instead) | No | 1, 2, 3… | Contests that reward early solves |
+| `atcoder` | AtCoder | Best score | Time of last score change + penalty | 5 min per wrong try | No | 1, 2, 3… | AtCoder-style contests |
+| `icpc` | ICPC | Best score | Total time + penalty, then time of last solve | 20 min per wrong try | **Yes** | A, B, C… | ICPC-style team contests |
+| `vnoj` | VNOJ | Best score | Total time + penalty (or last solve only with `LSO`), then time of last solve | 5 min per wrong try | **Yes** | 1, 2, 3… | VNOJ/Codeforces-style contests that need a frozen scoreboard |
 
-**Scoring:**
-- Score = Sum of the highest score on each problem
-- Tiebreaker: Time of the last scoring submission
+::: tip Quick picks
+- A regular contest with no penalties: **`default`**.
+- Problems with subtasks and partial scoring: **`ioi16`**.
+- Penalize wrong submissions and freeze the scoreboard near the end: **`vnoj`** (time in seconds, numeric labels) or **`icpc`** (time in minutes, letter labels).
+:::
 
-**Note:** Every submission adds to the penalty time, even submissions that do not increase your score.
+## Setting the format
 
-**Configuration:** No special options.
+The format is configured in the Django admin (**Admin → Contests → pick a contest**), in the **Format** section:
+
+| Field | Admin label | Meaning |
+|---|---|---|
+| `format_name` | contest format | One of the keys in the table above. Defaults to `default`. |
+| `format_config` | contest format configuration | A JSON object with the format's options. Leave empty to use the defaults. |
+| `frozen_last_minutes` | frozen last minutes | Number of minutes before the end during which the scoreboard is frozen. Only works for `icpc` and `vnoj`. `0` = no freeze. |
+| `problem_label_script` | contest problem label script | (Optional) A Lua function that generates problem labels, overriding the format's default labels. |
+
+A few related fields:
+
+- `points_precision` (default `3`): number of decimal digits scores are rounded to.
+- `show_short_display` (**show short form settings display**): shows a summary of the format's scoring rules on the contest page.
+
+`format_config` validation rules (for every format that takes options):
+
+- It must be a JSON object (or empty).
+- Keys that the format does not know are **rejected** (`unknown config key`). You **cannot** mix options from several formats into one config.
+- Value types must match the default: an integer (`5`, not `5.0`) or a boolean (`true`/`false`).
+- `default` only accepts an empty config (`null` or `{}`).
+
+::: warning Full rescore
+When you save a contest and `format_name`, `format_config` or `frozen_last_minutes` changed, LCOJ recalculates every participation. On a large contest this can take a while.
+:::
+
+## How ranking works
+
+Every format stores three values per participant: **score** (`score`), **cumulative time** (`cumtime`) and a **tie-breaker** (`tiebreaker`). The scoreboard is sorted by:
+
+1. Disqualified participants always go last.
+2. `score`, descending.
+3. `cumtime`, ascending.
+4. `tiebreaker`, ascending.
+
+Participants equal on all three values **share a rank**. Formats differ only in how they compute these values.
+
+In the sections below, a submission's "time" is the number of seconds (minutes for `icpc`) since the participant started. "Wrong tries" only count judged submissions: compile errors (CE) and internal errors (IE) are **not** counted.
+
+## Default (`default`)
+
+**Scoring:** each problem's score is the best score among your submissions; your total is the sum over problems.
+
+**Tie-break:** `cumtime` = sum of the time of your **last submission** on each problem with a non-zero score. Submitting again to a problem you already scored on (even without improving) increases your time.
+
+**Configuration:** none. `format_config` must be empty.
 
 **Example:**
 
-| Contestant | Problem A | Problem B | Problem C | Total score | Time |
-|----------|-------|-------|-------|-----------|-----------|
-| Alice    | 100 (10m) | 80 (25m) | 60 (40m) | 240 | 40m |
-| Bob      | 100 (15m) | 80 (20m) | 60 (35m) | 240 | 35m |
+| Participant | Problem 1 | Problem 2 | Problem 3 | Total | `cumtime` |
+|---|---|---|---|---|---|
+| Alice | 100 (last submit at 10 min) | 80 (25 min) | 60 (40 min) | 240 | 75 min |
+| Bob | 100 (15 min) | 80 (20 min) | 60 (35 min) | 240 | 70 min |
 
-Bob wins because his time is lower.
+Bob ranks higher because his total time is lower.
 
-## IOI
+## IOI (pre-2016) (`ioi`)
 
-The format of the International Olympiad in Informatics.
+The legacy IOI format: each problem takes the score of your **single best submission** (subtask scores are not combined across submissions).
 
-**Scoring:**
-- Each problem has multiple subtasks
-- Subtask score = Highest score on that subtask across all submissions
-- Problem score = Sum of subtask scores
-- Total score = Sum of problem scores
-- No tiebreaker by default
+**Configuration:**
 
-**Example:**
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `cumtime` | boolean | `false` | Break ties by the sum of the times you **first** reached your best score on each scored problem. |
+| `last_score_altering` | boolean | `false` | Break ties by the time of your **latest** score-changing submission. |
 
-Problem A has 2 subtasks (30 points and 70 points):
-
-| Submission | Subtask 1 | Subtask 2 | Total |
-|---------|-----------|-----------|------|
-| Attempt 1   | 30        | 10        | 40   |
-| Attempt 2   | 0         | 70        | 70   |
-| **Final score** | **30** | **70** | **100** |
-
-**Options:**
-
-```json
-{
-  "cumtime": true
-}
-```
-
-If `cumtime: true`, ties are broken by the total time of the first submission that passes each subtask.
-
-## Legacy IOI
-
-The format of the Codechef IOI Ranklist.
-
-**Scoring:**
-- Score = Sum of the highest score on each problem
-- No tiebreaker by default
-
-**Options:**
-
-```json
-{
-  "cumtime": true
-}
-```
-
-If `cumtime: true`, ties are broken by the total time of the most recent score-changing submissions.
-
-## ECOO
-
-The format of the ECOO contest.
-
-**Scoring:**
-- Score = Sum of the scores of the **last** submission on each problem
-- No tiebreaker by default
-
-**Options:**
+| `cumtime` | `last_score_altering` | Tie-break |
+|---|---|---|
+| `false` | `false` | None: equal scores share a rank. |
+| `true` | `false` | Sum of the times you reached your best score on each problem. |
+| `false` | `true` | Time of the last score-changing submission. |
+| `true` | `true` | Sum of times, then time of the last score-changing submission. |
 
 ```json
 {
   "cumtime": true,
+  "last_score_altering": false
+}
+```
+
+## IOI (`ioi16`)
+
+The IOI format used since 2016: for each **subtask** (test batch), LCOJ takes your best score on that subtask across **all** fully judged submissions, then adds them up to get the problem score.
+
+::: tip Use it only for problems with subtasks
+This format works per batch. Test cases outside any batch are lumped into a single group, which is usually not what you want. Group the tests of every problem in the contest into batches (see [Problem Format](/en/setter/problem-format)).
+:::
+
+**Example:** a problem with 2 subtasks (30 and 70 points):
+
+| Submission | Subtask 1 | Subtask 2 | Submission score |
+|---|---|---|---|
+| #1 | 30 | 0 | 30 |
+| #2 | 0 | 70 | 70 |
+| **Problem score** | **30** | **70** | **100** |
+
+**Configuration:**
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `cumtime` | boolean | `false` | Break ties by total time. A problem's time is the latest of the times you **first** reached your best score on each of its subtasks. |
+
+With `cumtime` set to `false`, equal scores share a rank. `ioi16` does not accept `last_score_altering`.
+
+```json
+{
+  "cumtime": true
+}
+```
+
+::: info
+Contests using `ioi16` cannot be replayed (scoreboard replay).
+:::
+
+## ECOO (`ecoo`)
+
+**Scoring:** each problem takes the score of your **last submission** (ignoring CE and IE), plus bonuses. Bonuses only apply when that last submission scored more than 0:
+
+- **First-try bonus:** if you have exactly one submission on the problem (not counting CE/IE) and it got full points, you get `first_ac_bonus` extra points.
+- **Time bonus:** you get ⌊minutes left in your contest window ÷ `time_bonus`⌋ extra points.
+
+**Configuration:**
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `cumtime` | boolean | `false` | Break ties by the sum of your last submission times on **all** problems (including 0-point ones). |
+| `first_ac_bonus` | integer ≥ 0 | `10` | Bonus for getting AC on the first try. |
+| `time_bonus` | integer ≥ 0 | `5` | +1 point for every `time_bonus` minutes before the end of your window. `0` disables it. |
+
+```json
+{
+  "cumtime": false,
   "first_ac_bonus": 10,
   "time_bonus": 5
 }
 ```
 
-**`first_ac_bonus`:** Bonus points for getting AC on the first attempt (default 10).
+**Example:** your last submission scores 50/100 with 23 minutes left and `time_bonus = 5`: bonus ⌊23 ÷ 5⌋ = 4, problem score = 54. No first-try bonus because it wasn't full points.
 
-**`time_bonus`:** Time-based bonus points. You earn 1 point for every `time_bonus` minutes remaining before the contest ends (default 5).
+## AtCoder (`atcoder`)
 
-**time_bonus example:**
+**Scoring:** best score on each problem.
 
-- A submission scores 50/100 points
-- It is submitted with 23 minutes remaining
-- Bonus = ⌊23/5⌋ = 4 points
-- Total = 50 + 4 = 54 points
+**Penalty:** on each problem with a non-zero score, every submission (excluding CE/IE) **before** the first one that reached the best score costs `penalty` minutes. Problems with 0 points are not penalized (the number of tries is still shown).
 
-## AtCoder
+**Tie-break:** `cumtime` = the latest of the times you reached your best score (your last score change) + total penalty.
 
-The AtCoder format.
+**Configuration:**
 
-**Scoring:**
-- Score = Sum of the highest score on each problem
-- Tiebreaker: Time of the last score-changing submission + penalty
-
-**Penalty:**
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `penalty` | integer ≥ 0 | `5` | Penalty minutes per wrong try. `0` disables penalties. |
 
 ```json
 {
@@ -117,29 +181,27 @@ The AtCoder format.
 }
 ```
 
-Penalty = Number of wrong submissions before the correct one × `penalty` minutes (default 5).
+**Example:** problem 1 reaches full score at 10 min (0 wrong tries), problem 2 at 25 min (2 wrong tries), problem 3 at 50 min (1 wrong try). `cumtime` = 50 + 3 × 5 = **65 min**.
 
-**Example:**
+## ICPC (`icpc`)
 
-Problem A:
-- Attempt 1 (5m): 0 points
-- Attempt 2 (10m): 0 points
-- Attempt 3 (15m): 100 points
+**Scoring:** best score on each problem. For classic ICPC rules (count solved problems), give every problem 1 point and disable partial scoring.
 
-Penalty = 2 × 5 = 10 minutes
+**Penalty:** same as AtCoder, 20 minutes by default for each wrong try before the first best-score submission.
 
-Time = 15 + 10 = 25 minutes
+**Tie-break:**
+1. `cumtime` = sum of the times (in **minutes**, rounded down) you reached your best score on scored problems + total penalty.
+2. `tiebreaker` = the latest of those times.
 
-## ICPC
+**Problem labels:** A, B, …, Z, AA, AB…
 
-The ACM-ICPC format.
+**Scoreboard freeze:** supported (see [below](#scoreboard-freeze)).
 
-**Scoring:**
-- Score = Number of problems solved (AC)
-- Tiebreaker 1: Total time + penalty
-- Tiebreaker 2: Time of the last score-changing submission
+**Configuration:**
 
-**Penalty:**
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `penalty` | integer ≥ 0 | `20` | Penalty minutes per wrong try. `0` disables penalties. |
 
 ```json
 {
@@ -147,55 +209,64 @@ The ACM-ICPC format.
 }
 ```
 
-Penalty = Number of wrong submissions before the AC submission × `penalty` minutes (default 20).
-
 **Example:**
 
-| Problem | AC time | Wrong attempts | Penalty | Total time |
-|-----|--------------|------------|---------|----------------|
-| A   | 10m          | 0          | 0       | 10m            |
-| B   | 25m          | 2          | 40m     | 65m            |
-| C   | 50m          | 1          | 20m     | 70m            |
+| Problem | Solved at | Wrong tries | Penalty |
+|---|---|---|---|
+| A | 10 min | 0 | 0 |
+| B | 25 min | 2 | 40 |
+| C | 50 min | 1 | 20 |
 
-Total: 3 problems, 145 minutes
+`cumtime` = 10 + 25 + 50 + 60 = **145 min**, `tiebreaker` = 50.
 
-## Format comparison
+## VNOJ (`vnoj`)
 
-| Format | Score | Tiebreaker | Penalty | Best for |
-|-----------|------|---------|---------|---------|
-| Default | Sum of highest scores | Last time | Every submission | Regular contests |
-| IOI | Sum of subtask scores | None | None | Olympiads, problems with subtasks |
-| Legacy IOI | Sum of highest scores | Optional | None | Similar to IOI |
-| ECOO | Last submission score | Optional | Has bonuses | ECOO contests |
-| AtCoder | Sum of highest scores | Time + penalty | Wrong submissions | AtCoder-style contests |
-| ICPC | Problems solved (AC) | Time + penalty | Wrong submissions | ACM-ICPC |
+A format developed by VNOJ. It is close to ICPC but measures time in seconds, uses a lighter penalty and can count only the last solve.
 
-## Choosing a format
+**Scoring:** best score on each problem.
 
-**Default:** Best for regular contests; easy to understand.
+**Penalty:** on each scored problem, every submission (excluding CE/IE) before the first best-score submission costs `penalty` minutes.
 
-**IOI:** Use when problems have clear subtasks and you want contestants to earn partial points.
+**Tie-break:**
+1. `cumtime` = sum of the times you reached your best score on scored problems + total penalty. With `LSO` on, only the **latest** of those times is used instead of the sum.
+2. `tiebreaker` = the latest of those times.
 
-**ICPC:** Use when you want to focus on the number of problems solved and partial points do not matter.
+**Problem labels:** 1, 2, 3…
 
-**AtCoder:** Balances score and time, with a light penalty.
+**Scoreboard freeze:** supported. For problems with submissions after the freeze, the scoreboard shows the pre-freeze result plus the number of pending submissions. If the participant already had full points before the freeze, the real result is shown.
 
-**ECOO:** Has special features such as a first-AC bonus and a time bonus.
+**Configuration:**
 
-## Configuring in the admin
-
-1. Open the create/edit contest page
-2. Select a _Contest format_
-3. Enter a JSON config if needed (for example: `{"cumtime": true, "penalty": 10}`)
-4. Save
-
-**Example config:**
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `penalty` | integer ≥ 0 | `5` | Penalty minutes per wrong try. `0` disables penalties. |
+| `LSO` | boolean | `false` | *Last Submission Only*: `cumtime` uses only the latest best-score time, not the sum. |
 
 ```json
 {
-  "cumtime": true,
-  "penalty": 10,
-  "first_ac_bonus": 15,
-  "time_bonus": 3
+  "penalty": 5,
+  "LSO": false
 }
 ```
+
+**Example:** the ICPC example data with `penalty = 5`: total penalty = 3 × 5 = 15 min.
+
+- `LSO = false`: `cumtime` = 10 + 25 + 50 + 15 = **100 min**.
+- `LSO = true`: `cumtime` = 50 + 15 = **65 min**.
+
+## Scoreboard freeze {#scoreboard-freeze}
+
+Only `icpc` and `vnoj` support freezing. Set **frozen last minutes** (`frozen_last_minutes`) to a value greater than 0 to turn it on. Example with `frozen_last_minutes = 60`:
+
+```mermaid
+flowchart LR
+    A["Start<br/>live scoreboard"] --> B["End − 60 min<br/>scoreboard frozen"]
+    B --> C["End<br/>still frozen"]
+    C --> D["Set frozen_last_minutes = 0<br/>real results published"]
+```
+
+- From `end time − frozen_last_minutes` on, participants and visitors only see results of submissions made **before** that moment.
+- Users who can edit the contest (authors, curators) always see the real scoreboard.
+- The scoreboard **stays frozen after the contest ends**. To reveal the results, set `frozen_last_minutes` back to `0` and save; LCOJ recalculates the scoreboard.
+- While frozen, the contest's full submission list is hidden from users who cannot edit the contest.
+- Only contests with `frozen_last_minutes = 0` can be replayed.

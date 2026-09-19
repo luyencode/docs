@@ -1,146 +1,124 @@
-# Preventing Spam with reCAPTCHA
+# Blocking Signup Spam with reCAPTCHA
 
-Once your site has been running for a while, spam bots will start registering accounts automatically. reCAPTCHA helps prevent this.
+::: info Do you need this?
+reCAPTCHA adds an "I'm not a robot" box to the **username/password signup form** to stop bots from creating junk accounts.
 
-## Getting API keys
+- **LCOJ doesn't need reCAPTCHA today.** The shipped config sets `OAUTH_ONLY = True`, so the traditional signup form is hidden and users can only sign up through OAuth (Google). Google already verifies those accounts for you.
+- Only read on if you **turn off `OAUTH_ONLY`** to reopen password-based signup.
+:::
 
-### Step 1: Register for reCAPTCHA
+## Status in LCOJ
 
-1. Go to the [reCAPTCHA admin](https://www.google.com/recaptcha/admin)
-2. Sign in with your Google account
-3. Click _Create_ (+)
+| Component | Status |
+|---|---|
+| `OAUTH_ONLY` in `dmoj/config/local_settings.py` | `True`: the traditional signup form is hidden |
+| Python package `django-recaptcha2` | **Not installed**: not in `requirements.txt` or `additional_requirements.txt` |
+| `RECAPTCHA_PUBLIC_KEY`, `RECAPTCHA_PRIVATE_KEY` | **Not set** |
+| Result | reCAPTCHA is **off** |
 
-### Step 2: Configure
+## How LCOJ integrates reCAPTCHA
 
-- **Label**: Your site name (for example: LCOJ)
-- **reCAPTCHA type**: Select _reCAPTCHA v2_ > _"I'm not a robot" Checkbox_
-- **Domains**: Enter your domain (for example: `luyencode.net`)
-- Accept the terms of service
-- Click _Submit_
+The code lives in `judge/utils/recaptcha.py` and `judge/views/register.py` in `dmoj/repo`:
 
-### Step 3: Get the keys
+1. LCOJ tries to import `snowpenguin.django.recaptcha2`. That module comes from the PyPI package **`django-recaptcha2`**.
+2. If the import succeeds **and** settings has a `RECAPTCHA_PRIVATE_KEY` attribute, the signup form gets a `captcha` field (a reCAPTCHA **v2 checkbox** widget).
+3. If either condition is missing, the form has no captcha and nothing is reported.
 
-Once it is created, you will receive:
-- **Site key**: The public key
-- **Secret key**: The private key
+::: warning Don't mix up the two packages
+- LCOJ's code uses **`django-recaptcha2`** (module `snowpenguin.django.recaptcha2`), which supports reCAPTCHA v2 only.
+- The **`django-recaptcha`** package (module `django_recaptcha`, which has reCAPTCHA v3) is **not** used by LCOJ's code. Installing it won't make a captcha appear.
+:::
 
-## Installation
+::: details A note on `OAUTH_ONLY`
+`OAUTH_ONLY` is only used in the `registration/registration_form.html` template to hide the input fields. The `/accounts/register/` view itself doesn't check `OAUTH_ONLY`.
+:::
 
-### With Docker (recommended)
+## Enabling reCAPTCHA (only after turning off `OAUTH_ONLY`)
 
-**Step 1:** Add the following to `environment/site.env`:
+::: warning Not tested on LCOJ
+`django-recaptcha2` (latest release 1.4.1) only declares support up to Django 2.1, while LCOJ runs Django 4.2. Try it on a development machine before enabling it in production.
+:::
 
-```env
-RECAPTCHA_PUBLIC_KEY=your_site_key_here
-RECAPTCHA_PRIVATE_KEY=your_secret_key_here
+### Step 1: Get keys from Google
+
+1. Go to the [reCAPTCHA admin](https://www.google.com/recaptcha/admin) and sign in with a Google account.
+2. Create a new site:
+   - **Label**: `LCOJ`
+   - **Type**: reCAPTCHA **v2**, _"I'm not a robot" Checkbox_
+   - **Domains**: `luyencode.net` (add your dev domain if needed)
+3. Keep the **Site key** (public) and **Secret key** (private).
+
+### Step 2: Install the Python package
+
+Add one line to `dmoj/repo/additional_requirements.txt`:
+
+```text
+django-recaptcha2
 ```
 
-**Step 2:** Restart the site:
+Then rebuild the images (from the `dmoj/` directory):
 
 ```sh
-cd lcoj-docker/dmoj
-docker compose restart site
+docker compose up -d --build base site celery
 ```
 
-### With bare metal
+### Step 3: Put the keys in the configuration
 
-**Step 1:** Install the library:
+`local_settings.py` does **not** read `RECAPTCHA_*` from environment variables on its own. To keep secrets out of the file, read them from the environment explicitly.
+
+1. Add to `dmoj/environment/site.env`:
+
+   ```env
+   RECAPTCHA_PUBLIC_KEY=<site key>
+   RECAPTCHA_PRIVATE_KEY=<secret key>
+   ```
+
+2. Add to `dmoj/config/local_settings.py`, then copy it to `dmoj/repo/dmoj/local_settings.py` (the file the site actually reads):
+
+   ```python
+   if os.environ.get('RECAPTCHA_PRIVATE_KEY'):
+       INSTALLED_APPS += ('snowpenguin.django.recaptcha2',)
+       RECAPTCHA_PUBLIC_KEY = os.environ['RECAPTCHA_PUBLIC_KEY']
+       RECAPTCHA_PRIVATE_KEY = os.environ['RECAPTCHA_PRIVATE_KEY']
+   ```
+
+   - The `if` block matters: LCOJ enables the captcha as soon as `RECAPTCHA_PRIVATE_KEY` **exists**, even if it's empty.
+   - `INSTALLED_APPS` needs this app so the `snowpenguin/recaptcha/recaptcha_init.html` template can be found.
+
+3. Set `OAUTH_ONLY = False` if you want to reopen the password signup form.
+
+See also [Environment and configuration](/en/operate/environment).
+
+### Step 4: Restart
+
+`docker compose restart` does **not** reread `site.env`. Use `up -d` to recreate the containers:
 
 ```sh
-source lcojsite/bin/activate
-pip3 install django-recaptcha2
+cd dmoj
+docker compose up -d site celery
 ```
 
-**Step 2:** Add the following to `local_settings.py`:
+### Step 5: Verify
 
-```python
-# reCAPTCHA keys
-RECAPTCHA_PUBLIC_KEY = 'your_site_key_here'
-RECAPTCHA_PRIVATE_KEY = 'your_secret_key_here'
-
-# Add to INSTALLED_APPS
-INSTALLED_APPS += (
-    'snowpenguin.django.recaptcha2',
-)
-```
-
-**Step 3:** Restart:
-
-```sh
-supervisorctl restart site
-```
-
-## Verification
-
-1. Open the registration page
-2. You should see the "I'm not a robot" checkbox
-3. Try registering to test it
-
-## Advanced options
-
-### reCAPTCHA v3
-
-reCAPTCHA v3 does not need a checkbox; it detects bots automatically.
-
-**Installation:**
-
-```sh
-pip3 install django-recaptcha
-```
-
-**Configuration:**
-
-```python
-RECAPTCHA_PUBLIC_KEY = 'your_v3_site_key'
-RECAPTCHA_PRIVATE_KEY = 'your_v3_secret_key'
-RECAPTCHA_REQUIRED_SCORE = 0.5  # Minimum score (0-1)
-
-INSTALLED_APPS += (
-    'django_recaptcha',
-)
-```
-
-### Customizing the theme
-
-```python
-RECAPTCHA_THEME = 'dark'  # Or 'light'
-```
-
-### Test mode
-
-To test without an internet connection:
-
-```python
-RECAPTCHA_TESTING = True  # Use only during development
-```
+1. Open `https://luyencode.net/accounts/register/` in a private window.
+2. The "I'm not a robot" box appears at the bottom of the form.
+3. Try registering a test account.
 
 ## Troubleshooting
 
-**reCAPTCHA does not appear:**
-- Check the domains in the reCAPTCHA admin
-- Check `RECAPTCHA_PUBLIC_KEY`
-- Check the browser console for errors
-
-**It always reports an error:**
-- Check `RECAPTCHA_PRIVATE_KEY`
-- Check that the server has internet access
-- Check the logs (Docker): `docker compose logs -f site`
-- Check the logs (bare metal): `supervisorctl tail -f site`
-
-**Blocked while testing:**
-- Use `RECAPTCHA_TESTING = True` during development
-- Or add localhost to the domains in the reCAPTCHA admin
+| Symptom | Cause | Fix |
+|---|---|---|
+| No captcha box | `OAUTH_ONLY = True` (form hidden), `django-recaptcha2` not installed, or `RECAPTCHA_PRIVATE_KEY` missing | Check each condition above |
+| Error 500 `TemplateDoesNotExist` | `'snowpenguin.django.recaptcha2'` missing from `INSTALLED_APPS` | Add it as in Step 3 |
+| Import error when `site` starts | The package is incompatible with Django 4.2 | Remove it from `additional_requirements.txt`, rebuild, and keep `OAUTH_ONLY = True` |
+| Google says "Invalid domain for site key" | Domain not registered in the reCAPTCHA admin | Add the domain and retry |
+| Captcha always fails | Wrong secret key, or the container has no internet access | Check `site.env`, see `docker compose logs -f site` |
 
 ## Security
 
-- Do not commit keys to git
-- Store keys in environment variables or a separate file
-- Rotate keys periodically
-- Monitor the number of registrations to detect spam
+- Never commit the secret key to git. Keep it in `dmoj/environment/site.env` (already gitignored).
+- Watch new-account counts to catch spam early.
 
-## Statistics
-
-View reCAPTCHA statistics in the [reCAPTCHA admin](https://www.google.com/recaptcha/admin):
-- Number of requests
-- Bot rate
-- Success rate
+::: tip Need help?
+Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

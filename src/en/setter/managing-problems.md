@@ -1,260 +1,356 @@
 # Managing Problems
 
-LCOJ provides a web interface for creating and editing problems, including both problem statements and test data.
+LCOJ lets you create problems, write statements, and upload test data from the web interface. This page walks through the whole process, from an empty problem to a problem that is ready to be solved on luyencode.net.
 
-## Configuration
+::: tip Who can do this?
+- Creating a problem requires the `judge.add_problem` permission.
+- Editing a problem requires `judge.edit_own_problem` **and** being one of the problem's authors or curators (or having `judge.edit_all_problem`).
+- Rejudging requires `judge.rejudge_submission`, and rejudging many submissions at once requires `judge.rejudge_submission_lot`.
+
+See [Permissions](/en/admin/permissions) for how to grant these.
+:::
+
+## Where problem data is stored
+
+Every problem has its own directory named after the problem code. That directory holds `init.yml` (the judge configuration), the test data zip file, and any helper files (checker, interactor, header, ...).
 
 ### With Docker (recommended)
 
-Test data is stored in the `dmoj/problems/` directory, which is mounted into the container automatically.
+Problem data is stored in `dmoj/problems/` and mounted into the containers as `/problems/`. The default config already sets:
 
-No extra configuration is needed; this is already set up in Docker.
+```python
+DMOJ_PROBLEM_DATA_ROOT = '/problems/'
+```
+
+No extra configuration is needed.
 
 ### With bare metal
 
-In `local_settings.py`, set `DMOJ_PROBLEM_DATA_ROOT`:
+In `local_settings.py`, point `DMOJ_PROBLEM_DATA_ROOT` at the directory that the judges also read from:
 
 ```python
-DMOJ_PROBLEM_DATA_ROOT = '/home/lcoj/problems'
+DMOJ_PROBLEM_DATA_ROOT = '/home/lcoj/problems/'
 ```
 
-## Adding a New Problem
+::: warning
+The judges must see the same files as the site. If a judge cannot read `<problem_code>/init.yml`, submissions to that problem cannot be graded. See [Judge setup](/en/operate/judge-setup).
+:::
 
-### Step 1: Open the admin site
+## Creating a problem
 
-Go to `/admin/` and log in with an admin account.
+There are three ways to create a problem.
 
-### Step 2: Create the problem
+### Option 1: On the site (recommended)
 
-Click the _Add_ button in the _Problems_ section.
+1. Open **Problems** and click the **Create new problem** tab (URL: `/problems/create`).
+2. Fill in the form (see [Problem settings](#problem-settings) below). The statement box is pre-filled with the example from the site configuration.
+3. Click **Save**. You are added as a **curator** of the problem, and every language marked "include in problem" is allowed automatically.
+4. You are taken to the problem page. The right-hand sidebar now shows **Edit problem**, **Delete problem**, and **Edit test data**.
 
-![Add Problem](https://i.imgur.com/RFPQaUi.png)
+::: info
+New problems are private (not publicly visible) until an administrator makes them public, so you can prepare everything before anyone sees it.
+:::
 
-### Step 3: Fill in the basic information
+### Option 2: Django admin
 
-**Required fields:**
-- **Problem code**: The problem code (must be unique, e.g. `APLUSB`)
-- **Title**: The problem name (e.g. "Sum of Two Numbers")
-- **Authors**: **Important!** You must add yourself as an author, otherwise you will not be able to edit the problem
+1. Go to `/admin/` and open **Problems**.
+2. Click **Add problem**.
+3. Fill in the fields. The admin form has a few extra fields compared to the site form: **creators** (authors), **curators**, **publicly visible**, **manually managed**, **allowed languages**, **banned users**, and so on.
+4. Click **Save**, then **View on site**.
 
-![Problem Info](https://i.imgur.com/bPlNZUR.png)
+::: warning
+In the admin, add yourself to **creators** or **curators**. Otherwise you will not be able to edit the problem later (unless you have `judge.edit_all_problem`).
+:::
 
-### Step 4: Write the problem statement
+### Option 3: Import a Codeforces Polygon package
 
-LCOJ supports Markdown with extended features:
-- LaTeX for math formulas
-- Syntax highlighting for code
-- Images and tables
+If your problem already exists on [Polygon](https://polygon.codeforces.com/), you can import it:
 
-**Example problem statement:**
+1. On `/problems/create`, click **Import problem from Codeforces Polygon package** (URL: `/problems/import-polygon`). You need the `judge.import_polygon_package` permission.
+2. Enter the new problem code and upload the **full** package zip (Linux package) downloaded from Polygon.
+3. Choose options such as **Ignore zero-point batches**, **Ignore zero-point cases**, and **Append main solution to tutorial**, and map Polygon statement languages to site languages.
+4. Submit. The importer creates the problem, statements, test data, and checker (a C++ testlib checker, or a C++ interactor for interactive problems).
+
+To update an existing problem from a newer package, use `/problem/<problem_code>/update-polygon`.
+
+::: info
+The importer converts LaTeX statements with `pandoc`, which must be installed on the server (version 3.0.0 or newer).
+:::
+
+## Problem settings
+
+| Field | Meaning |
+|---|---|
+| **Problem code** | Unique ID, used in the URL `/problem/<code>`. Only lowercase letters, digits, and underscores (`^[a-z0-9_]+$`), at most 32 characters. Example: `aplusb`. |
+| **Problem name** | The title shown in the problem list, e.g. "Sum of Two Numbers". |
+| **Time limit** | In **seconds**; fractions such as `1.5` are allowed. Without the `judge.high_problem_timelimit` permission you cannot set more than 5 seconds. |
+| **Memory limit** | In **kilobytes**. The default for new problems is `262144` (256 MB). |
+| **Points** | Points for solving the problem completely. |
+| **Allows partial points** | If enabled, a submission earns points in proportion to the test cases it passes (see [Scoring](#scoring)). Enabled by default on the create form. |
+| **Problem types** / **Problem group** | Used for classification and filtering in the problem list. |
+| **Statement file** | Optional PDF statement (requires the `judge.upload_file_statement` permission). |
+| **Source** | Where the problem comes from; please credit the original source. |
+| **Testers** | Users who can see the private problem but cannot edit it. |
+| **Description** | The Markdown statement (see below). |
+
+## Writing the statement
+
+Statements are written in Markdown with a few extensions:
+
+- Math formulas, rendered with MathJax
+- Fenced code blocks with syntax highlighting
+- Tables, images, and ~~strikethrough~~
+
+The editor has a live preview, so check how the statement looks before saving.
+
+### Math syntax
+
+| Purpose | Syntax | Example |
+|---|---|---|
+| Inline math | `~...~` | `~1 \le n \le 10^5~` |
+| Display math (own line) | `$$...$$` | `$$\sum_{i=1}^{n} a_i$$` |
+
+::: warning Do not use single dollar signs
+`$a + b$` is **not** inline math on LCOJ; it shows up as plain text with the dollar signs. Always use `~a + b~` for inline formulas.
+:::
+
+### Complete statement template
+
+Copy this template into the **Description** field and replace the content. You do not need to write the time and memory limits in the statement; they are shown automatically in the problem sidebar.
 
 ````markdown
-# Problem
-
-Given two integers $a$ and $b$, compute their sum.
+Given two integers ~a~ and ~b~, compute their sum.
 
 ## Input
 
-A single line containing two integers $a$ and $b$ ($-10^9 \le a, b \le 10^9$).
+A single line containing two integers ~a~ and ~b~ (~-10^9 \le a, b \le 10^9~).
 
 ## Output
 
-Print a single integer, $a + b$.
+Print a single integer: the value of ~a + b~.
 
-## Example
+## Scoring
+
+- Subtask 1 (~30\%~ of the points): ~0 \le a, b \le 100~.
+- Subtask 2 (~70\%~ of the points): no additional constraints.
+
+## Sample
 
 ### Input
+
 ```
 3 5
 ```
 
 ### Output
+
 ```
 8
 ```
 
-## Limits
+### Explanation
 
-- Time: 1 second
-- Memory: 256 MB
+We have ~3 + 5 = 8~. In general, the answer is
+
+$$
+S = a + b.
+$$
 ````
 
-See the [full template](https://raw.githubusercontent.com/luyencode/docs/master/sample_files/problem_markdown_example.md.txt).
+## Managing test data
 
-### Step 5: Configure the problem
+Test data is managed in the web test data editor at `/problem/<problem_code>/test_data` (the **Edit test data** link on the problem page). When you save, the site generates `init.yml` for the judge automatically.
 
-**Key options:**
-
-- **Time limit**: Time limit (seconds)
-- **Memory limit**: Memory limit (KB)
-- **Points**: Points for the problem (usually 100)
-- **Partial**: Allow partial points
-- **Group**: Problem group
-- **Types**: Problem types (DP, Graph, Math, ...)
-- **Allowed languages**: Allowed languages
-
-### Step 6: Save and view
-
-Click _Save_, then click _View on site_ to view the problem.
-
-![View on site](https://i.imgur.com/ZgO5xcY.png)
-
-## Managing Test Data
-
-### Step 1: Open the test data editor
-
-On the problem page, click _Edit test data_.
-
-![Edit test data](https://i.imgur.com/eDWEEJk.png)
-
-### Step 2: Upload test data
-
-Prepare a zip file containing the test data. Naming convention:
-
-```
-<problem_code>.<test_number>.in   # Input file
-<problem_code>.<test_number>.out  # Output file
+```mermaid
+flowchart LR
+  A[Prepare test files] --> B[Upload zip in Edit test data]
+  B --> C[Test case table is filled automatically]
+  C --> D[Adjust points, batches, checker, grader]
+  D --> E[Save]
+  E --> F[Site writes init.yml]
+  F --> G[Judges grade new submissions]
 ```
 
-**Example:** For problem `APLUSB`:
+### Step 1: Prepare the zip file
+
+Put all input and output files in one zip file. The editor recognizes these naming styles automatically:
+
+| Style | Input files | Output files |
+|---|---|---|
+| Common / Themis | `aplusb.1.in`, `1.inp` | `aplusb.1.out`, `1.ok`, `1.ans` |
+| CMS | `input.1` | `output.1` |
+| Polygon | `01` | `01.a` |
+
+Example for problem `aplusb`:
 
 ```
-APLUSB.1.in
-APLUSB.1.out
-APLUSB.2.in
-APLUSB.2.out
-APLUSB.3.in
-APLUSB.3.out
+aplusb.1.in
+aplusb.1.out
+aplusb.2.in
+aplusb.2.out
+aplusb.3.in
+aplusb.3.out
 ```
 
-Upload the zip file.
+::: tip
+- Use one naming style for the whole zip. Inputs and outputs are sorted naturally (1, 2, 10) and paired in order.
+- The upload limit is 100 MB per zip.
+- Without the `judge.create_mass_testcases` permission, a problem can have at most 100 test cases (the editor warns you after 50).
+:::
 
-![Upload zip](https://i.imgur.com/w5ytsgi.png)
+### Step 2: Upload the zip
 
-### Step 3: Configure test cases
+1. On the problem page, click **Edit test data**.
+2. In **Data zip file**, choose your zip. If you only have loose files, use **or click here to build zip file** to choose files or a whole folder; the browser zips them for you.
+3. The test case table is filled automatically. A yellow notice reminds you that the table is **not saved yet**.
 
-**Key fields:**
+### Step 3: Review the test case table
 
-- **Input file**: Path to the input file inside the zip
-- **Output file**: Path to the output file inside the zip
-- **Points**: Points for the test case
+Each row is one entry:
 
-**Example configuration:**
+| Column | Meaning |
+|---|---|
+| **Type** | **Normal case**, **Batch start**, or **Batch end**. |
+| **Input file** / **Output file** | File names inside the zip. Names that are not in the zip are highlighted. |
+| **Points** | Points for a normal case, or for the whole batch on a **Batch start** row. |
+| **Pretest?** | Only visible to staff. Marks the case as a pretest. |
+| **Delete?** | Removes the row when you save. |
 
-```
-Test 1: APLUSB.1.in, APLUSB.1.out, 30 points
-Test 2: APLUSB.2.in, APLUSB.2.out, 30 points
-Test 3: APLUSB.3.in, APLUSB.3.out, 40 points
-```
+To create a subtask (batch):
 
-### Scoring
-
-If _Partial points_ is enabled:
-
-**Formula:**
-
-```
-Score = (Points of passed tests / Points of all tests) × Problem points
-```
-
-**Example:**
-
-- The problem is worth 100 points
-- 3 tests: 1/2/7 points
-- A contestant passes tests 1 and 2 and fails test 3
-- Score = (1+2)/(1+2+7) × 100 = 30 points
-
-## Batched Test Cases
-
-Use these for problems with subtasks. All tests in a subtask must pass to earn its points.
-
-**How to create:**
-
-1. Click _Add batch_
-2. Set the points for the batch
-3. Add test cases to the batch
-
-**Example:**
+1. Add a **Batch start** row and give it the points for the whole subtask.
+2. Add the **Normal case** rows of the subtask below it (leave their points empty).
+3. Add a **Batch end** row.
 
 ```
-Batch 1 (30 points):
-  - Test 1.1
-  - Test 1.2
-  
-Batch 2 (70 points):
-  - Test 2.1
-  - Test 2.2
-  - Test 2.3
+Batch start      (30 points)
+  Normal case    aplusb.1.in / aplusb.1.out
+  Normal case    aplusb.2.in / aplusb.2.out
+Batch end
+Batch start      (70 points)
+  Normal case    aplusb.3.in / aplusb.3.out
+  ...
+Batch end
 ```
 
-## Custom Checkers
+A batch awards its points only if **every** case in it passes.
 
-If a problem has multiple correct answers, use a custom checker.
+### Step 4: Choose a checker
 
-**Built-in checkers:**
+The **Checker** drop-down offers:
 
-- `standard`: Exact comparison (default)
-- `floats`: Allows floating-point error
-- `sorted`: Ignores order
-- `identical`: Character-by-character comparison
+| Option | init.yml name | When to use |
+|---|---|---|
+| Standard | `standard` | Default. Compares tokens and ignores whitespace. |
+| Floats | `floats` | Floating-point output with an error tolerance. Set the **precision** (number of decimal digits) next to the drop-down. |
+| Floats (absolute) | `floatsabs` | Floating-point output, absolute error only. |
+| Floats (relative) | `floatsrel` | Floating-point output, relative error only. |
+| Byte identical | `identical` | The output must match byte for byte. |
+| Line-by-line | `linecount` | Compares line by line. |
+| Custom checker | `bridged` | Your own checker program (`.cpp`, `.pas`, or `.java`). Choose its type: Testlib, Themis, CMS, COCI, PEG, or DMOJ. |
 
-**Choosing a checker:**
+For a testlib checker you can also tick **Treat checker points as percentage**. See [Checkers](/en/setter/checkers) for how each checker works and how to write a custom one.
 
-In the _Checker_ section, select the appropriate checker and configure its parameters.
+### Step 5: Choose a grader
 
-## Generator
+| Option | What it does |
+|---|---|
+| **Standard** | The program reads from stdin and writes to stdout. Set **IO Method** to **Via files** if the program must read and write named files (for example `post.inp` / `post.out`). |
+| **Interactive** | Upload a C++ interactor written with testlib. |
+| **Function Signature Grading (IOI-style)** | Upload a `.cpp` entry file and a `.h` header. In **grader arguments**, `{"allow_main": true}` allows contestants to write their own `main`. |
+| **Output Only** | Contestants submit output files instead of source code. |
 
-If there are many tests, you can use a generator instead of uploading files.
+See [Graders](/en/setter/graders) for details.
 
-**How to use:**
+### Step 6: Save and check the generated init.yml
 
-1. Upload the generator file (C/C++)
-2. Configure the parameters for each test
-3. The system generates the input/output automatically
+1. Click **Save**.
+2. If something is wrong (a missing file, a batch without points, ...), an error message appears at the top of the page and `init.yml` is **not** written.
+3. If everything is fine, a **View YAML** link appears next to the title (URL: `/problem/<problem_code>/test_data/init`).
 
-See also: [Generator](/en/setter/generators)
+A typical generated `init.yml`:
 
-## Test Submission
+```yaml
+archive: aplusb.zip
+checker: standard
+test_cases:
+- in: aplusb.1.in
+  out: aplusb.1.out
+  points: 30
+- batched:
+  - in: aplusb.2.in
+    out: aplusb.2.out
+  - in: aplusb.3.in
+    out: aplusb.3.out
+  points: 70
+```
 
-Once the test data is ready, go back to the problem page and click _Submit solution_ to try a submission.
+The format is described in [Problem format](/en/setter/problem-format).
 
-## Updating Test Data
+### What the web editor cannot do
 
-To modify test data:
+Some features exist in the judge but have no form in the editor:
 
-1. Open _Edit test data_
-2. Upload a new zip file or edit the configuration
-3. Click _Save_
-4. The test data is updated automatically
+- [Generators](/en/setter/generators)
+- Python checkers (`checker.py`)
+- Custom Python graders (`custom_judge`) and communication problems
+- Automatic test case detection with regexes
 
-## Rejudge
+For these, write `init.yml` by hand:
 
-After changing test data, you should rejudge existing submissions:
+1. In the admin, enable **manually managed** for the problem. The **Edit test data** link then disappears, so the site will never overwrite your files.
+2. Put `init.yml` and every file it references into the problem directory, e.g. `dmoj/problems/<problem_code>/` in Docker.
 
-1. Go to the problem page
-2. Click _Rejudge all submissions_
-3. Choose the rejudge scope (all submissions, or from a certain point in time)
+## Scoring
+
+1. Each case (or batch) earns its points if it passes. A batch earns the **minimum** score among its cases, so one failed case gives 0 for the batch.
+2. The submission's score is:
+
+```
+Score = (points earned from cases / total case points) × problem points
+```
+
+3. If **Allows partial points** is disabled, anything less than a full score counts as 0, and the judge stops at the first failed case.
+
+**Example:** the problem is worth 100 points and has three cases worth 1, 2, and 7 points. A contestant passes cases 1 and 2 and fails case 3:
+
+```
+Score = (1 + 2) / (1 + 2 + 7) × 100 = 30
+```
+
+## Testing your problem
+
+1. Go back to the problem page and click **Submit solution**.
+2. Submit a correct solution and make sure it gets AC on every case.
+3. Also submit a few wrong or slow solutions to make sure the tests catch them.
+
+## Rejudging and rescoring
+
+After fixing test data, rejudge the existing submissions:
+
+1. On the problem page, click **Manage submissions** (URL: `/problem/<problem_code>/manage/submission`). This link is only shown to staff who can rejudge the problem.
+2. Under **Rejudge Submissions**, optionally filter by submission ID range, language, or result.
+3. Click **Rejudge selected submissions** and confirm the number of submissions.
+
+**Rescore all submissions** on the same page recomputes points from the existing results without running the code again (useful after changing the problem's points).
 
 ## Tips
 
-- **Name tests clearly**: Easier to manage and debug
-- **Test thoroughly**: Include edge cases and corner cases
-- **Check the outputs**: Make sure the expected outputs are correct
-- **Try multiple languages**: Test with C++, Python, and Java
-- **Read the logs carefully**: If something fails, check the logs for the cause
+- **Name tests clearly** so they are easy to find and debug.
+- **Cover edge cases**: minimum and maximum values, special structures.
+- **Double-check expected outputs** with a second, independent solution.
+- **Try several languages** (C++, Python, Java) to make sure the time limit is fair.
 
 ## Troubleshooting
 
-**Test data does not load:**
-- Check the file paths inside the zip
-- Check the permissions of the `DMOJ_PROBLEM_DATA_ROOT` directory
+**The editor shows an error after saving:**
+- Read the message at the top of the page; it names the case and the missing file.
+- Make sure every **Batch start** has points and every batch has at least one case.
 
-**Checker does not work:**
-- Check the checker syntax
-- Check the error log in the admin
+**Submissions get Internal Error (IE):**
+- Check that `init.yml` exists (**View YAML**).
+- Check the permissions of the problem directory (`DMOJ_PROBLEM_DATA_ROOT`).
+- For custom checkers and interactors, check that the file compiles.
 
 **Rejudge does not run:**
-- Check that Celery is running (Docker): `docker compose ps celery`
-- View Celery logs (Docker): `docker compose logs -f celery`
-- Check Celery (bare metal): `supervisorctl status celery`
-- View Celery logs (bare metal): `supervisorctl tail -f celery`
+- From `dmoj/`: `docker compose ps celery`, then `docker compose logs -f celery`

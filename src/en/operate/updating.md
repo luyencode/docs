@@ -1,302 +1,225 @@
 # Updating LCOJ
 
-LCOJ is updated regularly with new features and bug fixes. This guide explains how to update a Docker-based installation.
+This page covers moving a Docker install to a newer version: pulling code, rebuilding when needed, running migrations and restarting the right services.
 
-**Warning:** Always back up your data before updating!
+::: warning Always back up first
+Before updating, [back up the database](/en/operate/operations#backup). Git can bring old code back, but migrations that have already run don't undo themselves.
+:::
 
-## Back up before updating
+## Two repos to update
 
-### Back up the database
+An install is made of two nested Git repos:
+
+| Directory | Repo | Contains |
+|---|---|---|
+| `lcoj-docker/` | [lcoj-docker](https://github.com/luyencode/lcoj-docker) | `docker-compose.yml`, Dockerfiles, scripts, config templates, nginx |
+| `lcoj-docker/dmoj/repo/` | [lcoj-site](https://github.com/luyencode/lcoj-site) (submodule) | All Django code, templates, CSS/JS, WebSocket server |
+
+### Submodules and "detached HEAD"
+
+The outer repo doesn't record a branch for the submodule. It pins `dmoj/repo` to **one specific commit**. As a result:
+
+- `git submodule update` checks out exactly that pinned commit, which leaves `dmoj/repo` in a **detached HEAD** state (not on any branch). `git pull` inside it fails until you check out a branch.
+- `.gitmodules` has no `branch` entry, so `git submodule update --remote` follows lcoj-site's default branch (`master`), **not** the production branch.
+- luyencode.net runs the **`prod/luyencode`** branch of lcoj-site.
+
+Check where you are:
 
 ```sh
-docker exec lcoj_mysql mysqldump -u root -p<password> lcoj | gzip > backup_$(date +%Y%m%d).sql.gz
+git -C repo status | head -1   # "On branch prod/luyencode" or "HEAD detached at ..."
 ```
 
-### Back up media and problems
+If you're on a detached HEAD and want to follow the production branch:
 
 ```sh
-tar -czf media_backup_$(date +%Y%m%d).tar.gz dmoj/media/
-tar -czf problems_backup_$(date +%Y%m%d).tar.gz dmoj/problems/
+git -C repo fetch origin
+git -C repo checkout prod/luyencode
 ```
 
 ## Update steps
 
-### Step 1: Pull the latest source code
+Run every command from `lcoj-docker/dmoj/`.
+
+1. **Record the current commits** of both repos so you can see what changed and roll back if needed:
+
+   ```sh
+   OLD=$(git -C repo rev-parse HEAD); echo $OLD
+   OLD_DOCKER=$(git rev-parse HEAD); echo $OLD_DOCKER
+   ```
+
+2. **Update the outer repo** (Dockerfiles, scripts, config templates):
+
+   ```sh
+   git pull --ff-only
+   ```
+
+3. **Update the site code.** Pick one approach:
+
+   ::: code-group
+
+   ```sh [Follow the production branch (luyencode.net)]
+   git -C repo fetch origin
+   git -C repo checkout prod/luyencode
+   git -C repo pull --ff-only origin prod/luyencode
+   ```
+
+   ```sh [Use the commit pinned by the outer repo]
+   git submodule update --init --recursive
+   # repo/ is now on a detached HEAD, which is expected
+   ```
+
+   :::
+
+4. **See what changed:**
+
+   ```sh
+   git -C repo diff --stat $OLD HEAD
+   git diff --stat $OLD_DOCKER HEAD -- .   # changes under lcoj-docker/dmoj
+   ```
+
+5. **Follow the table below** for whatever changed.
+
+### What to do for each kind of change
+
+| Change | Action |
+|---|---|
+| `requirements.txt`, `additional_requirements.txt`, `package.json`, `package-lock.json` | Rebuild the `base` image, then the images built on it (see [below](#rebuild)) |
+| `dmoj/base/Dockerfile`, `dmoj/site/Dockerfile`, `dmoj/celery/Dockerfile`, `dmoj/bridged/Dockerfile`, `dmoj/wsevent/Dockerfile` | `docker compose build <service>`, then `docker compose up -d` |
+| New models / files in `*/migrations/` | `./scripts/migrate` |
+| SCSS, JS or images in `resources/`, translations in `locale/` | `./scripts/copy_static` |
+| Python code, templates | `docker compose restart site celery bridged` |
+| `websocket/*.js` | `docker compose restart wsevent` |
+| `docker-compose.yml`, `environment/*.env.example` | Compare with your `.env` files, add any new variables, then `docker compose up -d` |
+| `config/local_settings.py`, `config/uwsgi.ini`, `config/config.js` | Port the changes into the copies in `repo/` by hand (see the warning below), then restart the matching service |
+| `nginx/conf.d/nginx.conf` | `docker compose restart nginx` |
+
+Code changes do **not** need an image rebuild because `./repo` is bind-mounted into the containers. A restart is enough.
+
+::: warning Config files in repo/ don't update themselves
+`repo/dmoj/local_settings.py`, `repo/uwsgi.ini` and `repo/websocket/config.js` are ignored by lcoj-site's `.gitignore`, so `git pull` never touches them. If a template in `config/` changes, compare them (`diff config/local_settings.py repo/dmoj/local_settings.py`) and edit by hand. Re-running `./scripts/initialize` would overwrite your own changes.
+:::
+
+### Rebuilding when dependencies change {#rebuild}
+
+Python, Node.js and every library live in the `lcoj/lcoj-base` image. The `site`, `celery` and `bridged` images are built from it, while `wsevent` installs `package.json` on its own. Rebuilding only `site` does **not** install new libraries.
 
 ```sh
-cd lcoj-docker/dmoj
-git pull origin master
-git submodule update --init --recursive
-```
-
-**Note:** `git submodule update` is essential: it updates the code in `repo/`.
-
-### Step 2: Review the changes
-
-```sh
-git log --oneline -10
-git diff HEAD~1 docker-compose.yml
-```
-
-Check whether anything changed in docker-compose.yml or the environment files.
-
-### Step 3: Update the environment (if needed)
-
-If new environment variables were added, update your `environment/*.env` files.
-
-Compare against the example file:
-
-```sh
-diff environment/site.env environment/site.env.example
-```
-
-### Step 4: Rebuild the images
-
-```sh
-docker compose build
-```
-
-Or rebuild only the services that need it:
-
-```sh
+docker compose build base
 docker compose build site celery bridged wsevent
+docker compose up -d
 ```
 
-### Step 5: Run migrations
+If you suspect Docker is reusing a stale cache, add `--no-cache` to the `base` build.
+
+### Finishing up
+
+If you're not sure what changed, run all of these. Each one is safe to repeat:
 
 ```sh
 ./scripts/migrate
-```
-
-Check that there are no errors:
-
-```sh
-./scripts/manage.py check
-```
-
-### Step 6: Update static files
-
-```sh
 ./scripts/copy_static
+docker compose restart site celery bridged wsevent
+docker compose ps
 ```
 
-### Step 7: Restart services
+## Sample update script
 
-```sh
-docker compose up -d --no-deps site celery bridged wsevent
-```
-
-**What the flags do:**
-- `--no-deps`: Does not restart dependencies (db, redis)
-- Only the services whose code changed are restarted
-
-## Automation script
-
-You can write a script to automate the update process:
-
-**File: `update.sh`**
+This script follows the steps above for the `prod/luyencode` branch. Save it as `dmoj/update.sh` (`*.sh` files in `dmoj/` are already ignored by `.gitignore`) and `chmod +x` it.
 
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"                 # the dmoj/ directory
+export COMPOSE_EXEC_FLAGS=-T         # lets the scripts in scripts/ run without a terminal
+BRANCH=prod/luyencode
+STAMP=$(date +%F_%H%M%S)
 
-set -e  # Exit on error
+echo "1. Back up the database"
+mkdir -p backups
+docker compose exec -T db sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mariadb-dump -u root --single-transaction "$MYSQL_DATABASE"' \
+  | gzip > "backups/db_before_update_$STAMP.sql.gz"
 
-echo "=== Starting LCOJ update ==="
-echo
+echo "2. Pull new code"
+OLD=$(git -C repo rev-parse HEAD)
+git pull --ff-only
+git -C repo fetch origin
+git -C repo checkout "$BRANCH"
+git -C repo pull --ff-only origin "$BRANCH"
+NEW=$(git -C repo rev-parse HEAD)
 
-# Backup database
-echo "1. Backup database..."
-docker exec lcoj_mysql mysqldump -u root -p${MYSQL_ROOT_PASSWORD} lcoj | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+if [ "$OLD" = "$NEW" ]; then
+  echo "Site code unchanged."
+else
+  echo "Updating $OLD -> $NEW"
+  CHANGED=$(git -C repo diff --name-only "$OLD" "$NEW")
 
-# Backup media
-echo "2. Backup media files..."
-tar -czf media_backup_$(date +%Y%m%d_%H%M%S).tar.gz dmoj/media/
+  if echo "$CHANGED" | grep -qE '^(requirements\.txt|additional_requirements\.txt|package(-lock)?\.json)$'; then
+    echo "3. Dependencies changed: rebuilding images"
+    docker compose build base
+    docker compose build site celery bridged wsevent
+  fi
+fi
 
-# Pull new code
-echo "3. Pulling new source code..."
-git pull origin master
-git submodule update --init --recursive
+echo "4. Start (recreates containers whose image or config changed)"
+docker compose up -d
 
-# Rebuild images
-echo "4. Rebuild Docker images..."
-docker compose build site celery bridged wsevent
-
-# Run migrations
-echo "5. Running migrations..."
+echo "5. Migrations and static files"
 ./scripts/migrate
-
-# Update static files
-echo "6. Updating static files..."
 ./scripts/copy_static
 
-# Restart services
-echo "7. Restart services..."
-docker compose up -d --no-deps site celery bridged wsevent
-
-# Check status
-echo "8. Checking status..."
+echo "6. Restart to load the new code"
+docker compose restart site celery bridged wsevent
 docker compose ps
 
-echo
-echo "=== Update complete! ==="
-echo "Check logs: docker compose logs -f site"
+echo "Done. Follow the logs with: docker compose logs -f site"
 ```
 
-Make it executable:
+The script doesn't compare `config/` against the config files in `repo/`. Check the diff from step 4 above after every update.
 
-```sh
-chmod +x update.sh
-```
+## After updating
 
-Run the script:
+1. `docker compose ps`: every service (except `base`) is **Up**.
+2. `docker compose logs --tail=50 site celery bridged`: no tracebacks.
+3. Open the site, log in, view a problem and make a test submission.
+4. In `docker compose logs bridged`, confirm the judges have reconnected.
 
-```sh
-cd lcoj-docker/dmoj
-./update.sh
-```
+## Rolling back
 
-## Troubleshooting
+::: danger
+Going back to old code does **not** reverse migrations that already ran. If the new version included migrations, the safest route is restoring the database backup you took before updating.
+:::
 
-### Migration errors
+1. Stop the services that write data:
 
-If `migrate` fails:
+   ```sh
+   docker compose stop site celery bridged
+   ```
 
-```sh
-# List unapplied migrations
-./scripts/manage.py showmigrations
+2. Put the code back on the old commit (`$OLD` from step 1):
 
-# Run a specific migration
-./scripts/manage.py migrate <app_name> <migration_name>
+   ```sh
+   git -C repo checkout <OLD>
+   ```
 
-# Fake a migration (if it was already applied manually)
-./scripts/manage.py migrate --fake <app_name> <migration_name>
-```
+3. If there were new migrations, [restore the database](/en/operate/operations#restore) from the pre-update backup.
+4. If dependencies changed, rebuild as described [above](#rebuild).
+5. Start again:
 
-### Static file errors
+   ```sh
+   docker compose up -d
+   ./scripts/copy_static
+   docker compose restart site celery bridged wsevent
+   ```
 
-If static files don't load:
+Once the problem is fixed, get back on the branch with `git -C repo checkout prod/luyencode`.
 
-```sh
-# Delete old static files
-docker compose exec site rm -rf /assets/*
+## Tips
 
-# Collect them again
-./scripts/copy_static
+- Update during quiet hours, and never in the middle of a contest.
+- Warn users ahead of time. While `site` is stopped, nginx serves the `502.html` page (see [Maintenance page](/en/operate/operations#maintenance)).
+- If you can, try the new version on a test machine first.
 
-# Restart nginx
-docker compose restart nginx
-```
-
-### Dependency errors
-
-If you get errors about Python libraries:
-
-```sh
-# Rebuild the image from scratch (no cache)
-docker compose build --no-cache site celery
-
-# Restart services
-docker compose up -d site celery
-```
-
-### Container won't start
-
-```sh
-# View detailed logs
-docker compose logs --tail=100 site
-
-# View the exit code
-docker inspect lcoj_site | grep ExitCode
-
-# Try starting it with live logs
-docker compose up site
-```
-
-## Rollback
-
-If the update causes problems, you can roll back:
-
-### Roll back the code
-
-```sh
-# Go back to the previous commit
-git reset --hard HEAD~1
-git submodule update --init --recursive
-
-# Or go back to a specific commit
-git reset --hard <commit_hash>
-git submodule update --init --recursive
-
-# Rebuild images
-docker compose build site celery bridged wsevent
-
-# Restart services
-docker compose up -d --no-deps site celery bridged wsevent
-```
-
-### Restore the database
-
-```sh
-# Stop the site to avoid conflicts
-docker compose stop site celery
-
-# Restore from backup
-gunzip < backup_20240101_120000.sql.gz | docker exec -i lcoj_mysql mysql -u root -p<password> lcoj
-
-# Start again
-docker compose start site celery
-```
-
-### Restore media files
-
-```sh
-tar -xzf media_backup_20240101_120000.tar.gz
-docker compose restart site nginx
-```
-
-## Post-update checks
-
-### Check services
-
-```sh
-# View status
-docker compose ps
-
-# View logs
-docker compose logs -f --tail=50 site
-docker compose logs -f --tail=50 celery
-```
-
-### Check functionality
-
-- Open the website and check the interface
-- Log in with an admin account
-- Try submitting a solution
-- Check the admin site
-- Test the judge bridge: `docker compose logs bridged`
-
-### Check performance
-
-```sh
-# Resource usage
-docker stats
-
-# Response time
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost
-```
-
-**File: `curl-format.txt`**
-
-```
-time_namelookup:  %{time_namelookup}\n
-time_connect:  %{time_connect}\n
-time_starttransfer:  %{time_starttransfer}\n
-time_total:  %{time_total}\n
-```
-
-## Notes
-
-- Schedule updates for off-peak hours
-- Notify users of the maintenance window in advance
-- Always back up before updating
-- Test in a development environment before updating production
+::: tip Need help?
+Open an issue on [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), or reach us via [behitek.com](https://behitek.com) or [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

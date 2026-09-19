@@ -1,228 +1,195 @@
-# SSL Proxy cho nội dung người dùng
+# Proxy ảnh ngoài qua HTTPS (Camo)
 
-Khi website dùng HTTPS nhưng người dùng nhúng hình ảnh HTTP, trình duyệt sẽ chặn (mixed content). SSL proxy giúp giải quyết vấn đề này.
+::: info Bạn có cần trang này không?
+Khi đề bài, blog hay bình luận nhúng ảnh từ website khác (nhất là ảnh `http://`), trình duyệt có thể chặn hoặc cảnh báo "mixed content" vì LCOJ chạy HTTPS. Ngoài ra, website chứa ảnh sẽ thấy IP của người xem.
 
-**Lưu ý:** Tính năng này tùy chọn, chỉ cần nếu cho phép người dùng nhúng hình ảnh từ nguồn bên ngoài.
+[Camo](https://github.com/atmos/camo) là proxy ảnh: LCOJ viết lại link ảnh ngoài để trình duyệt tải ảnh qua máy chủ Camo của bạn, bằng HTTPS.
 
-## Cài đặt Camo
+- **LCOJ chạy bình thường khi không có Camo.** Ảnh ngoài vẫn hiện nếu nguồn ảnh dùng HTTPS.
+- Cách đơn giản hơn: khuyến khích mọi người **tải ảnh lên LCOJ** bằng nút chèn ảnh trong trình soạn thảo, thay vì dùng link ngoài.
+:::
 
-Camo là proxy server chuyển HTTP thành HTTPS.
+## Trạng thái trong LCOJ
 
-### Bước 1: Cài đặt Node.js
+| Thành phần | Trạng thái |
+|---|---|
+| `DMOJ_CAMO_URL`, `DMOJ_CAMO_KEY`, `DMOJ_CAMO_EXCLUDE`, `DMOJ_CAMO_HTTPS` | **Bị comment** trong `dmoj/config/local_settings.py` (tắt) |
+| Dịch vụ Camo trong `docker-compose.yml` | **Không có** |
+| `location /camo/` trong `dmoj/nginx/conf.d/nginx.conf` | **Không có** |
 
-```sh
-curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-apt install nodejs
+## Cách hoạt động
+
+```mermaid
+flowchart LR
+  A["Markdown có ảnh<br/>http://example.com/a.png"] --> B["site viết lại src thành<br/>https://luyencode.net/camo/HMAC/HEX-URL"]
+  B --> C["Trình duyệt"]
+  C -->|HTTPS| D["nginx /camo/"]
+  D --> E["camo:8081"]
+  E -->|HTTP/HTTPS| F["example.com"]
 ```
 
-### Bước 2: Cài đặt Camo
+- Khi render Markdown, LCOJ (file `judge/utils/camo.py`) viết lại thuộc tính `src` và `data-src` của thẻ `<img>`, và `data` của thẻ `<object>`.
+- URL mới có dạng `<DMOJ_CAMO_URL>/<chữ ký HMAC-SHA1>/<URL gốc mã hóa hex>`. Camo kiểm tra chữ ký bằng `CAMO_KEY`, nên người ngoài không thể dùng Camo của bạn để proxy link tùy ý.
+- **Không** viết lại: đường dẫn tương đối (ví dụ `/martor/a.png`), URL bắt đầu bằng `DMOJ_CAMO_URL`, và URL bắt đầu bằng một tiền tố trong `DMOJ_CAMO_EXCLUDE`.
+- Tất cả kiểu Markdown của LCOJ (đề bài, blog, bình luận, hồ sơ...) đều bật `use_camo`, nên chỉ cần cấu hình là áp dụng ở mọi nơi.
 
-```sh
-npm install -g camo
-```
+## Cài đặt (tùy chọn)
 
-### Bước 3: Tạo secret key
+Camo không có trong `docker-compose.yml`. Bạn chạy nó thành container riêng trên network `nginx`, để nginx chuyển tiếp `/camo/` tới nó.
+
+### Bước 1: Tạo secret key
 
 ```sh
 openssl rand -hex 32
 ```
 
-Lưu key này, sẽ dùng ở bước sau.
+Key này dùng chung cho Camo (`CAMO_KEY`) và LCOJ (`DMOJ_CAMO_KEY`).
 
-### Bước 4: Chạy Camo
+### Bước 2: Lưu key vào file env
 
-```sh
-PORT=8081 CAMO_KEY="your_secret_key_here" camo
-```
-
-## Cấu hình LCOJ
-
-### Với Docker
-
-Thêm vào `environment/site.env`:
+Tạo `dmoj/environment/camo.env` (thư mục này đã được gitignore):
 
 ```env
-DMOJ_CAMO_URL=https://luyencode.net/camo
-DMOJ_CAMO_KEY=your_secret_key_here
-DMOJ_CAMO_EXCLUDE=luyencode.net,cdn.luyencode.net
+CAMO_KEY=<key vừa tạo>
 ```
 
-### Với bare metal
+Thêm vào `dmoj/environment/site.env`:
 
-Thêm vào `local_settings.py`:
+```env
+DMOJ_CAMO_KEY=<cùng key đó>
+```
+
+::: warning
+Dùng file env riêng cho Camo. Đừng cho container Camo đọc `site.env`, vì file đó chứa secret của site.
+:::
+
+### Bước 3: Thêm service vào Compose
+
+Repo [atmos/camo](https://github.com/atmos/camo) có sẵn `Dockerfile` (dựa trên `node:8.4`, khá cũ). Compose build được thẳng từ Git. Tạo hoặc bổ sung `dmoj/docker-compose.override.yml`:
+
+```yaml
+services:
+  camo:
+    build: https://github.com/atmos/camo.git
+    restart: unless-stopped
+    env_file: [environment/camo.env]
+    environment:
+      CAMO_LENGTH_LIMIT: "5242880"   # giới hạn 5 MB (mặc định)
+    networks: [nginx]
+```
+
+### Bước 4: Thêm location vào nginx
+
+Trong khối `server` của `dmoj/nginx/conf.d/nginx.conf`:
+
+```nginx
+location /camo/ {
+    proxy_pass http://camo:8081/;
+}
+```
+
+Dấu `/` cuối `proxy_pass` giúp bỏ tiền tố `/camo` trước khi gửi sang Camo.
+
+### Bước 5: Khai báo settings cho LCOJ
+
+Thêm vào `dmoj/config/local_settings.py`, rồi chép sang `dmoj/repo/dmoj/local_settings.py` (file site thực sự đọc; xem [Biến môi trường và cấu hình](/operate/environment)):
 
 ```python
-# URL của Camo
-DMOJ_CAMO_URL = "https://luyencode.net:8081"
-
-# Secret key (phải giống với CAMO_KEY)
-DMOJ_CAMO_KEY = "your_secret_key_here"
-
-# Domains không cần proxy (domains của bạn)
-DMOJ_CAMO_EXCLUDE = ["luyencode.net", "cdn.luyencode.net"]
+DMOJ_CAMO_URL = 'https://luyencode.net/camo'
+DMOJ_CAMO_KEY = os.environ.get('DMOJ_CAMO_KEY')
+# Tiền tố URL không cần proxy. PHẢI là tuple (không dùng list).
+DMOJ_CAMO_EXCLUDE = ('https://luyencode.net/', 'http://luyencode.net/')
+# URL dạng //host/... sẽ được coi là https://
+DMOJ_CAMO_HTTPS = True
 ```
 
-## Cấu hình Nginx
+| Setting | Mặc định (`dmoj/settings.py`) | Ghi chú |
+|---|---|---|
+| `DMOJ_CAMO_URL` | `None` | URL public của Camo, không cần `/` ở cuối |
+| `DMOJ_CAMO_KEY` | `None` | Phải trùng `CAMO_KEY`. Thiếu URL hoặc key thì Camo tắt |
+| `DMOJ_CAMO_EXCLUDE` | `()` | Tuple **tiền tố URL** (có cả `https://`), không phải tên miền trần |
+| `DMOJ_CAMO_HTTPS` | `False` | Dùng `https:` cho URL bắt đầu bằng `//` |
 
-### Reverse proxy cho Camo
-
-```nginx
-location /camo/ {
-    proxy_pass http://localhost:8081/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-### Khởi động lại
-
-**Docker:**
+### Bước 6: Khởi động
 
 ```sh
-docker compose restart nginx site
+cd dmoj
+docker compose up -d --build camo
+docker compose up -d site nginx      # tạo lại site để đọc site.env mới
+docker compose restart nginx         # nạp location /camo/ nếu nginx không bị tạo lại
 ```
 
-**Bare metal:**
+### Bước 7: Kiểm tra
 
-```sh
-service nginx reload
-supervisorctl restart site
-```
+1. Sinh một URL Camo bằng lệnh quản trị:
 
-## Chạy Camo với Supervisor
+   ```sh
+   ./scripts/manage.py camo http://example.com/image.png
+   ```
 
-Tạo file `/etc/supervisor/conf.d/camo.conf`:
+   Lệnh in ra URL dạng `https://luyencode.net/camo/<hmac>/<hex>`. Nếu báo `Camo not available` thì `DMOJ_CAMO_URL` hoặc `DMOJ_CAMO_KEY` chưa có giá trị.
+2. Mở URL đó trong trình duyệt, ảnh phải hiện ra.
+3. Tạo một bình luận thử có ảnh ngoài, xem mã nguồn trang: `src` phải bắt đầu bằng `https://luyencode.net/camo/`.
 
-```ini
-[program:camo]
-command=/usr/bin/camo
-directory=/tmp
-user=camo
-environment=PORT="8081",CAMO_KEY="your_secret_key_here"
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/camo.log
-```
+::: tip Trang cũ chưa đổi link?
+HTML của đề bài và một số trang được cache tới 1 ngày. Lưu lại bài hoặc chờ cache hết hạn.
+:::
 
-Khởi động:
+## Biến môi trường của Camo
 
-```sh
-supervisorctl update
-supervisorctl start camo
-```
+Theo README của [atmos/camo](https://github.com/atmos/camo#configuration):
 
-## Cách hoạt động
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `PORT` | `8081` | Cổng Camo lắng nghe |
+| `CAMO_KEY` | một key mặc định công khai | Key kiểm tra chữ ký HMAC. **Luôn phải đặt**, không dùng mặc định |
+| `CAMO_LENGTH_LIMIT` | `5242880` | `Content-Length` tối đa (byte) được proxy |
+| `CAMO_MAX_REDIRECTS` | `4` | Số lần redirect tối đa |
+| `CAMO_SOCKET_TIMEOUT` | `10` | Số giây chờ trước khi bỏ cuộc |
+| `CAMO_LOGGING_ENABLED` | `disabled` | Đặt `debug` để xem log chi tiết |
+| `CAMO_HEADER_VIA` | `Camo Asset Proxy <version>` | Giá trị header `Via` và `User-Agent` gửi tới nguồn ảnh |
+| `CAMO_TIMING_ALLOW_ORIGIN` | (không đặt) | Giá trị header `Timing-Allow-Origin` trả về trình duyệt |
+| `CAMO_HOSTNAME` | `unknown` | Giá trị header `Camo-Host` |
+| `CAMO_KEEP_ALIVE` | `false` | Bật keep-alive |
 
-### Trước khi có Camo
+Camo **tự lọc** loại nội dung theo danh sách MIME ảnh có sẵn (`mime-types.json`), không có biến để đổi danh sách này.
 
-```
-User -> HTTPS -> Website -> HTTP image -> ❌ Blocked
-```
+## Cache và giới hạn tải
 
-### Sau khi có Camo
+Camo **không có cache riêng**. `CAMO_HEADER_VIA` và `CAMO_TIMING_ALLOW_ORIGIN` chỉ là header, không liên quan tới cache. Nếu cần:
 
-```
-User -> HTTPS -> Website -> HTTPS -> Camo -> HTTP image -> ✓ OK
-```
+- **Giới hạn tốc độ** bằng nginx. Đặt `limit_req_zone` ở đầu `nginx.conf` (ngoài khối `server`), rồi dùng trong location:
 
-### Ví dụ
+  ```nginx
+  limit_req_zone $binary_remote_addr zone=camo:10m rate=10r/s;
 
-**URL gốc:**
-```
-http://example.com/image.png
-```
+  server {
+      # ...
+      location /camo/ {
+          limit_req zone=camo burst=20;
+          proxy_pass http://camo:8081/;
+      }
+  }
+  ```
 
-**URL qua Camo:**
-```
-https://luyencode.net/camo/abc123.../image.png
-```
+- **Cache** bằng `proxy_cache` của nginx hoặc quy tắc cache của Cloudflare cho đường dẫn `/camo/`.
 
-## Kiểm tra
+## Xử lý sự cố
 
-### Test Camo
-
-```sh
-curl http://localhost:8081/
-```
-
-Nếu thấy "hwhat", Camo đang chạy.
-
-### Test proxy
-
-1. Tạo bình luận với hình ảnh HTTP
-2. Kiểm tra source code trang
-3. URL hình ảnh phải qua Camo
-
-## Xử lý lỗi
-
-**Hình ảnh không load:**
-- Kiểm tra Camo đang chạy
-- Kiểm tra `DMOJ_CAMO_URL` và `DMOJ_CAMO_KEY`
-- Xem log Camo Docker: `docker compose logs -f camo` (nếu chạy trong Docker)
-- Xem log Camo bare metal: `supervisorctl tail -f camo`
-
-**Mixed content warning:**
-- Kiểm tra `DMOJ_CAMO_URL` dùng HTTPS
-- Kiểm tra nginx config
-
-**Hình ảnh bị chặn:**
-- Một số site chặn proxy
-- Không có cách giải quyết, người dùng phải upload hình lên server
-
-## Bảo mật
-
-### Giới hạn kích thước
-
-Thêm vào Camo config:
-
-```sh
-CAMO_MAX_SIZE=5242880  # 5MB
-```
-
-### Giới hạn loại file
-
-Chỉ cho phép hình ảnh:
-
-```sh
-CAMO_ALLOWED_CONTENT_TYPES="image/*"
-```
-
-### Rate limiting
-
-Dùng nginx để giới hạn:
-
-```nginx
-location /camo/ {
-    limit_req zone=camo burst=10;
-    proxy_pass http://localhost:8081/;
-}
-```
-
-## Tối ưu
-
-### Cache
-
-Camo tự động cache. Để tăng cache time:
-
-```sh
-CAMO_TIMING_ALLOW_ORIGIN="*"
-CAMO_HEADER_VIA="Camo"
-```
-
-### CDN
-
-Nếu có CDN, đặt Camo sau CDN:
-
-```
-User -> CDN -> Camo -> HTTP image
-```
+| Triệu chứng | Nguyên nhân | Cách xử lý |
+|---|---|---|
+| Link ảnh không bị viết lại | Thiếu `DMOJ_CAMO_URL`/`DMOJ_CAMO_KEY`, hoặc trang đang được cache | Chạy `./scripts/manage.py camo <url>` để kiểm tra; lưu lại bài |
+| Lỗi `TypeError` liên quan `startswith` | `DMOJ_CAMO_EXCLUDE` là list | Đổi thành tuple |
+| `/camo/...` trả 404 từ LCOJ | Thiếu `location /camo/` trong nginx | Thêm location, `docker compose restart nginx` |
+| `/camo/...` trả 502 | Container Camo không chạy hoặc không ở network `nginx` | `docker compose ps camo`, `docker compose logs -f camo` |
+| Camo trả 404 (đặt `CAMO_LOGGING_ENABLED=debug` sẽ thấy log `checksum mismatch`) | `CAMO_KEY` khác `DMOJ_CAMO_KEY` | Đặt cùng một key, tạo lại container |
+| Một số ảnh vẫn không hiện | Nguồn ảnh chặn proxy, ảnh quá 5 MB, hoặc không phải ảnh | Tải ảnh lên LCOJ thay vì dùng link ngoài |
 
 ## Lưu ý
 
-- Camo tốn băng thông vì proxy tất cả hình ảnh
-- Nên giới hạn kích thước và loại file
-- Không proxy video (quá nặng)
-- Khuyến khích người dùng upload hình lên server thay vì dùng link ngoài
+- Camo tốn băng thông của bạn vì mọi ảnh ngoài đều đi qua server.
+- Camo chỉ proxy nội dung ảnh, không dùng cho video.
+
+::: tip Cần hỗ trợ?
+Tạo issue tại [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), xem thêm tại [behitek.com](https://behitek.com) hoặc liên hệ qua [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

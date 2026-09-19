@@ -1,255 +1,188 @@
-# Generating PDFs for Problem Statements
+# Problem PDFs (Pdfoid)
 
-LCOJ can export problem statements to PDF, which is useful for onsite contests where contestants receive printed problem statements.
+::: info Do you need this?
+Pdfoid is a DMOJ service that uses headless Chromium to turn a problem statement's HTML into a PDF on the server.
 
-**Note:** 
-- This feature is optional
-- This guide covers bare metal installs
-- With Docker, you need to set up Pdfoid separately on the host or in another container
+- **LCOJ works fine without Pdfoid.** In that case, the **View as PDF** button on a problem page opens the print view `/problem/<code>/raw` and triggers the browser's print dialog, where users choose "Save as PDF".
+- Only install Pdfoid if you need **stable, server-generated PDF links** (`/problem/<code>/pdf`), for example to hand out or batch-print statements for an onsite contest.
+- If you already have a PDF of the statement, you don't need Pdfoid: use the PDF statement upload field (`statement_file`) when editing the problem.
+:::
 
-## Installing Pdfoid
+## Status in LCOJ
 
-Pdfoid is a service that converts HTML to PDF.
+| Component | Status in the shipped config |
+|---|---|
+| `DMOJ_PDF_PDFOID_URL` | **Disabled**: only a commented-out example in `dmoj/config/local_settings.py` |
+| `DMOJ_PDF_PROBLEM_CACHE`, `DMOJ_PDF_PROBLEM_INTERNAL` | **Disabled**: commented out |
+| Pdfoid service in `docker-compose.yml` | **Not present** |
+| "View as PDF" button | Uses the browser's print feature |
 
-### Step 1: Install dependencies
+## How it works
 
-```sh
-apt update
-apt install chromium-driver exiftool
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant S as site (Django)
+  participant P as pdfoid (Chromium)
+  U->>S: GET /problem/APLUSB/pdf
+  alt File already in DMOJ_PDF_PROBLEM_CACHE
+    S-->>U: PDF file (via nginx X-Accel-Redirect if configured)
+  else Not cached
+    S->>P: POST html + title, wait for class "math-loaded" up to 15 seconds
+    P->>P: Open the HTML, load MathJax from the site URL, print to PDF
+    P-->>S: PDF (base64)
+    S-->>U: PDF file
+  end
 ```
 
-### Step 2: Clone Pdfoid
+Things to know:
 
-```sh
-git clone https://github.com/DMOJ/pdfoid.git
-cd pdfoid
+- The HTML sent to Pdfoid is the `problem/raw.html` template. It loads MathJax **from your site's absolute URL** (for example `https://luyencode.net/static/...`), so the Pdfoid container **must be able to reach your website**.
+- If `DMOJ_PDF_PROBLEM_CACHE` is set, PDFs are stored as `<CODE>.<language>.pdf` and are **deleted automatically when the problem is saved**. The next view renders a fresh copy.
+- Rendering happens inside the uWSGI request (not in Celery).
+
+## Installation (optional)
+
+Pdfoid is not part of `docker-compose.yml`. You run it as a separate container on the same `site` network as the `site` container.
+
+### Step 1: Build a Pdfoid image
+
+Pdfoid is not on PyPI; install it directly from [github.com/DMOJ/pdfoid](https://github.com/DMOJ/pdfoid). It needs Chromium, ChromeDriver, and exiftool, and reads their paths from `CHROME_PATH`, `CHROMEDRIVER_PATH`, and `EXIFTOOL_PATH`.
+
+Create `dmoj/addons/pdfoid/Dockerfile` (a sample, not tested on LCOJ):
+
+```dockerfile
+FROM python:3.11-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        chromium chromium-driver libimage-exiftool-perl \
+        fonts-dejavu fonts-liberation git && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir git+https://github.com/DMOJ/pdfoid.git && \
+    useradd -m pdfoid
+ENV CHROME_PATH=/usr/bin/chromium \
+    CHROMEDRIVER_PATH=/usr/bin/chromedriver \
+    EXIFTOOL_PATH=/usr/bin/exiftool
+USER pdfoid
+EXPOSE 8888
+CMD ["pdfoid", "--port=8888", "--address=0.0.0.0"]
 ```
 
-### Step 3: Create a virtual environment
+::: warning
+Pdfoid listens on `localhost` by default. Inside a container you must pass `--address=0.0.0.0`.
+:::
 
-```sh
-python3 -m venv env
-source env/bin/activate
-pip install -e .
+### Step 2: Add the service to Compose
+
+Create (or extend) `dmoj/docker-compose.override.yml`. Compose merges it with `docker-compose.yml` automatically when you run commands from the `dmoj/` directory.
+
+```yaml
+services:
+  pdfoid:
+    build: ./addons/pdfoid
+    restart: unless-stopped
+    networks: [site]
 ```
 
-### Step 4: Run Pdfoid
+### Step 3: Configure settings
 
-```sh
-export CHROME_PATH=/usr/bin/chromium
-export CHROMEDRIVER_PATH=/usr/bin/chromedriver
-export EXIFTOOL_PATH=/usr/bin/exiftool
-env/bin/pdfoid --port=8888
-```
-
-If these programs are already in your `$PATH`, you do not need the exports.
-
-## Configuring LCOJ
-
-Add to `local_settings.py`:
+The site reads `dmoj/repo/dmoj/local_settings.py`, which `./scripts/initialize` copies from `dmoj/config/local_settings.py`. Edit the file in `config/` and copy it again (or edit both); see [Environment and configuration](/en/operate/environment).
 
 ```python
-# Pdfoid URL
-DMOJ_PDF_PDFOID_URL = 'http://localhost:8888'
-
-# Timeout (seconds)
-DMOJ_PDF_PROBLEM_TIMEOUT = 30
+DMOJ_PDF_PDFOID_URL = 'http://pdfoid:8888/'
 ```
 
-### Restart
-
-**Docker:**
+### Step 4: Start it
 
 ```sh
+cd dmoj
+docker compose up -d --build pdfoid
 docker compose restart site
 ```
 
-**Bare metal:**
+### Step 5: Test it
 
-```sh
-supervisorctl restart site
-```
+1. Open any problem, for example `https://luyencode.net/problem/APLUSB`.
+2. The **View as PDF** button now points to `/problem/APLUSB/pdf`.
+3. Click it; after a few seconds the browser shows the PDF.
+
+## Enable the PDF cache (recommended once you use Pdfoid)
+
+Without a cache, every PDF view launches a new Chromium. To cache:
+
+1. Add a volume shared by `site` and `nginx` in `dmoj/docker-compose.override.yml`:
+
+   ```yaml
+   services:
+     site:
+       volumes:
+         - pdfcache:/pdfcache/
+     nginx:
+       volumes:
+         - pdfcache:/pdfcache/
+   volumes:
+     pdfcache:
+   ```
+
+2. Add an internal location to `dmoj/nginx/conf.d/nginx.conf`, the same way `/userdatacache` works today:
+
+   ```nginx
+   location /pdfcache {
+       internal;
+       root /;
+   }
+   ```
+
+3. Configure settings:
+
+   ```python
+   DMOJ_PDF_PROBLEM_CACHE = '/pdfcache'      # must exist and be writable by the site
+   DMOJ_PDF_PROBLEM_INTERNAL = '/pdfcache'   # nginx path used for X-Accel-Redirect
+   ```
+
+4. Recreate the `site` and `nginx` containers to attach the new volume (nginx also rereads its config when recreated):
+
+   ```sh
+   docker compose up -d site nginx
+   ```
+
+## Settings that actually exist
+
+| Setting | Default (`dmoj/settings.py`) | Meaning |
+|---|---|---|
+| `DMOJ_PDF_PDFOID_URL` | `None` | Pdfoid URL. Anything other than `None` enables the feature |
+| `DMOJ_PDF_PROBLEM_CACHE` | `None` | PDF cache directory (optional) |
+| `DMOJ_PDF_PROBLEM_INTERNAL` | `None` | Internal nginx path mapped to the cache directory (optional) |
+
+::: warning Settings that don't exist
+Older docs mentioned `DMOJ_PDF_PROBLEM_TIMEOUT`, `DMOJ_PDF_PROBLEM_EXTRA_CSS`, `DMOJ_PDF_PROBLEM_HEADER`, `DMOJ_PDF_PROBLEM_FOOTER`, `DMOJ_PDF_PROBLEM_CACHE_TIME`, `DMOJ_PDF_PROBLEM_COMPRESS`, and `DMOJ_PDF_PDFOID_URLS`. LCOJ **does not read** any of them. The 15-second MathJax wait is hard-coded in `judge/utils/pdfoid.py`.
+:::
 
 ## Usage
 
-### Generate a PDF for a problem
+| How | Example |
+|---|---|
+| Current UI language | `https://luyencode.net/problem/APLUSB/pdf` |
+| Specific language (`vi` or `en`) | `https://luyencode.net/problem/APLUSB/pdf/vi` |
+| Management command, writes `APLUSB.pdf` into `dmoj/repo/` | `./scripts/manage.py render_pdf APLUSB -l vi` |
 
-Go to: `https://luyencode.net/problem/<problem_code>/pdf`
-
-Example: `https://luyencode.net/problem/APLUSB/pdf`
-
-### Generate PDFs for multiple problems
-
-To generate PDFs for all problems in a contest:
-
-1. Go to the contest page
-2. Click _Download problems as PDF_
-3. Select the problems to download
-4. Click _Generate PDF_
-
-## Running Pdfoid with Supervisor
-
-Create the file `/etc/supervisor/conf.d/pdfoid.conf`:
-
-```ini
-[program:pdfoid]
-command=/path/to/pdfoid/env/bin/pdfoid --port=8888
-directory=/path/to/pdfoid
-user=pdfoid
-environment=CHROME_PATH="/usr/bin/chromium",CHROMEDRIVER_PATH="/usr/bin/chromedriver",EXIFTOOL_PATH="/usr/bin/exiftool"
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/pdfoid.log
-```
-
-Start it:
-
-```sh
-supervisorctl update
-supervisorctl start pdfoid
-```
-
-## Customizing PDFs
-
-### Custom CSS
-
-Add PDF-specific CSS in `local_settings.py`:
-
-```python
-DMOJ_PDF_PROBLEM_EXTRA_CSS = """
-@page {
-    size: A4;
-    margin: 2cm;
-}
-body {
-    font-family: "Times New Roman", serif;
-    font-size: 12pt;
-}
-"""
-```
-
-### Header/Footer
-
-```python
-DMOJ_PDF_PROBLEM_HEADER = """
-<div style="text-align: center; font-size: 10pt;">
-    LuyenCode Online Judge
-</div>
-"""
-
-DMOJ_PDF_PROBLEM_FOOTER = """
-<div style="text-align: center; font-size: 10pt;">
-    Page <span class="pageNumber"></span> / <span class="totalPages"></span>
-</div>
-"""
-```
+::: tip
+The PDF view checks access the same way the problem page does: anyone who can't see the problem gets a 404.
+:::
 
 ## Troubleshooting
 
-**PDF generation fails:**
-- Check that Pdfoid is running: `curl http://localhost:8888`
-- Check that Chrome/Chromium is installed
-- View Pdfoid logs (Docker): `docker compose logs -f pdfoid` (if running in Docker)
-- View Pdfoid logs (bare metal): `supervisorctl tail -f pdfoid`
+| Symptom | Common cause | Fix |
+|---|---|---|
+| `/problem/<code>/pdf` returns 404 | `DMOJ_PDF_PDFOID_URL` not set, or `site` not restarted | Check settings, run `docker compose restart site` |
+| Error 500 with `ConnectionError` in the `site` log | The site can't reach Pdfoid | `docker compose ps pdfoid`; make sure it's on the `site` network and listening on `0.0.0.0` |
+| Log says `PDF rendering timed out` | Chromium couldn't load MathJax from the site URL within 15 seconds | Make sure the Pdfoid container can reach your website (DNS, internet, Cloudflare) |
+| Pdfoid log shows Chromium failing to start (sandbox) | Docker restrictions on the Chromium sandbox | Run as a non-root user (as in the Dockerfile above); if it still fails, see Chromium's docs on sandboxing in containers |
+| Vietnamese text renders with wrong glyphs | Missing fonts in the image | Install more fonts (`fonts-dejavu`, `fonts-noto`) and rebuild |
+| An edited statement still shows the old PDF | Cached files are only removed when the problem is saved | Save the problem again, or delete `<CODE>.<language>.pdf` from the cache directory |
 
-**PDF has font issues:**
-- Install the required fonts:
-```sh
-apt install fonts-liberation fonts-dejavu
-```
+View logs with `docker compose logs -f pdfoid` and `docker compose logs -f site` (logger `judge.problem.pdf`).
 
-**Timeout:**
-- Increase `DMOJ_PDF_PROBLEM_TIMEOUT`
-- Check that the server has enough RAM
-
-**Images do not appear:**
-- Make sure images use absolute URLs (not relative paths)
-- Check that the images are accessible from the server
-
-## Optimization
-
-### Cache PDFs
-
-To avoid regenerating PDFs repeatedly:
-
-```python
-DMOJ_PDF_PROBLEM_CACHE = '/home/lcoj/pdf_cache'
-DMOJ_PDF_PROBLEM_CACHE_TIME = 3600  # 1 hour
-```
-
-Create the directory:
-
-```sh
-mkdir -p /home/lcoj/pdf_cache
-chown www-data:www-data /home/lcoj/pdf_cache
-```
-
-### Reduce PDF size
-
-```python
-DMOJ_PDF_PROBLEM_COMPRESS = True
-```
-
-### Parallel processing
-
-If you need to generate many PDFs at once, run multiple Pdfoid instances:
-
-```sh
-# Instance 1
-env/bin/pdfoid --port=8888
-
-# Instance 2
-env/bin/pdfoid --port=8889
-```
-
-Configure load balancing in `local_settings.py`:
-
-```python
-DMOJ_PDF_PDFOID_URLS = [
-    'http://localhost:8888',
-    'http://localhost:8889',
-]
-```
-
-## Printing PDFs
-
-### Print settings
-
-When printing PDFs, we recommend that you:
-- Choose A4 paper
-- Set 2cm margins on each side
-- Print double-sided to save paper
-- Check the print preview before printing
-
-### Quantity
-
-Calculate the number of copies needed:
-- Number of contestants × Number of problems
-- Add 10% as a buffer
-- Add copies for the judges
-
-## Example Workflow
-
-### Preparing an onsite contest
-
-1. Create a contest with the problems
-2. Check that the problem statements render correctly
-3. Generate a PDF for each problem
-4. Review the PDFs
-5. Print the PDFs
-6. Package the problem statements
-
-### Automation script
-
-```bash
-#!/bin/bash
-CONTEST="contest_key"
-PROBLEMS=("APLUSB" "SORTING" "GRAPH")
-
-for problem in "${PROBLEMS[@]}"; do
-    curl "https://luyencode.net/problem/$problem/pdf" \
-         -o "${problem}.pdf"
-    echo "Downloaded $problem.pdf"
-done
-```
+::: tip Need help?
+Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

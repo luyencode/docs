@@ -1,190 +1,360 @@
 # Management Commands
 
-LCOJ cung cấp nhiều management commands để quản lý hệ thống. Các lệnh này được chạy qua `./manage.py <command>`.
+LCOJ có sẵn một bộ lệnh quản trị (Django management command) cho các việc như tạo người dùng và máy chấm, nhập bài, xuất dữ liệu kỳ thi, sinh lời giải... Trang này liệt kê **toàn bộ** lệnh tùy biến trong `judge/management/commands/` của lcoj-site, kèm đúng các tham số mà từng lệnh nhận.
 
-## Cách sử dụng
+## Cách chạy lệnh
 
-```sh
-cd /path/to/site
-source ../lcojsite/bin/activate
-./manage.py <command> [options]
-```
-
-## User Management
-
-### adduser - Thêm người dùng
-
-Tạo người dùng mới nhanh chóng.
+Với bản cài Docker, chạy lệnh từ thư mục `dmoj/` qua script bọc `./scripts/manage.py`:
 
 ```sh
-./manage.py adduser <username> <email> <password>
+cd dmoj/
+./scripts/manage.py <command> [tham số] [tùy chọn]
 ```
 
-**Ví dụ:**
+Script này chạy `docker compose exec $COMPOSE_EXEC_FLAGS site python3 manage.py <command>`, tức là lệnh được thực thi **bên trong container `site`**.
+
+::: tip Đường dẫn file nằm trong container
+Thư mục làm việc của container `site` là `/site/`, tương ứng `dmoj/repo/` trên máy chủ. Mọi đường dẫn tương đối bạn truyền vào (file CSV đầu vào, file hay thư mục đầu ra) đều nằm dưới `dmoj/repo/` trên máy chủ. Các thư mục dùng chung khác: `/problems/` = `dmoj/problems/`, `/media/` = `dmoj/media/`.
+:::
+
+::: warning Tham số có dấu cách
+Script truyền tham số không có dấu nháy (`$@`), nên một tham số chứa dấu cách (như tên bài) sẽ bị tách thành nhiều tham số. Với những lệnh như vậy, hãy mở shell trong container bằng `./scripts/enter_site` rồi chạy `python3 manage.py <command> ...` ở đó.
+:::
+
+::: tip Truyền thêm biến môi trường
+Script chuyển `COMPOSE_EXEC_FLAGS` cho `docker compose exec`. Ví dụ, đặt một biến chỉ cho một lần chạy:
+
 ```sh
-./manage.py adduser alice alice@example.com password123
+COMPOSE_EXEC_FLAGS="-e OPENAI_API_KEY=sk-..." ./scripts/manage.py generate_editorials --dry-run
 ```
+:::
 
-**Tùy chọn:**
-- `--superuser` - Tạo superuser
-- `--staff` - Tạo staff user
+## Tổng quan
 
-### batchadduser - Thêm nhiều người dùng
+| Nhóm | Lệnh | Công dụng |
+|---|---|---|
+| Người dùng | [`adduser`](#adduser) | Tạo một người dùng |
+| Người dùng | [`batchadduser`](#batchadduser) | Tạo nhiều người dùng từ file CSV, tự sinh mật khẩu |
+| Người dùng | [`move_user_content`](#move-user-content) | Chuyển bài nộp và bình luận từ tài khoản này sang tài khoản khác |
+| Người dùng | [`generate_api_token`](#generate-api-token) | Sinh (hoặc sinh lại) API token của người dùng |
+| Chấm bài | [`addjudge`](#addjudge) | Đăng ký máy chấm cùng khóa xác thực |
+| Chấm bài | [`runbridged`](#runbridged) | Chạy bridge cho máy chấm (dịch vụ `bridged` dùng lệnh này) |
+| Chấm bài | [`runbalancer`](#runbalancer) | Chạy bộ cân bằng tải cho máy chấm |
+| Bài tập | [`create_problem`](#create-problem) | Tạo một bài trống |
+| Bài tập | [`import_polygon_package`](#import-polygon-package) | Nhập bài từ package Codeforces Polygon |
+| Bài tập | [`submit_polygon_solutions`](#submit-polygon-solutions) | Nộp toàn bộ lời giải có trong package Polygon |
+| Bài tập | [`copy_language`](#copy-language) | Cho phép ngôn ngữ B ở mọi bài đang cho phép ngôn ngữ A |
+| Bài tập | [`render_pdf`](#render-pdf) | Xuất đề bài ra PDF |
+| Bài tập | [`backfill_problem_data_size`](#backfill-problem-data-size) | Tính lại dung lượng file dữ liệu của từng bài |
+| Lời giải | [`generate_editorials`](#generate-editorials) | Sinh lời giải bằng API tương thích OpenAI |
+| Kỳ thi | [`export_contest_submissions`](#export-contest-submissions) | Xuất mã nguồn của thí sinh ra cây thư mục |
+| Kỳ thi | [`export_contest_submissions_details`](#export-contest-submissions-details) | Xuất kết quả từng test ra CSV |
+| Kỳ thi | [`export_event_feed`](#export-event-feed) | Xuất event feed CLICS dạng XML (cho ICPC Resolver) |
+| Kỳ thi | [`runmoss`](#runmoss) | Kiểm tra đạo code trong kỳ thi bằng MOSS |
+| Kỳ thi | [`merge_replay_data`](#merge-replay-data) | Thêm thí sinh của kỳ thi khác vào replay dưới dạng "bóng ma" |
+| Tổ chức | [`backfill_current_credit`](#backfill-current-credit) | Tính lại credit đã dùng trong tháng này của mọi tổ chức |
+| Tổ chức | [`backfill_monthly_credit`](#backfill-monthly-credit) | Tính lại lịch sử credit theo tháng của mọi tổ chức |
+| Trang web | [`add_blog_navigation`](#add-blog-navigation) | Thêm mục "Blog" vào thanh điều hướng |
+| Trang web | [`generate_sitemap`](#generate-sitemap) | Ghi các file sitemap tĩnh vào một thư mục |
+| Trang web | [`update_permissions`](#update-permissions) | Tạo/đổi tên quyền sau khi model thay đổi |
+| Trang web | [`makedmojmessages`](#makedmojmessages) | Tạo file dịch cho các chuỗi lưu trong cơ sở dữ liệu |
+| Trang web | [`camo`](#camo) | In ra URL qua proxy Camo của một ảnh |
 
-Thêm nhiều người dùng từ file CSV.
+Các lệnh có sẵn của Django (`migrate`, `createsuperuser`, `shell`, `loaddata`, `compilemessages`, ...) cũng chạy qua cùng script này.
+
+## Người dùng
+
+### adduser
+
+Tạo một người dùng cùng hồ sơ (profile).
 
 ```sh
-./manage.py batchadduser <csv_file>
+./scripts/manage.py adduser <name> <email> <password> [language] [--superuser] [--staff]
 ```
 
-**Format CSV:**
+| Tham số | Mô tả |
+|---|---|
+| `name` | Tên đăng nhập |
+| `email` | Email (không cần là email thật) |
+| `password` | Mật khẩu |
+| `language` | Không bắt buộc. Mã ngôn ngữ mặc định của người dùng; mặc định là `DEFAULT_USER_LANGUAGE` (`CPP20`) |
+| `--superuser` | Cấp quyền superuser |
+| `--staff` | Cấp quyền staff (được vào trang quản trị Django) |
+
+```sh
+./scripts/manage.py adduser alice alice@luyencode.net 'S3cret!' PY3
+```
+
+::: warning
+Mật khẩu sẽ nằm trong lịch sử shell. Với tài khoản quản trị, nên dùng `createsuperuser`, hoặc đổi mật khẩu ngay sau khi tạo.
+:::
+
+### batchadduser
+
+Tạo nhiều người dùng từ file CSV. Mật khẩu được **tự sinh** (8 ký tự ngẫu nhiên) và ghi ra một file CSV kết quả.
+
+```sh
+./scripts/manage.py batchadduser <input> <output>
+```
+
+| Tham số | Mô tả |
+|---|---|
+| `input` | File CSV có dòng tiêu đề gồm cột `username` và `fullname` |
+| `output` | Nơi ghi file CSV kết quả (`username,fullname,password`) |
+
+File đầu vào (`dmoj/repo/students.csv` trên máy chủ):
+
 ```csv
-username,email,password,first_name,last_name
-user1,user1@example.com,pass1,John,Doe
-user2,user2@example.com,pass2,Jane,Smith
+username,fullname
+lc_student01,Nguyen Van A
+lc_student02,Tran Thi B
 ```
-
-**Ví dụ:**
-```sh
-./manage.py batchadduser users.csv
-```
-
-### move_user_content - Chuyển nội dung người dùng
-
-Chuyển tất cả nội dung (bài nộp, bình luận) từ user này sang user khác.
 
 ```sh
-./manage.py move_user_content <from_user> <to_user>
+./scripts/manage.py batchadduser students.csv students_out.csv
 ```
 
-**Ví dụ:**
-```sh
-./manage.py move_user_content old_account new_account
-```
+`fullname` được lưu vào trường tên (first name); mọi người dùng nhận ngôn ngữ mặc định `DEFAULT_USER_LANGUAGE`. Lệnh sẽ dừng ngay khi gặp tên đăng nhập trùng, vì vậy hãy kiểm tra file đầu vào trước.
 
-**Lưu ý:** Lệnh này không xóa user cũ, chỉ chuyển nội dung.
+::: warning
+File CSV kết quả chứa mật khẩu dạng rõ. Hãy gửi cho người dùng một cách an toàn rồi xóa file.
+:::
 
-## Judge Management
+### move_user_content
 
-### addjudge - Thêm judge
-
-Tạo judge mới với authentication key.
+Chuyển toàn bộ **bài nộp, bình luận và lượt vote bình luận** từ `source` sang `target`. Hữu ích khi một người có hai tài khoản.
 
 ```sh
-./manage.py addjudge <judge_name>
+./scripts/manage.py move_user_content <source> <target>
 ```
 
-**Ví dụ:**
-```sh
-./manage.py addjudge judge1
-```
+::: danger Không thể hoàn tác
+Thao tác chạy trong một transaction nhưng không có cách tự động đảo ngược: sau đó bạn không còn phân biệt được bài nộp nào vốn của `source`. Hãy sao lưu cơ sở dữ liệu trước. Lệnh từ chối chạy nếu `source` đã từng tham gia kỳ thi. Tài khoản `source` **không** bị xóa.
+:::
 
-Lệnh sẽ tự động tạo authentication key và hiển thị.
+### generate_api_token
 
-### runbridged - Chạy bridge
-
-Chạy bridge server để kết nối với judge.
+Sinh hoặc sinh lại API token của người dùng và in ra màn hình. Token là chuỗi URL-safe dài 48 ký tự, dùng trong header `Authorization: Bearer <token>` (xem [API](/reference/api)).
 
 ```sh
-./manage.py runbridged
+./scripts/manage.py generate_api_token <name>
 ```
 
-**Tùy chọn:**
-- `--host <host>` - Host để bind (mặc định: localhost)
-- `--port <port>` - Port để bind (mặc định: 9999)
+::: warning
+Sinh lại token sẽ làm token cũ mất hiệu lực. Token bỏ qua xác thực hai lớp (nhưng không vào được trang quản trị), nên hãy giữ nó như mật khẩu.
+:::
 
-**Ví dụ:**
-```sh
-./manage.py runbridged --host 0.0.0.0 --port 9999
-```
+## Chấm bài
 
-**Lưu ý:** Thường chạy qua supervisor, không chạy trực tiếp.
+### addjudge
 
-### runbalancer - Chạy load balancer
-
-Chạy load balancer cho nhiều judge.
+Đăng ký máy chấm vào cơ sở dữ liệu để nó kết nối được tới bridge.
 
 ```sh
-./manage.py runbalancer
+./scripts/manage.py addjudge <name> <auth_key>
 ```
 
-## Problem Management
+| Tham số | Mô tả |
+|---|---|
+| `name` | Tên máy chấm (phải trùng với `id` trong cấu hình máy chấm) |
+| `auth_key` | Khóa xác thực (phải trùng với `key` trong cấu hình máy chấm) |
 
-### generate_editorials - Tạo editorial tự động
+Lệnh **không** tự sinh khóa; bạn tự chọn, ví dụ bằng `openssl rand -base64 48`. Cũng có thể tạo máy chấm trong trang quản trị Django. Xem [Cài đặt máy chấm](/operate/judge-setup).
 
-Tạo editorial (lời giải) tự động cho bài tập bằng AI, sử dụng Pydantic structured output để đảm bảo định dạng nhất quán.
+### runbridged
+
+Chạy bridge mà các máy chấm kết nối tới. Với bản cài Docker, đây là lệnh khởi động của dịch vụ `bridged`; bạn không cần tự chạy.
 
 ```sh
-./manage.py generate_editorials [options]
+python3 manage.py runbridged [--monitor] [--problem-storage-globs GLOB ...]
 ```
 
-**Yêu cầu:**
-- Cài đặt packages: `pip install openai pydantic`
-- Thiết lập API key: `export OPENAI_API_KEY="sk-..."`
-- Hoặc cấu hình trong `environment/openai.env`
+| Tùy chọn | Mô tả |
+|---|---|
+| `--monitor` | Theo dõi thư mục dữ liệu bài và tự cập nhật bài khi dữ liệu thay đổi |
+| `--problem-storage-globs` | Các glob cần theo dõi (mặc định: không có) |
 
-**Tùy chọn:**
+Địa chỉ lắng nghe lấy từ các thiết lập `BRIDGED_JUDGE_ADDRESS` (mặc định cổng 9999) và `BRIDGED_DJANGO_ADDRESS` (mặc định cổng 9998), không phải từ tham số dòng lệnh.
+
+### runbalancer
+
+Chạy bộ cân bằng tải cho máy chấm với file cấu hình YAML.
+
+```sh
+./scripts/manage.py runbalancer -c <config.yml>
+```
+
+| Tùy chọn | Mô tả |
+|---|---|
+| `-c`, `--config` | File YAML chứa cấu hình bộ cân bằng tải (thực tế là bắt buộc) |
+
+## Bài tập
+
+### create_problem
+
+Tạo một bài trống với đề bài, một dạng bài và một nhóm bài. Dạng bài và nhóm bài phải có sẵn.
+
+```sh
+./scripts/manage.py create_problem <code> <name> <body> <type> <group>
+```
+
+| Tham số | Mô tả |
+|---|---|
+| `code` | Mã bài |
+| `name` | Tên bài |
+| `body` | Đề bài (Markdown) |
+| `type` | Tên một dạng bài đã có |
+| `group` | Tên một nhóm bài đã có |
+
+```sh
+# chạy trong container (./scripts/enter_site), vì tên và đề bài có dấu cách
+python3 manage.py create_problem aplusb "A + B" "Tính a + b." <type_name> <group_name>
+```
+
+Lệnh không đặt giới hạn, điểm, test hay tác giả; hãy sửa bài sau khi tạo (xem [Quản lý bài tập](/setter/managing-problems)).
+
+### import_polygon_package
+
+Nhập một package **đầy đủ** (full package, dạng zip) từ Codeforces Polygon.
+
+```sh
+./scripts/manage.py import_polygon_package <package> <code> [--update] [--authors USER ...] [--curators USER ...]
+```
+
+| Tham số / tùy chọn | Mô tả |
+|---|---|
+| `package` | Đường dẫn tới file zip |
+| `code` | Mã bài cần tạo |
+| `--update` | Cập nhật bài nếu đã tồn tại |
+| `--authors` | Một hoặc nhiều tên đăng nhập làm tác giả |
+| `--curators` | Một hoặc nhiều tên đăng nhập làm người quản lý bài |
+
+```sh
+./scripts/manage.py import_polygon_package packages/aplusb.zip aplusb --authors admin
+```
+
+Quá trình nhập có tương tác (có thể hỏi bạn), và in ra URL của bài khi xong.
+
+### submit_polygon_solutions
+
+Nộp mọi lời giải liệt kê trong `problem.xml` của package Polygon vào một bài đã có, để kiểm tra kết quả chấm có khớp nhãn mong đợi. Mỗi mã nguồn được thêm chú thích đầu file gồm tên file và kết quả mong đợi.
+
+```sh
+./scripts/manage.py submit_polygon_solutions <package> <code> <submitter>
+```
+
+| Tham số | Mô tả |
+|---|---|
+| `package` | Đường dẫn tới file zip |
+| `code` | Mã bài |
+| `submitter` | Tên đăng nhập dùng để nộp |
+
+Các ngôn ngữ được hỗ trợ ánh xạ sang mã `CPP20`, `JAVA`, `PAS`, `PY2`, `PY3`, `PYPY`, `PYPY3`, `KOTLIN`, `GO`, `RUST`; lời giải khác bị bỏ qua. Các mã ngôn ngữ này phải có trên hệ thống.
+
+### copy_language
+
+Với mọi bài đang cho phép ngôn ngữ `source`, cho phép thêm ngôn ngữ `target`, đồng thời chép giới hạn thời gian/bộ nhớ riêng theo ngôn ngữ của `source` sang `target`.
+
+```sh
+./scripts/manage.py copy_language <source> <target>
+```
+
+```sh
+./scripts/manage.py copy_language CPP17 CPP20
+```
+
+Cả hai tham số là **mã ngôn ngữ**, không phải mã bài. Lưu ý danh sách bài cho phép `target` sẽ bị thay bằng danh sách của `source`.
+
+### render_pdf
+
+Xuất đề bài ra file `<code>.pdf` trong thư mục làm việc (`dmoj/repo/` trên máy chủ).
+
+```sh
+./scripts/manage.py render_pdf <code> [-l LANGUAGE]
+```
+
+| Tham số / tùy chọn | Mô tả |
+|---|---|
+| `code` | Mã bài |
+| `-l`, `--language` | Ngôn ngữ đề; dùng bản dịch nếu có. Mặc định: `LANGUAGE_CODE` (`vi` trên LCOJ) |
+
+Cần Pdfoid (`DMOJ_PDF_PDFOID_URL`). Xem [Pdfoid](/operate/pdfoid).
+
+### backfill_problem_data_size
+
+Tính lại dung lượng các file dữ liệu của từng bài (zip test, generator, checker, grader, header tùy biến) trong `DMOJ_PROBLEM_DATA_ROOT` và lưu tổng vào bản ghi dữ liệu bài.
+
+```sh
+./scripts/manage.py backfill_problem_data_size [--dry-run]
+```
+
+| Tùy chọn | Mô tả |
+|---|---|
+| `--dry-run` | Chỉ hiển thị thay đổi, không lưu |
+
+Chạy một lần sau khi nâng cấp lên phiên bản có theo dõi dung lượng dữ liệu bài, hoặc khi dung lượng hiển thị có vẻ sai.
+
+## Lời giải
+
+### generate_editorials
+
+Sinh lời giải (editorial) cho các **bài công khai** chưa có lời giải, dùng API chat tương thích OpenAI với structured output của Pydantic.
+
+```sh
+./scripts/manage.py generate_editorials [tùy chọn]
+```
+
+**Yêu cầu**
+
+- Gói `openai` và `pydantic`. Hai gói này có trong `additional_requirements.txt` và đã được cài trong image base của Docker.
+- Biến `OPENAI_API_KEY` phải có trong môi trường của container `site` (thêm vào `environment/site.env` rồi tạo lại container, hoặc truyền qua `COMPOSE_EXEC_FLAGS` như ở trên).
+- `OPENAI_BASE_URL` không bắt buộc; đặt biến này để dùng một endpoint tương thích OpenAI khác.
+
+**Tùy chọn**
 
 | Tùy chọn | Mô tả | Mặc định |
-|----------|-------|----------|
-| `--problem CODE`, `-p CODE` | Xử lý một bài cụ thể | Tất cả bài chưa có editorial |
-| `--limit N`, `-l N` | Số bài tối đa cần xử lý | 10 |
-| `--offset N` | Bắt đầu từ vị trí thứ N | 0 |
-| `--dry-run` | Chế độ xem trước, không lưu vào DB | False |
-| `--verbose` | Hiển thị chi tiết quá trình | False |
-| `--model MODEL` | Model OpenAI sử dụng | mimo-v2-flash |
-| `--temperature T` | Độ sáng tạo (0.0-2.0) | 0.7 |
-| `--max-retries N` | Số lần thử lại khi API lỗi | 3 |
-| `--retry-delay S` | Thời gian chờ giữa các lần thử (giây) | 2 |
-| `--log-file PATH` | Lưu log vào file | None |
+|---|---|---|
+| `--problem CODE`, `-p CODE` | Chỉ xử lý một bài | Mọi bài công khai chưa có lời giải |
+| `--limit N`, `-l N` | Số bài tối đa cần xử lý | `10` |
+| `--offset N` | Bỏ qua N bài đầu tiên (sắp theo ID) | `0` |
+| `--dry-run` | Sinh và xem trước, không lưu gì | tắt |
+| `--verbose` | Ghi log mức debug | tắt |
+| `--model MODEL` | Tên model gửi lên API | `mimo-v2-flash` |
+| `--temperature T` | Nhiệt độ lấy mẫu | `0.7` |
+| `--max-retries N` | Số lần thử lại khi API lỗi | `3` |
+| `--retry-delay S` | Thời gian chờ gốc (giây), nhân đôi sau mỗi lần thử lại | `2` |
+| `--log-file PATH` | Ghi log thêm vào file này | không có |
 
-**Ví dụ:**
+**Cách hoạt động**
 
-```sh
-# Bước 1: Test với một bài (dry run - QUAN TRỌNG)
-./manage.py generate_editorials --problem cb01 --dry-run --verbose
+1. Chọn các bài có `is_public=True` và chưa có lời giải (với `--problem`, bài đó phải công khai và chưa có lời giải).
+2. Lấy tối đa 3 bài nộp Accepted gần nhất bằng C/C++, ưu tiên của những người khác nhau.
+3. Gửi đề bài và các lời giải lên API, rồi phân tích câu trả lời theo một schema cố định.
+4. Dựng Markdown theo định dạng chuẩn bên dưới.
+5. Lưu lời giải ở trạng thái **công khai, xuất bản ngay**. Tác giả: người dùng tên `admin` (hoặc superuser đầu tiên), sau đó là tác giả của các bài nộp được lấy mẫu.
 
-# Bước 2: Tạo editorial cho một bài
-./manage.py generate_editorials --problem cb01 --verbose
+::: warning Xuất bản ngay lập tức
+Lời giải sinh ra hiển thị cho người dùng ngay. Luôn xem trước bằng `--dry-run` và kiểm tra vài kết quả trên trang (`https://luyencode.net/problem/<code>/editorial`).
+:::
 
-# Bước 3: Xử lý nhiều bài với logging
-./manage.py generate_editorials --limit 20 --log-file /tmp/editorials.log --verbose
-
-# Bước 4: Tiếp tục từ bài thứ 50
-./manage.py generate_editorials --limit 50 --offset 50
-
-# Sử dụng model khác
-./manage.py generate_editorials --problem cb01 --model gpt-4 --temperature 0.5
-```
-
-**Cách hoạt động:**
-
-1. Tìm các bài chưa có editorial (is_public=True)
-2. Lấy 3 bài nộp AC khác nhau (ưu tiên C/C++)
-3. Gửi đến OpenAI API với Pydantic structured output
-4. Tạo editorial theo định dạng chuẩn với các phần:
-   - Hiểu bài toán
-   - Các cách tiếp cận (từ đơn giản đến tối ưu)
-   - Phân tích độ phức tạp
-   - Bài học kinh nghiệm
-   - Lỗi thường gặp
-5. Lưu vào database với trạng thái PUBLIC
-
-**Định dạng editorial:**
+**Định dạng lời giải** (tiêu đề bằng tiếng Việt, đúng như được sinh ra):
 
 ````markdown
 ## Hiểu bài toán
-[Giải thích rõ ràng về bài toán]
+[Giải thích đề bài]
 
 ## Các cách tiếp cận
 
 ### Cách Brute Force
+
 ```cpp
 [code]
 ```
+
 * **Time Complexity**: O(n²)
 * **Space Complexity**: O(1)
-[Giải thích chi tiết]
+
+[Giải thích]
 
 ### Cách Hash Map
 [code + giải thích]
@@ -196,413 +366,250 @@ Tạo editorial (lời giải) tự động cho bài tập bằng AI, sử dụn
 | 2 | O(n) | O(n) | Hash Map |
 
 ## Bài học kinh nghiệm
-- [Insight 1]
-- [Insight 2]
+- [Nhận xét]
 
 ## Lỗi thường gặp
-- [Pitfall 1]
-- [Pitfall 2]
+- [Lỗi]
 ````
 
-**Kiểm tra và xuất bản:**
+**Ví dụ**
 
 ```sh
-# Kiểm tra trong database
-./manage.py shell
+# 1. Xem trước một bài (không lưu gì)
+./scripts/manage.py generate_editorials --problem aplusb --dry-run --verbose
+
+# 2. Sinh thật
+./scripts/manage.py generate_editorials --problem aplusb
+
+# 3. Xử lý 20 bài và ghi log (đường dẫn nằm trong container)
+./scripts/manage.py generate_editorials --limit 20 --log-file /tmp/editorials.log
+
+# 4. Dùng model khác
+./scripts/manage.py generate_editorials --problem aplusb --model gpt-4o-mini --temperature 0.5
+```
+
+Log đánh dấu bài thành công bằng `✓` và thất bại bằng `✗`. Mỗi bài mất vài giây; hãy giảm `--limit` hoặc tăng `--retry-delay` nếu API giới hạn tần suất.
+
+**Lỗi thường gặp**
+
+| Thông báo | Cách xử lý |
+|---|---|
+| `OPENAI_API_KEY environment variable not set` | Cung cấp khóa cho container `site` |
+| `OpenAI package not installed` | Build lại image: `docker compose up -d --build base site celery` |
+| `Insufficient AC C/C++ solutions` | Bài chưa có bài nộp Accepted bằng C/C++; bỏ qua hoặc tự viết lời giải |
+| `Problem '<code>' not found or already has editorial` | Sai mã bài, bài không công khai, hoặc đã có lời giải |
+
+**Gỡ một lời giải đã sinh**
+
+Sửa hoặc xóa ở phần lời giải trong trang chỉnh sửa bài của trang quản trị Django, hoặc dùng shell:
+
+::: danger
+Lệnh dưới đây xóa vĩnh viễn lời giải của bài được chỉ định.
+:::
+
+```sh
+./scripts/manage.py shell
 >>> from judge.models import Solution
->>> s = Solution.objects.get(problem__code='cb01')
->>> print(s.content[:500])
->>> print(f"Is public: {s.is_public}")
->>> print(f"Authors: {[a.user.username for a in s.authors.all()]}")
-
-# Xem trên website
-# https://luyencode.net/problem/cb01/editorial
+>>> Solution.objects.filter(problem__code='aplusb').delete()
 ```
 
-**Xử lý hàng loạt:**
+## Kỳ thi
+
+### export_contest_submissions
+
+Xuất mã nguồn của mọi thí sinh thi **chính thức** (không tính thi ảo) ra cây thư mục. Bài nộp cuối cùng của mỗi người cho mỗi bài nằm ở `<output>/<username>/<problem>.<ext>`; các bài nộp cũ hơn nằm ở `<output>/<username>/$History/<problem>_<id>.<ext>`.
 
 ```sh
-# Chạy trong background với nohup
-nohup ./manage.py generate_editorials --limit 100 --log-file /tmp/editorials.log > /tmp/output.log 2>&1 &
-
-# Theo dõi tiến trình
-tail -f /tmp/output.log
-
-# Kiểm tra kết quả
-grep "✓" /tmp/editorials.log | wc -l  # Số bài thành công
-grep "✗" /tmp/editorials.log | wc -l  # Số bài thất bại
+./scripts/manage.py export_contest_submissions <key> <output>
 ```
 
-**Rollback nếu cần:**
+| Tham số | Mô tả |
+|---|---|
+| `key` | Mã kỳ thi |
+| `output` | **Thư mục** đầu ra; phải chưa tồn tại |
 
 ```sh
-./manage.py shell
->>> from judge.models import Solution
-
-# Xóa editorial của một bài cụ thể
->>> Solution.objects.filter(problem__code='cb01').delete()
-
-# Xóa tất cả editorial PUBLIC (cẩn thận!)
->>> Solution.objects.filter(is_public=True).delete()
-
-# Xóa 10 editorial mới nhất
->>> from django.db.models import Max
->>> last_id = Solution.objects.aggregate(Max('id'))['id__max']
->>> Solution.objects.filter(id__gte=last_id - 10).delete()
+./scripts/manage.py export_contest_submissions lcoj_round1 exports/lcoj_round1
 ```
 
-**Lưu ý:**
-- Editorial được tạo với trạng thái PUBLIC (is_public=True)
-- Hệ thống tự động thêm admin và tác giả solutions vào danh sách authors
-- Sử dụng `--dry-run` để test trước khi tạo thật
-- API có thể bị rate limit, giảm `--limit` nếu gặp lỗi
-- Thời gian xử lý: ~5-15 giây/bài
+### export_contest_submissions_details
 
-**Troubleshooting:**
+Xuất kết quả từng test của mọi bài nộp trong kỳ thi ra **một file CSV** với các cột `username, problem, submission, testcase, points, time, memory, feedback`.
 
 ```sh
-# Lỗi: "OpenAI package not installed"
-pip install openai pydantic
-
-# Lỗi: "OPENAI_API_KEY not set"
-export OPENAI_API_KEY="sk-..."
-
-# Lỗi: "No AC solutions found"
-# Kiểm tra xem bài có submissions AC không
-./manage.py shell
->>> from judge.models import Submission
->>> Submission.objects.filter(problem__code='xxx', result='AC').count()
-
-# Lỗi: API rate limit
-# Giảm batch size và tăng delay
-./manage.py generate_editorials --limit 5 --retry-delay 5
+./scripts/manage.py export_contest_submissions_details <key> <output>
 ```
-
-### create_problem - Tạo bài tập
-
-Tạo bài tập mới nhanh chóng.
 
 ```sh
-./manage.py create_problem <code> <name>
+./scripts/manage.py export_contest_submissions_details lcoj_round1 exports/lcoj_round1_details.csv
 ```
 
-**Ví dụ:**
-```sh
-./manage.py create_problem APLUSB "A Plus B"
-```
+### export_event_feed
 
-**Tùy chọn:**
-- `--time-limit <seconds>` - Giới hạn thời gian
-- `--memory-limit <kb>` - Giới hạn bộ nhớ
-- `--points <points>` - Điểm của bài
-
-### import_polygon_package - Import từ Polygon
-
-Import bài tập từ Polygon package (Codeforces).
+Xuất event feed CLICS dạng **XML** cho các công cụ như ICPC Resolver.
 
 ```sh
-./manage.py import_polygon_package <zip_file>
+./scripts/manage.py export_event_feed <key> <output> [--medal lastGold lastSilver lastBronze]
 ```
 
-**Ví dụ:**
-```sh
-./manage.py import_polygon_package problem.zip
-```
-
-### submit_polygon_solutions - Test solutions
-
-Nộp tất cả solutions từ Polygon package để test.
+| Tham số / tùy chọn | Mô tả | Mặc định |
+|---|---|---|
+| `key` | Mã kỳ thi | |
+| `output` | File đầu ra; phải có đuôi `.xml` | |
+| `--medal` | Thứ hạng cuối cùng nhận huy chương vàng, bạc, đồng | `4 8 12` |
 
 ```sh
-./manage.py submit_polygon_solutions <problem_code>
+./scripts/manage.py export_event_feed lcoj_icpc exports/lcoj_icpc.xml --medal 1 3 6
 ```
 
-### copy_language - Copy ngôn ngữ
+### runmoss
 
-Copy cấu hình ngôn ngữ từ bài này sang bài khác.
+Chạy MOSS trên các bài nộp Accepted của kỳ thi (thí sinh chính thức và người theo dõi), theo từng bài và từng ngôn ngữ (C++, C, Java, Python, Pascal), rồi in ra URL kết quả MOSS.
 
 ```sh
-./manage.py copy_language <from_problem> <to_problem>
+./scripts/manage.py runmoss <contest>
 ```
 
-**Ví dụ:**
-```sh
-./manage.py copy_language APLUSB SORTING
-```
+`contest` là **mã** kỳ thi. Cần `MOSS_API_KEY` (trên LCOJ được đọc từ biến môi trường). Người tổ chức kỳ thi cũng có thể chạy MOSS từ trang `/moss` của kỳ thi.
 
-## Contest Management
+### merge_replay_data
 
-### export_contest_submissions - Export bài nộp
-
-Export tất cả bài nộp của contest ra CSV.
+Bổ sung vào replay bảng xếp hạng của kỳ thi A các thí sinh của một kỳ thi B khác, hiển thị dưới dạng "bóng ma" (ghost). Hữu ích khi so sánh một kỳ thi mirror trên luyencode.net với kỳ thi gốc.
 
 ```sh
-./manage.py export_contest_submissions <contest_key> <output_file>
+./scripts/manage.py merge_replay_data <contest> <b_json>
 ```
 
-**Ví dụ:**
-```sh
-./manage.py export_contest_submissions contest2024 submissions.csv
-```
+| Tham số | Mô tả |
+|---|---|
+| `contest` | Mã kỳ thi A trên hệ thống này |
+| `b_json` | File JSON dữ liệu replay của kỳ thi B (cùng định dạng được phục vụ tại `/contest/<key>/replay/<version>/`) |
 
-### export_contest_submissions_details - Export chi tiết
+Lệnh dựng lại dữ liệu replay của A từ cơ sở dữ liệu (nên chạy lại nhiều lần cũng không bị nhân đôi bóng ma), ghép bài theo **thứ tự**, tăng `replay_version` của kỳ thi, ghi file mới vào `MEDIA_ROOT/contest_replay/`, và bật nút bật/tắt bóng ma trên trang bảng xếp hạng. Hai kỳ thi phải có cùng số bài; nếu thời lượng khác nhau thì lệnh in cảnh báo. Chỉ những kỳ thi xem lại được (công khai, đã kết thúc, không đóng băng, bảng xếp hạng hiển thị) mới có replay.
 
-Export bài nộp kèm source code.
+## Tổ chức
 
-```sh
-./manage.py export_contest_submissions_details <contest_key> <output_dir>
-```
+Các lệnh này tính lại lượng credit mà tổ chức đã dùng (thời gian chấm của bài và kỳ thi thuộc tổ chức). Không có tham số và có ghi vào cơ sở dữ liệu.
 
-**Ví dụ:**
-```sh
-./manage.py export_contest_submissions_details contest2024 ./export/
-```
+### backfill_current_credit
 
-### export_event_feed - Export event feed
-
-Export event feed cho ICPC tools.
+Tính lại lượng dùng trong **tháng hiện tại** của mọi tổ chức và đặt lại credit miễn phí về `VNOJ_MONTHLY_FREE_CREDIT`.
 
 ```sh
-./manage.py export_event_feed <contest_key> <output_file>
+./scripts/manage.py backfill_current_credit
 ```
 
-**Ví dụ:**
-```sh
-./manage.py export_event_feed icpc2024 events.json
-```
+### backfill_monthly_credit
 
-### runmoss - Chạy MOSS
-
-Chạy MOSS để phát hiện gian lận trong contest.
+Tính lại bản ghi lượng dùng theo tháng của mọi tổ chức, từ tháng 6/2023 tới tháng trọn vẹn gần nhất.
 
 ```sh
-./manage.py runmoss <contest_key>
+./scripts/manage.py backfill_monthly_credit
 ```
 
-**Ví dụ:**
-```sh
-./manage.py runmoss contest2024
-```
+## Bảo trì trang web
 
-**Yêu cầu:** Cần cấu hình MOSS user ID trong settings.
+### add_blog_navigation
 
-## API & Tokens
-
-### generate_api_token - Tạo API token
-
-Tạo API token cho user.
+Thêm mục điều hướng cấp cao nhất `Blog` → `/blog/` (key `blog`) vào cuối thanh điều hướng. Không làm gì nếu đã có mục với key `blog`.
 
 ```sh
-./manage.py generate_api_token <username>
+./scripts/manage.py add_blog_navigation
 ```
 
-**Ví dụ:**
-```sh
-./manage.py generate_api_token alice
-```
+### generate_sitemap
 
-Token sẽ được in ra console.
-
-## Utilities
-
-### render_pdf - Render PDF
-
-Render đề bài thành PDF.
+Ghi các file sitemap tĩnh: `<directory>/sitemap.xml` (file chỉ mục) và mỗi trang sitemap một file trong thư mục con. Trang web vốn đã phục vụ `/sitemap.xml` động, nên lệnh này chỉ cần khi bạn muốn phục vụ file tĩnh.
 
 ```sh
-./manage.py render_pdf <problem_code> <output_file>
+./scripts/manage.py generate_sitemap <directory> [-s SITE] [-p PROTOCOL] [-d SUBDIR] [-P PREFIX]
 ```
 
-**Ví dụ:**
-```sh
-./manage.py render_pdf APLUSB aplusb.pdf
-```
+| Tham số / tùy chọn | Mô tả | Mặc định |
+|---|---|---|
+| `directory` | Thư mục đầu ra | |
+| `-s`, `--site` | ID của site | Site hiện tại |
+| `-p`, `--protocol` | Giao thức dùng trong liên kết | `https` |
+| `-d`, `--subdir`, `--subdirectory` | Thư mục con chứa các file sitemap riêng lẻ | `sitemaps` |
+| `-P`, `--prefix` | Tiền tố URL của các sitemap riêng lẻ; phải kết thúc bằng `/` | `<protocol>://<domain>/<subdir>/` |
 
-**Yêu cầu:** Cần cấu hình Pdfoid.
+Thêm `-v 2` để xem tiến trình.
 
-### generate_sitemap - Tạo sitemap
+### update_permissions
 
-Tạo sitemap.xml cho SEO.
-
-```sh
-./manage.py generate_sitemap
-```
-
-Sitemap sẽ được lưu trong thư mục static.
-
-### camo - Camo proxy
-
-Chạy Camo proxy cho hình ảnh.
+Tạo các quyền còn thiếu và cập nhật tên các quyền đã có, cho mọi app hoặc chỉ các app chỉ định. Chạy sau khi `Meta.permissions` của model thay đổi (xem [Phân quyền](/admin/permissions)).
 
 ```sh
-./manage.py camo
+./scripts/manage.py update_permissions [--apps APP1,APP2] [--create-only | --update-only]
 ```
 
-**Lưu ý:** Thường không dùng, dùng Camo standalone thay thế.
+| Tùy chọn | Mô tả |
+|---|---|
+| `--apps` | Danh sách app, cách nhau bằng dấu phẩy (mặc định: mọi app) |
+| `--create-only` | Chỉ tạo quyền còn thiếu |
+| `--update-only` | Chỉ đổi tên quyền đã có |
 
-### makedmojmessages - Tạo translation files
+Dùng `-v 2` để in ra từng quyền được đổi tên.
 
-Tạo file translation cho đa ngôn ngữ.
+### makedmojmessages
+
+Tạo catalog dịch `dmoj-user` từ các chuỗi trong **cơ sở dữ liệu** (nhãn thanh điều hướng và tên dạng bài), thay vì từ mã nguồn.
 
 ```sh
-./manage.py makedmojmessages
+./scripts/manage.py makedmojmessages (-l LOCALE ... | -a) [-x LOCALE] [--no-wrap] [--no-obsolete] [--keep-pot]
 ```
 
-Sau đó compile:
+| Tùy chọn | Mô tả |
+|---|---|
+| `-l`, `--locale` | Locale cần tạo/cập nhật (dùng được nhiều lần), ví dụ `vi` |
+| `-a`, `--all` | Cập nhật mọi locale đang có |
+| `-x`, `--exclude` | Locale cần bỏ qua (dùng được nhiều lần) |
+| `--no-wrap` | Không ngắt dòng dài |
+| `--no-obsolete` | Xóa các chuỗi lỗi thời |
+| `--keep-pot` | Giữ lại file `.pot` (để debug) |
+
+Sau đó biên dịch bằng `./scripts/manage.py compilemessages`.
+
+### camo
+
+In ra URL qua proxy Camo của một URL ảnh. Báo lỗi `Camo not available` nếu chưa cấu hình Camo (`DMOJ_CAMO_URL`, `DMOJ_CAMO_KEY`). Xem [Proxy nội dung SSL](/operate/ssl-content-proxy).
 
 ```sh
-./manage.py compilemessages
+./scripts/manage.py camo <url>
 ```
 
-## Permissions & Credits
+## Mẹo
 
-### update_permissions - Cập nhật quyền
+### Chạy lệnh dài ở chế độ nền
 
-Cập nhật permissions cho tất cả users dựa trên groups.
+Dùng `-T` (không cấp TTY) để lệnh vẫn chạy khi phiên SSH kết thúc:
 
 ```sh
-./manage.py update_permissions
+COMPOSE_EXEC_FLAGS="-T" nohup ./scripts/manage.py generate_editorials --limit 100 > editorials.out 2>&1 &
+tail -f editorials.out
 ```
 
-### backfill_current_credit - Backfill credit hiện tại
+### Lên lịch với cron
 
-Cập nhật credit hiện tại cho users.
-
-```sh
-./manage.py backfill_current_credit
-```
-
-### backfill_monthly_credit - Backfill credit hàng tháng
-
-Cập nhật credit hàng tháng cho users.
-
-```sh
-./manage.py backfill_monthly_credit
-```
-
-## Ví dụ thực tế
-
-### Setup ban đầu
-
-```sh
-# Tạo superuser
-./manage.py createsuperuser
-
-# Tạo judge
-./manage.py addjudge judge1
-
-# Tạo bài tập mẫu
-./manage.py create_problem HELLO "Hello World" --time-limit 1 --memory-limit 65536 --points 100
-```
-
-### Tạo editorial tự động
-
-```sh
-# Bước 1: Cài đặt dependencies
-pip install openai pydantic
-
-# Bước 2: Thiết lập API key
-export OPENAI_API_KEY="sk-..."
-
-# Bước 3: Test với một bài (dry run)
-./manage.py generate_editorials --problem cb01 --dry-run --verbose
-
-# Bước 4: Tạo editorial thật
-./manage.py generate_editorials --problem cb01 --verbose
-
-# Bước 5: Kiểm tra kết quả
-./manage.py shell
->>> from judge.models import Solution
->>> s = Solution.objects.get(problem__code='cb01')
->>> print(f"Editorial created: {s.is_public}")
->>> print(f"Content length: {len(s.content)} chars")
-
-# Bước 6: Xử lý hàng loạt
-./manage.py generate_editorials --limit 50 --log-file /tmp/editorials.log
-
-# Bước 7: Theo dõi tiến trình
-tail -f /tmp/editorials.log
-```
-
-### Quản lý contest
-
-```sh
-# Export bài nộp sau contest
-./manage.py export_contest_submissions contest2024 submissions.csv
-
-# Chạy MOSS để check gian lận
-./manage.py runmoss contest2024
-
-# Export event feed cho ICPC tools
-./manage.py export_event_feed contest2024 events.json
-```
-
-### Batch operations
-
-```sh
-# Thêm nhiều users từ CSV
-./manage.py batchadduser students.csv
-
-# Tạo API tokens cho tất cả users
-for user in $(cat users.txt); do
-    ./manage.py generate_api_token $user >> tokens.txt
-done
-```
-
-### Maintenance
-
-```sh
-# Cập nhật permissions
-./manage.py update_permissions
-
-# Tạo sitemap mới
-./manage.py generate_sitemap
-
-# Render tất cả đề bài thành PDF
-for problem in APLUSB SORTING GRAPH; do
-    ./manage.py render_pdf $problem pdfs/$problem.pdf
-done
-```
-
-## Tips
-
-### Chạy trong background
-
-```sh
-nohup ./manage.py runbridged > bridged.log 2>&1 &
-```
-
-### Chạy với timeout
-
-```sh
-timeout 3600 ./manage.py runmoss contest2024
-```
-
-### Chạy định kỳ với cron
+Đặt trong crontab của máy chủ; dùng đường dẫn tuyệt đối tới `dmoj/` và `-T` vì cron không có TTY:
 
 ```cron
-# Tạo sitemap mỗi ngày lúc 2 giờ sáng
-0 2 * * * cd /path/to/site && ./manage.py generate_sitemap
-
-# Backfill credit mỗi tháng
-0 0 1 * * cd /path/to/site && ./manage.py backfill_monthly_credit
+# Tính lại credit của tổ chức lúc 00:10 ngày 1 hằng tháng
+10 0 1 * * cd /path/to/lcoj-docker/dmoj && COMPOSE_EXEC_FLAGS="-T" ./scripts/manage.py backfill_monthly_credit
 ```
 
-## Xem thêm
+## Xem hướng dẫn của lệnh
 
-Để xem tất cả commands có sẵn:
+Liệt kê mọi lệnh (có sẵn của Django và riêng của LCOJ):
 
 ```sh
-./manage.py help
+./scripts/manage.py help
 ```
 
-Để xem help của một command cụ thể:
+Xem tham số của một lệnh:
 
 ```sh
-./manage.py help <command>
-```
-
-**Ví dụ:**
-```sh
-./manage.py help adduser
+./scripts/manage.py help <command>
+# ví dụ
+./scripts/manage.py help adduser
 ```

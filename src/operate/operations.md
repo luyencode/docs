@@ -1,559 +1,299 @@
 # Vận hành LCOJ
 
-Hướng dẫn vận hành hàng ngày cho LCOJ với Docker.
+Các thao tác hằng ngày với một bản cài LCOJ bằng Docker: bật/tắt, xem log, áp dụng cấu hình, xóa cache, sao lưu và khôi phục.
 
-## Khởi động và dừng
+::: tip
+Mọi lệnh trong trang này chạy từ thư mục `lcoj-docker/dmoj/`. Danh sách service và cổng xem ở [Kiến trúc hệ thống](/operate/architecture), các script trong `scripts/` xem ở [Script hỗ trợ](/operate/scripts).
+:::
 
-### Khởi động tất cả services
+## Bật, tắt và khởi động lại
+
+| Việc cần làm | Lệnh |
+|---|---|
+| Bật toàn bộ (tạo lại container nếu cấu hình đổi) | `docker compose up -d` |
+| Xem trạng thái | `docker compose ps` |
+| Khởi động lại một service | `docker compose restart site` |
+| Tạm dừng / bật lại một service | `docker compose stop site` / `docker compose start site` |
+| Tắt và xóa container, giữ dữ liệu | `docker compose down` |
+
+Service `base` chỉ dùng để build image và luôn ở trạng thái đã thoát. Đó không phải lỗi.
+
+### `docker compose down -v` xóa những gì? {#down-v}
+
+Cờ `-v` xóa các **named volume** khai báo trong `docker-compose.yml`. Dữ liệu chính của LCOJ nằm trong thư mục bind mount trên máy chủ nên không bị xóa.
+
+| Dữ liệu | Nơi lưu | `down -v` có xóa? |
+|---|---|---|
+| Cơ sở dữ liệu | `./database/` (bind mount) | Không |
+| Dữ liệu test | `./problems/` (bind mount) | Không |
+| File tải lên | `./media/` (bind mount) | Không |
+| Mã nguồn, cấu hình | `./repo/`, `./environment/`, `./nginx/` | Không |
+| CSS/JS đã build, static | volume `assets` | **Có**, tạo lại bằng `./scripts/copy_static` |
+| File tải dữ liệu người dùng / kỳ thi | volume `userdatacache`, `contestdatacache` | **Có**, người dùng phải yêu cầu tạo lại |
+| Cache dùng chung site–nginx | volume `cache` | **Có** |
+| Dữ liệu Redis (cache, hàng đợi Celery) | volume ẩn danh của `redis` | **Có** |
+
+::: danger
+Sau `docker compose down -v`, trang web sẽ mất CSS cho đến khi bạn chạy lại `./scripts/copy_static`. Muốn xóa sạch cơ sở dữ liệu thì phải xóa thư mục `./database/`. Việc này **không thể hoàn tác**, hãy [sao lưu](#backup) trước.
+:::
+
+## Xem log
 
 ```sh
-cd lcoj-docker/dmoj
-docker compose up -d
+docker compose logs -f site            # theo dõi log site
+docker compose logs --tail=100 celery  # 100 dòng cuối
+docker compose logs --since 1h bridged # log trong 1 giờ qua
+docker compose logs -f                 # tất cả service
 ```
 
-### Dừng tất cả services
+Service cần xem theo từng triệu chứng:
+
+| Triệu chứng | Service |
+|---|---|
+| Lỗi 500, trang không tải | `site` |
+| Tác vụ nền (chấm lại, xuất dữ liệu) bị treo | `celery` |
+| Máy chấm không kết nối, bài nộp đứng ở trạng thái chờ | `bridged` |
+| Kết quả không tự cập nhật trên trang | `wsevent` |
+| Lỗi 502, file tĩnh 404 | `nginx` |
+
+## Vào bên trong container
 
 ```sh
-docker compose down
+./scripts/enter_site               # shell bash trong container site
+./scripts/manage.py dbshell        # shell SQL bằng tài khoản của site
+./scripts/manage.py <lệnh>         # chạy lệnh quản trị Django
 ```
 
-**Lưu ý:** Lệnh này KHÔNG xóa data. Database và media files vẫn được giữ.
-
-### Dừng và xóa tất cả (bao gồm volumes)
+Mở shell MariaDB bằng root mà không phải gõ mật khẩu ra dòng lệnh (biến môi trường có sẵn trong container `db`):
 
 ```sh
-docker compose down -v
+docker compose exec db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root "$MYSQL_DATABASE"'
 ```
 
-**Cảnh báo:** Lệnh này XÓA database! Chỉ dùng khi muốn reset hoàn toàn.
+::: info
+Service `db` dùng image `mariadb` (bản mới nhất). Hãy dùng các lệnh `mariadb`, `mariadb-dump`, `mariadb-admin`, `mariadb-check`. Từ MariaDB 11, image chính thức không còn kèm các tên cũ `mysql`, `mysqldump`…
+:::
 
-## Quản lý từng service
+Danh sách lệnh quản trị xem [Management Commands](/reference/management-commands).
 
-### Restart một service
+## Áp dụng thay đổi cấu hình
+
+| Bạn sửa | Cần làm |
+|---|---|
+| `environment/*.env` | `docker compose up -d` (lệnh `restart` **không** nạp lại file env) |
+| `repo/dmoj/local_settings.py` | `docker compose restart site celery bridged` |
+| `repo/uwsgi.ini` | `docker compose restart site` |
+| `repo/websocket/config.js` | `docker compose restart wsevent` |
+| `nginx/conf.d/nginx.conf` | `docker compose restart nginx` |
+| SCSS, JS, ảnh trong `repo/resources/`, file dịch | `./scripts/copy_static` rồi `docker compose restart site` |
+| Code Python, template | `docker compose restart site celery bridged` |
+
+Code không cần build lại image vì thư mục `./repo` được mount thẳng vào container. Khi nào cần build lại, xem [Cập nhật LCOJ](/operate/updating).
+
+## Cache
+
+LCOJ dùng Redis: database số 0 cho cache Django (`REDIS_CACHING_URL`), database số 1 cho hàng đợi Celery (`CELERY_BROKER_URL`). Không có lệnh `clear_cache`. Để xóa cache, dùng một trong hai cách:
+
+::: code-group
+
+```sh [Qua Django]
+docker compose exec site python3 manage.py shell -c "from django.core.cache import cache; cache.clear()"
+```
+
+```sh [Qua Redis]
+docker compose exec redis redis-cli -n 0 FLUSHDB
+```
+
+:::
+
+::: warning
+Đừng dùng `FLUSHALL`. Lệnh này xóa cả database số 1, làm mất các tác vụ Celery đang chờ.
+:::
+
+## Celery
 
 ```sh
-docker compose restart site
+docker compose exec celery celery -A dmoj_celery inspect active     # tác vụ đang chạy
+docker compose exec celery celery -A dmoj_celery inspect scheduled  # tác vụ đã hẹn giờ
 docker compose restart celery
-docker compose restart nginx
 ```
 
-### Stop một service
+Celery chạy với `--concurrency=2` (đặt trong `celery/Dockerfile`).
 
-```sh
-docker compose stop site
+## Sao lưu {#backup}
+
+Cần sao lưu bốn thứ:
+
+| Thành phần | Vị trí | Ghi chú |
+|---|---|---|
+| Cơ sở dữ liệu | container `db` | Dump bằng `mariadb-dump` khi đang chạy, không chép thô thư mục `database/` |
+| Dữ liệu test | `problems/` | Thường là phần lớn nhất |
+| File tải lên | `media/` | Ảnh, PDF, file đính kèm |
+| Cấu hình | `environment/*.env`, `repo/dmoj/local_settings.py`, `repo/uwsgi.ini`, `repo/websocket/config.js`, `nginx/conf.d/` | Chứa bí mật, hãy lưu ở nơi an toàn |
+
+### Sao lưu thủ công
+
+1. Dump cơ sở dữ liệu:
+
+   ```sh
+   mkdir -p backups
+   docker compose exec -T db sh -c \
+     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mariadb-dump -u root --single-transaction "$MYSQL_DATABASE"' \
+     | gzip > backups/db_$(date +%F_%H%M).sql.gz
+   ```
+
+2. Nén dữ liệu test, file tải lên và cấu hình:
+
+   ```sh
+   tar -czf backups/files_$(date +%F_%H%M).tar.gz \
+     problems media environment nginx/conf.d \
+     repo/dmoj/local_settings.py repo/uwsgi.ini repo/websocket/config.js
+   ```
+
+3. Chép thư mục `backups/` sang máy khác hoặc kho lưu trữ ngoài. Bản sao lưu nằm cùng máy chủ không giúp được gì khi hỏng ổ đĩa.
+
+::: warning
+Thư mục `dmoj/backups/` chứa mật khẩu và **không** nằm trong `.gitignore`. Hãy thêm nó vào `.gitignore` (hoặc lưu bản sao lưu ngoài repo) để không lỡ commit.
+:::
+
+### Sao lưu tự động
+
+Lưu script sau thành `dmoj/backup.sh` và `chmod +x`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"          # thư mục dmoj/
+
+DEST=backups
+STAMP=$(date +%F_%H%M)
+mkdir -p "$DEST"
+
+docker compose exec -T db sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mariadb-dump -u root --single-transaction "$MYSQL_DATABASE"' \
+  | gzip > "$DEST/db_$STAMP.sql.gz"
+
+tar -czf "$DEST/files_$STAMP.tar.gz" \
+  problems media environment nginx/conf.d \
+  repo/dmoj/local_settings.py repo/uwsgi.ini repo/websocket/config.js
+
+# Giữ bản sao lưu trong 7 ngày
+find "$DEST" -type f -mtime +7 -delete
 ```
 
-### Start một service đã stop
+Chạy lúc 2 giờ sáng hằng ngày (`crontab -e`):
+
+```cron
+0 2 * * * /đường/dẫn/tới/lcoj-docker/dmoj/backup.sh >> /var/log/lcoj_backup.log 2>&1
+```
+
+Cờ `-T` trong `docker compose exec` là bắt buộc khi chạy từ cron vì không có terminal.
+
+## Khôi phục {#restore}
+
+### Trên máy chủ đang chạy
+
+1. Dừng các service ghi vào cơ sở dữ liệu, giữ `db` chạy:
+
+   ```sh
+   docker compose stop site celery bridged
+   ```
+
+2. Nạp lại dump (ghi đè các bảng hiện có):
+
+   ::: danger
+   Bước này thay dữ liệu hiện tại bằng dữ liệu trong bản sao lưu.
+   :::
+
+   ```sh
+   gunzip -c backups/db_2026-09-19_0200.sql.gz | docker compose exec -T db sh -c \
+     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mariadb -u root "$MYSQL_DATABASE"'
+   ```
+
+3. Nếu cần, giải nén file (chạy trong `dmoj/`, đường dẫn trong file nén là tương đối):
+
+   ```sh
+   tar -xzf backups/files_2026-09-19_0200.tar.gz
+   ```
+
+4. Bật lại và kiểm tra:
+
+   ```sh
+   docker compose up -d
+   ./scripts/migrate          # chỉ cần nếu code mới hơn bản sao lưu
+   ```
+
+### Sang máy chủ mới
+
+1. Làm Bước 1–2 của [Cài đặt](/operate/installation): cài Docker, clone repo.
+2. Trong `dmoj/`, giải nén file sao lưu. Thao tác này khôi phục `problems/`, `media/`, `environment/`, cấu hình nginx và các file cấu hình trong `repo/` (không cần chạy `initialize`).
+3. Build image: `docker compose build base && docker compose build`.
+4. Bật `db` với thư mục `database/` trống để MariaDB tạo database và user từ `mysql.env`:
+
+   ```sh
+   docker compose up -d db
+   docker compose logs -f db   # đợi "ready for connections"
+   ```
+
+5. Nạp dump như bước 2 ở trên.
+6. Bật phần còn lại, tạo lại static:
+
+   ```sh
+   docker compose up -d site celery
+   ./scripts/migrate
+   ./scripts/copy_static
+   docker compose up -d
+   ```
+
+## Trang bảo trì {#maintenance}
+
+Nginx đã cấu hình `error_page 502 504 /502.html`. Khi `site` bị dừng, người dùng sẽ thấy trang này thay vì lỗi trống. Vì vậy cách bật "chế độ bảo trì" đơn giản nhất là:
 
 ```sh
+docker compose stop site      # người dùng thấy trang 502.html
+# ... bảo trì ...
 docker compose start site
 ```
 
-### Rebuild và restart
+Nội dung trang nằm ở `repo/502.html`. Sau khi sửa, chạy `./scripts/copy_static` để chép sang volume `assets`.
 
-```sh
-docker compose up -d --build site
-```
+## Đổi mật khẩu cơ sở dữ liệu {#change-db-password}
 
-## Xem logs
+1. Đổi mật khẩu trong MariaDB (thay `dmoj` nếu `MYSQL_USER` của bạn khác):
 
-### Logs tất cả services
+   ```sh
+   docker compose exec db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root'
+   ```
 
-```sh
-docker compose logs -f
-```
+   ```sql
+   ALTER USER 'dmoj'@'%' IDENTIFIED BY '<mật khẩu mới>';
+   ```
 
-### Logs một service
+2. Sửa `MYSQL_PASSWORD` trong `environment/mysql.env`.
+3. Tạo lại container để chúng nhận mật khẩu mới:
 
-```sh
-docker compose logs -f site
-docker compose logs -f celery
-docker compose logs -f nginx
-```
+   ```sh
+   docker compose up -d
+   ```
 
-### Logs với số dòng giới hạn
+## Xử lý sự cố
 
-```sh
-docker compose logs --tail=100 site
-```
-
-### Logs trong khoảng thời gian
-
-```sh
-docker compose logs --since 1h site
-docker compose logs --since "2024-01-01 00:00:00" site
-```
-
-### Lưu logs ra file
-
-```sh
-docker compose logs site > site_logs.txt
-```
-
-## Theo dõi hệ thống
-
-### Resource usage
-
-```sh
-docker stats
-```
-
-Hiển thị CPU, RAM, Network, Disk I/O của từng container.
-
-### Disk usage
-
-```sh
-# Tổng quan
-docker system df
-
-# Chi tiết
-docker system df -v
-```
-
-### Container status
-
-```sh
-docker compose ps
-```
-
-### Xem processes trong container
-
-```sh
-docker compose top site
-```
-
-## Truy cập container
-
-### Exec vào container
-
-```sh
-docker compose exec site bash
-docker compose exec db bash
-```
-
-### Chạy lệnh trong container
-
-```sh
-docker compose exec site python manage.py check
-docker compose exec db mysql -u root -p
-```
-
-### Xem file trong container
-
-```sh
-docker compose exec site cat /site/local_settings.py
-```
-
-## Database operations
-
-### Backup database
-
-```sh
-# Backup toàn bộ
-docker exec lcoj_mysql mysqldump -u root -p<password> lcoj > backup.sql
-
-# Backup với timestamp
-docker exec lcoj_mysql mysqldump -u root -p<password> lcoj > backup_$(date +%Y%m%d_%H%M%S).sql
-
-# Backup và compress
-docker exec lcoj_mysql mysqldump -u root -p<password> lcoj | gzip > backup.sql.gz
-```
-
-### Restore database
-
-```sh
-# Restore từ file
-docker exec -i lcoj_mysql mysql -u root -p<password> lcoj < backup.sql
-
-# Restore từ compressed file
-gunzip < backup.sql.gz | docker exec -i lcoj_mysql mysql -u root -p<password> lcoj
-```
-
-### Truy cập MySQL shell
-
-```sh
-docker compose exec db mysql -u root -p
-```
-
-### Chạy SQL query
-
-```sh
-docker compose exec db mysql -u root -p<password> lcoj -e "SELECT COUNT(*) FROM judge_submission;"
-```
-
-## Migrations
-
-### Chạy migrations
-
-```sh
-./scripts/migrate
-```
-
-### Xem migrations chưa chạy
-
-```sh
-./scripts/manage.py showmigrations
-```
-
-### Rollback migration
-
-```sh
-./scripts/manage.py migrate <app_name> <migration_name>
-```
-
-### Tạo migration mới
-
-```sh
-./scripts/manage.py makemigrations
-```
-
-## Static files
-
-### Collect static files
-
-```sh
-./scripts/copy_static
-```
-
-### Xóa static files cũ
-
-```sh
-docker compose exec site rm -rf /assets/*
-./scripts/copy_static
-```
-
-## Cache management
-
-### Clear cache
-
-```sh
-docker compose exec site python manage.py clear_cache
-```
-
-### Restart Redis
-
-```sh
-docker compose restart redis
-```
-
-### Flush Redis
-
-```sh
-docker compose exec redis redis-cli FLUSHALL
-```
-
-## Celery tasks
-
-### Xem active tasks
-
-```sh
-docker compose exec celery celery -A dmoj_celery inspect active
-```
-
-### Xem scheduled tasks
-
-```sh
-docker compose exec celery celery -A dmoj_celery inspect scheduled
-```
-
-### Purge all tasks
-
-```sh
-docker compose exec celery celery -A dmoj_celery purge
-```
-
-### Restart Celery
-
-```sh
-docker compose restart celery
-```
-
-## Problem data
-
-### Upload problem data
-
-```sh
-# Copy vào thư mục problems
-cp -r /path/to/problem dmoj/problems/
-
-# Set permissions
-chmod -R 755 dmoj/problems/
-```
-
-### Backup problems
-
-```sh
-tar -czf problems_backup_$(date +%Y%m%d).tar.gz dmoj/problems/
-```
-
-### Restore problems
-
-```sh
-tar -xzf problems_backup_20240101.tar.gz
-```
-
-## Media files
-
-### Backup media
-
-```sh
-tar -czf media_backup_$(date +%Y%m%d).tar.gz dmoj/media/
-```
-
-### Clean old media
-
-```sh
-# Xóa file cũ hơn 30 ngày
-find dmoj/media/ -type f -mtime +30 -delete
-```
-
-## Monitoring scripts
-
-### Script kiểm tra health
-
-**File: `check_health.sh`**
-
-```bash
-#!/bin/bash
-
-echo "=== LCOJ Health Check ==="
-echo
-
-echo "Container Status:"
-docker compose ps
-
-echo
-echo "Resource Usage:"
-docker stats --no-stream
-
-echo
-echo "Disk Usage:"
-df -h | grep -E "/$|/var"
-
-echo
-echo "Database Status:"
-docker compose exec -T db mysqladmin -u root -p<password> status
-
-echo
-echo "Redis Status:"
-docker compose exec -T redis redis-cli ping
-
-echo
-echo "Site Status:"
-curl -s -o /dev/null -w "%{http_code}" http://localhost
-```
-
-### Script backup tự động
-
-**File: `backup.sh`**
-
-```bash
-#!/bin/bash
-
-BACKUP_DIR="/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-
-echo "Starting backup at $DATE"
-
-# Backup database
-echo "Backing up database..."
-docker exec lcoj_mysql mysqldump -u root -p<password> lcoj | gzip > $BACKUP_DIR/db_$DATE.sql.gz
-
-# Backup media
-echo "Backing up media..."
-tar -czf $BACKUP_DIR/media_$DATE.tar.gz dmoj/media/
-
-# Backup problems
-echo "Backing up problems..."
-tar -czf $BACKUP_DIR/problems_$DATE.tar.gz dmoj/problems/
-
-# Delete old backups (older than 7 days)
-echo "Cleaning old backups..."
-find $BACKUP_DIR -type f -mtime +7 -delete
-
-echo "Backup completed!"
-```
-
-### Cron job cho backup
-
-```cron
-# Backup mỗi ngày lúc 2 giờ sáng
-0 2 * * * /path/to/backup.sh >> /var/log/lcoj_backup.log 2>&1
-
-# Health check mỗi 5 phút
-*/5 * * * * /path/to/check_health.sh >> /var/log/lcoj_health.log 2>&1
-```
-
-## Performance optimization
-
-### Xem slow queries
-
-```sh
-docker compose exec db mysql -u root -p -e "
-SET GLOBAL slow_query_log = 'ON';
-SET GLOBAL long_query_time = 2;
-SHOW VARIABLES LIKE 'slow_query%';
-"
-```
-
-### Analyze database
-
-```sh
-docker compose exec db mysqlcheck -u root -p --analyze --all-databases
-```
-
-### Optimize database
-
-```sh
-docker compose exec db mysqlcheck -u root -p --optimize --all-databases
-```
-
-## Security
-
-### Đổi mật khẩu database
-
-```sh
-# Vào MySQL shell
-docker compose exec db mysql -u root -p
-
-# Đổi password
-ALTER USER 'lcoj'@'%' IDENTIFIED BY 'new_password';
-FLUSH PRIVILEGES;
-```
-
-Sau đó cập nhật `environment/mysql.env` và restart:
-
-```sh
-docker compose restart site celery bridged
-```
-
-### Xem failed login attempts
-
-```sh
-docker compose logs site | grep "Failed login"
-```
-
-### Block IP
-
-Thêm vào `nginx/conf.d/nginx.conf`:
-
-```nginx
-deny 1.2.3.4;
-```
-
-Restart nginx:
-
-```sh
-docker compose restart nginx
-```
-
-## Troubleshooting
-
-### Container bị crash liên tục
-
-```sh
-# Xem logs
-docker compose logs --tail=100 <service>
-
-# Xem exit code
-docker inspect <container> | grep ExitCode
-
-# Restart với logs
-docker compose up <service>
-```
-
-### Out of memory
-
-```sh
-# Xem memory usage
-docker stats
-
-# Tăng memory limit
-# Thêm vào docker-compose.yml:
-deploy:
-  resources:
-    limits:
-      memory: 4G
-```
-
-### Disk full
-
-```sh
-# Xem disk usage
-df -h
-
-# Xóa unused Docker resources
-docker system prune -a
-
-# Xóa old logs
-find /var/lib/docker/containers/ -name "*.log" -mtime +7 -delete
-```
-
-### Database locked
-
-```sh
-# Xem processes
-docker compose exec db mysql -u root -p -e "SHOW PROCESSLIST;"
-
-# Kill process
-docker compose exec db mysql -u root -p -e "KILL <process_id>;"
-```
-
-### Celery tasks stuck
-
-```sh
-# Xem active tasks
-docker compose exec celery celery -A dmoj_celery inspect active
-
-# Revoke task
-docker compose exec celery celery -A dmoj_celery control revoke <task_id>
-
-# Restart Celery
-docker compose restart celery
-```
-
-## Maintenance mode
-
-### Bật maintenance mode
-
-Tạo file `dmoj/repo/maintenance.html`:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Maintenance</title>
-</head>
-<body>
-    <h1>Đang bảo trì</h1>
-    <p>Hệ thống đang được bảo trì. Vui lòng quay lại sau.</p>
-</body>
-</html>
-```
-
-Cập nhật nginx config:
-
-```nginx
-if (-f /site/maintenance.html) {
-    return 503;
-}
-
-error_page 503 @maintenance;
-location @maintenance {
-    root /site;
-    rewrite ^(.*)$ /maintenance.html break;
-}
-```
-
-### Tắt maintenance mode
-
-```sh
-rm dmoj/repo/maintenance.html
-docker compose restart nginx
-```
+| Triệu chứng | Cách xử lý |
+|---|---|
+| Mất CSS, file tĩnh 404 | `./scripts/copy_static && docker compose restart nginx` |
+| Lỗi kết nối cơ sở dữ liệu | `docker compose ps db`, `docker compose logs db`, kiểm tra `environment/mysql.env` |
+| Tác vụ Celery bị treo | `docker compose logs -f celery`, rồi `docker compose restart celery` |
+| Kết quả chấm không tự cập nhật | `docker compose ps wsevent`, kiểm tra `EVENT_DAEMON_POST` |
+| Container khởi động lại liên tục | `docker compose logs --tail=100 <service>` |
+| Đầy ổ đĩa | `docker image prune`, `docker builder prune`, kiểm tra dung lượng `problems/` và `backups/` |
 
 ## Xem thêm
 
 - [Cài đặt](/operate/installation)
-- [Cập nhật](/operate/updating)
+- [Cập nhật LCOJ](/operate/updating)
+- [Biến môi trường](/operate/environment)
 - [Management Commands](/reference/management-commands)
+
+::: tip Cần hỗ trợ?
+Tạo issue tại [lcoj-docker](https://github.com/luyencode/lcoj-docker/issues), hoặc liên hệ qua [behitek.com](https://behitek.com) và [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::

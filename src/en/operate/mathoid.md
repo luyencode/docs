@@ -1,238 +1,143 @@
-# Rendering LaTeX Math
+# Math Formulas (MathJax and Mathoid)
 
-LCOJ supports rendering LaTeX math formulas in problem statements, so formulas look clean and professional.
+::: info Do you need this?
+This page explains **how LCOJ renders math** in problem statements, blog posts, and comments, and **why you don't need to install Mathoid**.
 
-**Note:** 
-- This feature is optional
-- This guide covers bare metal installs
-- With Docker, you need to set up Mathoid separately on the host or in another container
+- LCOJ renders formulas **out of the box** with MathJax running in the browser. No extra service is required.
+- Mathoid is DMOJ's server-side formula renderer. In the current LCOJ codebase it is **not used when rendering Markdown**, and enabling it can actually make formulas **stop rendering** (see [below](#mathoid-in-lcoj-today)).
 
-## Installing Mathoid
+If you are a problem setter, you only need the [Formula syntax](#formula-syntax) section.
+:::
 
-Mathoid is a service that renders LaTeX formulas as images.
+## Status in LCOJ
 
-### Step 1: Install Node.js
+| Component | Status in the shipped config (`dmoj/config/local_settings.py`) |
+|---|---|
+| MathJax 3.2.0 (in the browser) | **Enabled**, static files served from `/static/vnoj/mathjax/3.2.0/` |
+| Mathoid (`MATHOID_URL`) | **Disabled**: not set, so the `False` default from `dmoj/settings.py` applies |
+| Mathoid service in `docker-compose.yml` | **Not present** |
 
-```sh
-curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-apt install nodejs
+## How LCOJ renders formulas
+
+```mermaid
+flowchart LR
+  A["Statement Markdown<br/>~a+b~ or $$...$$"] --> B["markdown2 ('latex' extra)<br/>keeps formulas intact"]
+  B --> C["HTML sent to the browser"]
+  C --> D["MathJax 3 (mathjax_config.js)<br/>renders formulas"]
 ```
 
-### Step 2: Install Mathoid
+1. The server uses `markdown2` (VNOI's fork) with the `latex` extra. It recognizes `~...~` and `$$...$$` and **protects** the formula so Markdown doesn't mangle characters such as `_`, `*`, and `\`.
+2. The HTML is sent to the browser with the original formula text.
+3. MathJax (configured in `resources/mathjax_config.js`) renders the formulas in the browser.
 
-```sh
-git clone https://github.com/wikimedia/mathoid.git
-cd mathoid
-npm install
-```
+## Formula syntax
 
-### Step 3: Run Mathoid
+| Type | Syntax | Notes |
+|---|---|---|
+| Inline math | `~...~` | The primary syntax; use this |
+| Display math | `$$...$$` | Centered, on its own line |
+| Inline (alternative) | `\(...\)` | Supported by MathJax, but Markdown may eat the `\`, so prefer `~...~` |
 
-```sh
-node server.js
-```
-
-By default, Mathoid runs on `localhost:10044`.
-
-## Configuring LCOJ
-
-Add to `local_settings.py`:
-
-```python
-# Mathoid URL
-MATHOID_URL = 'http://localhost:10044'
-
-# Cache directory for rendered formula images
-# Must be writable by both Mathoid and nginx
-MATHOID_CACHE_ROOT = '/home/lcoj/mathoid_cache'
-
-# URL for accessing the cache over the web
-# Example: /home/lcoj/mathoid_cache/abc.png -> luyencode.net/mathoid/abc.png
-MATHOID_CACHE_URL = '//luyencode.net/mathoid/'
-```
-
-### Configure Nginx
-
-Add to your nginx config file:
-
-```nginx
-location /mathoid/ {
-    alias /home/lcoj/mathoid_cache/;
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-}
-```
-
-### Create the cache directory
-
-```sh
-mkdir -p /home/lcoj/mathoid_cache
-chown www-data:www-data /home/lcoj/mathoid_cache
-chmod 755 /home/lcoj/mathoid_cache
-```
-
-### Restart
-
-**Docker:**
-
-```sh
-docker compose restart site nginx
-```
-
-**Bare metal:**
-
-```sh
-supervisorctl restart site
-service nginx reload
-```
-
-## Using Math in Problem Statements
+::: warning A single `$` is NOT math
+`$a+b$` is displayed literally as `$a+b$`. Use `~a+b~` for inline math and `$$...$$` for display math.
+:::
 
 ### Inline math
-
-Use `~...~` for small formulas within a line:
 
 ```markdown
 Given two integers ~a~ and ~b~ ~(1 \le a, b \le 10^9)~.
 ```
 
-Renders as: Given two integers *a* and *b* (1 ≤ a, b ≤ 10⁹).
-
 ### Display math
-
-Use `$...$` for large formulas on their own line:
 
 ```markdown
 The Fibonacci sequence is defined as:
 
-$F(n) = \begin{cases} 
-0, & \text{if } n = 0 \\ 
-1, & \text{if } n = 1 \\ 
-F(n-2) + F(n-1), & \text{if } n \ge 2 
-\end{cases}$
+$$F(n) = \begin{cases}
+0, & n = 0 \\
+1, & n = 1 \\
+F(n-1) + F(n-2), & n \ge 2
+\end{cases}$$
 ```
 
 ### Full example
 
 ```markdown
-# Fibonacci Sequence
+Given an integer ~N~ ~(1 \le N \le 10^{18})~, find the ~N~-th Fibonacci number
+modulo ~10^9 + 7~.
 
-The Fibonacci sequence is a well-known sequence defined as:
+$$F(n) = F(n-1) + F(n-2)$$
 
-$F(n) = \begin{cases} 
-0, & \text{if } n = 0 \\ 
-1, & \text{if } n = 1 \\ 
-F(n-2) + F(n-1), & \text{if } n \ge 2 
-\end{cases}$
-
-Given an integer ~N~ ~(1 \le N \le 10^{19})~, find the ~N~-th Fibonacci number
-modulo ~1\,000\,000\,007~ ~(= 10^9 + 7)~.
-
-**Note:** For 30% of the points, ~1 \le N \le 1\,000\,000~.
+**Note:** For ~30\%~ of the points, ~N \le 10^6~.
 ```
 
-## Common LaTeX Symbols
+### Common symbols
 
-### Operators
+| Meaning | Write | Meaning | Write |
+|---|---|---|---|
+| Less than or equal | `~a \le b~` | Fraction | `~\frac{a}{b}~` |
+| Greater than or equal | `~a \ge b~` | Power, subscript | `~a^{10}~`, `~a_{i,j}~` |
+| Not equal | `~a \ne b~` | Sum | `~\sum_{i=1}^{n} a_i~` |
+| Multiply | `~a \times b~` | Product | `~\prod_{i=1}^{n} a_i~` |
+| Congruence | `~a \equiv b \pmod{m}~` | Root | `~\sqrt{x}~`, `~\sqrt[3]{x}~` |
+| Floor / ceiling | `~\lfloor x \rfloor~`, `~\lceil x \rceil~` | Logarithm | `~\log n~` |
 
-```latex
-~a + b~          # Addition
-~a - b~          # Subtraction
-~a \times b~     # Multiplication
-~a \div b~       # Division
-~a \le b~        # Less than or equal to
-~a \ge b~        # Greater than or equal to
-~a \ne b~        # Not equal to
-~a \equiv b~     # Congruent to
-```
+::: tip Colors
+LCOJ's MathJax config loads the `color` package, so you can write `~\color{red}{x}~`.
+:::
 
-### Fractions
+## Mathoid in LCOJ today
 
-```latex
-~\frac{a}{b}~    # Fraction a/b
-```
+Mathoid ([upstream source](https://gitlab.wikimedia.org/repos/mediawiki/services/mathoid), formerly `github.com/wikimedia/mathoid`) is a Wikimedia Node.js service that renders TeX to SVG/MathML. DMOJ used it for server-side math rendering.
 
-### Superscripts and subscripts
+In the LCOJ codebase (`dmoj/repo`):
 
-```latex
-~a^2~            # a to the power of 2
-~a_i~            # a subscript i
-~a^{10}~         # a to the power of 10
-~a_{i,j}~        # a subscript i,j
-```
+- `judge/utils/mathoid.py` (the `MathoidMathParser` class) still exists, but **nothing calls it** when Markdown is rendered.
+- `MATHOID_URL` only affects two things:
+  1. It shows the **Math engine** option on the edit-profile page.
+  2. When a user's engine is `auto` (the default) and the browser supports MathML, the engine becomes `mml`. The page then **does not load MathJax** (`REQUIRE_JAX` is `False`), and the server doesn't render the formula either. Result: formulas show up as raw `~...~`.
 
-### Sums and products
+::: danger Do not enable Mathoid in production
+With the current code, setting `MATHOID_URL` does **not** improve formulas and can make them disappear for many browsers. Keep the default configuration.
+:::
 
-```latex
-~\sum_{i=1}^{n} a_i~     # Sum
-~\prod_{i=1}^{n} a_i~    # Product
-```
+### If you are re-implementing this feature (optional, for developers)
 
-### Roots
+Only do this on a development machine, after wiring `MathoidMathParser` into the Markdown renderer.
 
-```latex
-~\sqrt{x}~       # Square root
-~\sqrt[3]{x}~    # Cube root
-```
+1. Build a Mathoid image yourself from the upstream source following its README. Mathoid listens on port **10044** according to its `config.dev.yaml`. LCOJ does not ship this image.
+2. Add the service to `dmoj/docker-compose.override.yml` (Compose merges this file with `docker-compose.yml` automatically when run from `dmoj/`) and attach it to the `site` network so the `site` container can reach it:
 
-### Special symbols
+   ```yaml
+   services:
+     mathoid:
+       image: my-mathoid:latest   # the image you built
+       restart: unless-stopped
+       networks: [site]
+   ```
 
-```latex
-~\infty~         # Infinity
-~\pi~            # Pi
-~\log n~         # Logarithm
-~\ln n~          # Natural logarithm
-~\lfloor x \rfloor~  # Floor
-~\lceil x \rceil~    # Ceiling
-```
+3. Set these in your settings file (see [Environment and configuration](/en/operate/environment)):
+
+   ```python
+   MATHOID_URL = 'http://mathoid:10044/'
+   MATHOID_CACHE_ROOT = '/cache/mathoid/'   # a directory the site can write to
+   MATHOID_CACHE_URL = '/mathoid/'          # public URL for that directory (needs an nginx location)
+   ```
+
+4. Run `docker compose up -d mathoid`, then `docker compose restart site`.
+
+Other settings and their defaults (in `dmoj/settings.py`): `MATHOID_GZIP = False`, `MATHOID_MML_CACHE = None`, `MATHOID_CSS_CACHE = 'default'`, `MATHOID_DEFAULT_TYPE = 'auto'`, `MATHOID_MML_CACHE_TTL = 86400`.
 
 ## Troubleshooting
 
-**Formulas do not render:**
-- Check that Mathoid is running: `curl http://localhost:10044`
-- Check the `MATHOID_URL` setting
-- Check the Mathoid logs
+| Symptom | Common cause | Fix |
+|---|---|---|
+| `$a+b$` is shown literally | Single `$` delimiters | Change to `~a+b~` |
+| `~a+b~` is shown literally on every page | MathJax failed to load | Open DevTools and check `/static/vnoj/mathjax/3.2.0/es5/tex-chtml.min.js`; if it returns 404, run `./scripts/copy_static`, then `docker compose restart nginx` |
+| `~a+b~` is shown literally after setting `MATHOID_URL` | Engine switched to `mml`, so MathJax isn't loaded | Remove `MATHOID_URL`, then `docker compose restart site` |
+| A formula shows a red error | Invalid LaTeX | Try the formula in an online LaTeX editor |
+| Old statements look unchanged after a config change | Statement HTML is cached for up to 1 day | Save the problem again (saving clears the cache), or wait for it to expire |
 
-**Images do not load:**
-- Check the nginx configuration
-- Check the cache directory permissions
-- Check `MATHOID_CACHE_URL`
-
-**Formulas render incorrectly:**
-- Check the LaTeX syntax
-- Test it in an [online LaTeX editor](https://www.codecogs.com/latex/eqneditor.php)
-
-## Optimization
-
-### Cache
-
-Mathoid caches rendered formulas automatically. You do not need to clear the cache manually.
-
-### Performance
-
-If you have many formulas, we recommend that you:
-- Give Mathoid more memory
-- Use a CDN for the cache directory
-- Tune nginx caching
-
-## Running Mathoid with Supervisor
-
-Create the file `/etc/supervisor/conf.d/mathoid.conf`:
-
-```ini
-[program:mathoid]
-command=/usr/bin/node /path/to/mathoid/server.js
-directory=/path/to/mathoid
-user=mathoid
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/log/mathoid.log
-```
-
-Start it:
-
-```sh
-supervisorctl update
-supervisorctl start mathoid
-```
+::: tip Need help?
+Open an issue at [github.com/luyencode/lcoj-docker/issues](https://github.com/luyencode/lcoj-docker/issues), find more at [behitek.com](https://behitek.com), or contact us via [luyencode.net/about/#lien-he](https://luyencode.net/about/#lien-he).
+:::
