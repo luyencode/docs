@@ -54,8 +54,12 @@ export default withMermaid(
       languageAlias: { env: 'dotenv', cron: 'shellscript' },
     },
 
-    // Mermaid is large on its own; it's loaded lazily, only on pages with diagrams
-    vite: { build: { chunkSizeWarningLimit: 2000 } },
+    vite: {
+      // Mermaid is large on its own; it's loaded lazily, only on pages with diagrams
+      build: { chunkSizeWarningLimit: 2000 },
+      // Pre-bundle mermaid so its CommonJS deps (e.g. fastdom) get ESM interop in `vitepress dev`
+      optimizeDeps: { include: ['mermaid'] },
+    },
 
     mermaid: {},
   }),
