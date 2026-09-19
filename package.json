@@ -1,0 +1,17 @@
+{
+  "name": "lcoj-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev src",
+    "build": "vitepress build src",
+    "check:locales": "node scripts/check-locales.mjs",
+    "preview": "vitepress preview src"
+  },
+  "devDependencies": {
+    "markdown-it-task-lists": "^2.1.1",
+    "mermaid": "^11.12.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  }
+}
