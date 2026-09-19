@@ -1,0 +1,18 @@
+/* LCOJ brand colors, taken from lcoj-site resources/vars-default.scss ($color_link*) */
+:root {
+  --vp-c-brand-1: #1958c1;
+  --vp-c-brand-2: #0645ad;
+  --vp-c-brand-3: #1958c1;
+  --vp-c-brand-soft: rgba(25, 88, 193, 0.14);
+}
+
+.dark {
+  --vp-c-brand-1: #7ea6e8;
+  --vp-c-brand-2: #a3c0f0;
+  --vp-c-brand-3: #1958c1;
+  --vp-c-brand-soft: rgba(126, 166, 232, 0.16);
+}
+
+.VPNavBarTitle .logo {
+  height: 32px;
+}
